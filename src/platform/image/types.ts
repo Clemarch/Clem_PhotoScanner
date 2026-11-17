@@ -1,0 +1,29 @@
+import type { MediaItem } from '../../engine';
+
+/** Mesures techniques d'un fichier, affichées dans l'écran de diagnostic. */
+export interface FileDiagnostic {
+  id: string;
+  mimeType: string;
+  /** Date du fichier donnée par le navigateur (souvent l'heure de la sélection, pas la prise de vue). */
+  fileModifiedAt: number | null;
+  exifFound: boolean;
+  exifMs: number;
+  decodeMs: number | null;
+  analysisMs: number | null;
+  /** Comment la photo a été décodée (utile pour comprendre un échec). */
+  decodeMethod: string | null;
+  /** Taille de l'image réduite réellement analysée. */
+  analyzedWidth: number | null;
+  analyzedHeight: number | null;
+  /** Mémoire estimée de la photo décodée en pleine taille (largeur x hauteur x 4 octets). */
+  estimatedDecodedMB: number | null;
+  /** Où l'analyse a tourné : 'worker' (en arrière-plan) ou 'principal'. */
+  thread: 'worker' | 'principal';
+  error: string | null;
+}
+
+export interface AnalyzeResult {
+  item: MediaItem;
+  thumbnail: Blob | null;
+  diagnostic: FileDiagnostic;
+}
