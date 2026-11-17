@@ -112,7 +112,7 @@ export function Visionneuse({ entries, start, previews, thumbnails, choices, num
           {entry.packNumber !== null && pack && (
             <span>
               {' '}
-              · paquet {entry.packNumber}, {sceneLabel[pack.scene].toLowerCase()}, pose {decision?.pose}
+              · paquet {entry.packNumber}, {sceneLabel[pack.sceneOf.get(item.id) ?? pack.scene].toLowerCase()}, pose {decision?.pose}
             </span>
           )}
         </p>
@@ -125,7 +125,7 @@ export function Visionneuse({ entries, start, previews, thumbnails, choices, num
               {state.byUser
                 ? 'votre choix'
                 : decision
-                  ? decisionText(decision, numberOf)
+                  ? decisionText(decision, numberOf, (id) => pack?.scores.get(id)?.score, item.id)
                   : ''}
             </span>
           </p>

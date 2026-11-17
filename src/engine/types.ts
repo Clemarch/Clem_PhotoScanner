@@ -153,6 +153,8 @@ export interface Decision {
   code: DecisionCode;
   /** Photo de référence (« trop proche de la n° 4 », « moins bonne que la n° 3 »). */
   refId?: string;
+  /** Photos gardées à sa place, mieux notées (pour expliquer un refus par comparaison). */
+  keptIds?: string[];
   /** Groupe de pose de la photo. */
   pose: string;
 }

@@ -88,6 +88,23 @@ describe('sélection', () => {
     expect(d.get('8')!.keep).toBe(false);
   });
 
+  it('la qualité d’abord : ne préfère jamais une photo moins bonne parce qu’elle est différente (pose B du 17/11)', () => {
+    // 9, 11 et 12 se ressemblent et sont les mieux notées ; 17 est différente mais moins bonne.
+    // Écart d'empreinte entre photos voisines : environ 0,017, comme dans le rapport (0,02 à 0,04).
+    const ids = ['9', '10', '11', '12', '13', '14', '15', '16', '17'];
+    const items = ids.map((id, i) => item(id, i * 2, { signature: sig(60 + i * 13, 120, 120) }));
+    const d = selectPack(
+      items,
+      scoresOf({ '9': 0.87, '10': 0.84, '11': 0.869, '12': 0.868, '13': 0.83, '14': 0.78, '15': 0.8, '16': 0.82, '17': 0.83 }),
+      pose(items),
+    );
+    expect(d.get('9')!.keep).toBe(true);
+    expect(d.get('11')!.keep).toBe(true);
+    expect(d.get('17')!.keep).toBe(false);
+    // Le refus s'explique par les photos mieux notées gardées à sa place.
+    expect(d.get('17')).toMatchObject({ code: 'budget', keptIds: ['9', '11'] });
+  });
+
   it('ne garde pas une seconde photo trop moins bonne que la meilleure', () => {
     const items = Array.from({ length: 10 }, (_, i) => item(String(i), i, { signature: sig(100 + i * 3, 120, 120) }));
     const values = Object.fromEntries(items.map((it, i) => [it.id, i === 0 ? 0.95 : 0.6]));

@@ -254,6 +254,30 @@ native (Expo), donc un compte Apple Developer (99 €/an) et une installation pa
 aux compilations dans le nuage d'Expo (EAS). Gains : choisir « hier » automatiquement, et supprimer les photos
 écartées d'une seule confirmation d'iOS. Proposé pour après le jalon 4, à la décision de l'utilisateur.
 
+### 21. Premier test du jalon 3 (43 photos, 17/11)
+- **Paquet de 29 photos jugé « paysage »** alors qu'une quinzaine montrent des personnes : le nombre de visages
+  attendus et le type de photo étaient décidés sur tout le paquet (médiane : 0 visage), donc les visages étaient
+  ignorés partout. Ils se décident maintenant **par groupe de pose**. Les comparaisons de netteté, de couleurs et
+  d'arrière-plan restent faites sur tout le paquet. « Coucher de soleil » ou « paysage » se décide sur toutes les
+  photos sans personne du paquet (c'est la scène qui compte). Un paquet qui mêle les deux est affiché « Mixte »,
+  avec le type de chaque pose.
+- **« Assez de photos gardées » n'est pas une raison** (remarque de l'utilisateur) : dans la pose B, l'app gardait
+  la n° 17 (0,83, différente) et écartait les n° 11 et 12 (0,87, semblables à la n° 9), car le choix mêlait note
+  et variété. La sélection suit maintenant **l'ordre des notes** ; seuls les quasi-doublons (écart d'empreinte
+  < 0,015) sont sautés. Le refus cite les photos gardées à sa place et les notes (« Les n° 9 et 11 sont mieux notées
+  dans cette pose (87 et 87 contre 83 sur 100) »).
+- **Visage invisible ≠ visage parfait** : une photo où la personne est là mais son visage introuvable (de dos, tête
+  tournée) reçoit la note typique des visages de sa pose, moins 6 %. Avant, elle était supposée parfaite et passait
+  devant des photos où le visage est visible et réussi.
+- La seconde recherche de visage fonctionne sur iPhone : sur les photos au téléobjectif (n° 1 à 8), tous les visages
+  ont été trouvés par elle.
+- Boutons Garder / Supprimer vérifiés sur iPhone : le choix « garder » de la n° 21 figure dans le rapport.
+- Inclinaison : force de mesure toujours entre 0,04 et 0,10 sur les vraies photos ; mesures de −5,5° à −11° sur les
+  n° 37, 38, 40 et 41, à confirmer par l'utilisateur avant de régler quoi que ce soit.
+- Coucher de soleil : les photos de 18:16 à 18:18 n'ont que 0 à 4 % de pixels chauds. Seuil à revoir quand un
+  vrai coucher de soleil sera testé.
+- Protocole de test pour l'utilisateur : `docs/protocole-test.md`.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

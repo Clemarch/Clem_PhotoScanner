@@ -196,9 +196,6 @@ export const config = {
     packShare: 0.25,
     /** Une photo n'est gardée en plus de la meilleure que si sa note est à moins de ceci de la meilleure. */
     scoreMargin: 0.1,
-    /** Choix successifs pour varier : part de la note, et part de la différence avec les photos déjà gardées. */
-    diversityScore: 0.7,
-    diversityWeight: 0.3,
     /** Deux photos dont l'empreinte diffère de moins de ceci sont des quasi-doublons : on n'en garde qu'une. */
     nearDuplicate: 0.015,
   },

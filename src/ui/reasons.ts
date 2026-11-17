@@ -54,10 +54,28 @@ export function reasonText(reason: Reason, numberOf: (id: string) => number | nu
   }
 }
 
-/** Raison de la décision « garder » / « supprimer » de l'app. */
-export function decisionText(decision: Decision, numberOf: (id: string) => number | null): string {
+const note = (score: number | undefined): string => (score === undefined ? '?' : String(Math.round(score * 100)));
+
+/** Liste lisible : « la n° 9 », « les n° 9 et 11 ». */
+function photoList(ids: readonly string[], numberOf: (id: string) => number | null): string {
+  const numbers = ids.map(numberOf).filter((n): n is number => n !== null);
+  if (numbers.length === 0) return 'd’autres photos';
+  if (numbers.length === 1) return `la n° ${numbers[0]}`;
+  return `les n° ${numbers.slice(0, -1).join(', ')} et ${numbers[numbers.length - 1]}`;
+}
+
+/** Raison de la décision « garder » / « supprimer » de l'app, avec la comparaison qui la justifie. */
+export function decisionText(
+  decision: Decision,
+  numberOf: (id: string) => number | null,
+  scoreOf: (id: string) => number | undefined = () => undefined,
+  self?: string,
+): string {
   const ref = decision.refId ? numberOf(decision.refId) : null;
   const n = ref === null ? 'la meilleure' : `la n° ${ref}`;
+  const mine = self ? note(scoreOf(self)) : '?';
+  const kept = decision.keptIds ?? [];
+  const keptNotes = kept.map((id) => note(scoreOf(id))).join(' et ');
   switch (decision.code) {
     case 'meilleure':
       return 'La meilleure de sa pose';
@@ -70,11 +88,13 @@ export function decisionText(decision: Decision, numberOf: (id: string) => numbe
     case 'trop-proche':
       return `Presque identique à ${n}, gardée à sa place`;
     case 'moins-bonne':
-      return `Nettement moins bonne que ${n}`;
-    case 'budget':
-      return `Assez de photos gardées pour cette pose (dont ${n})`;
+      return `Nettement moins bien notée que ${n} (${mine} contre ${note(decision.refId ? scoreOf(decision.refId) : undefined)} sur 100)`;
+    case 'budget': {
+      const verb = kept.length > 1 ? 'sont mieux notées' : 'est mieux notée';
+      return `${photoList(kept, numberOf).replace(/^./, (ch) => ch.toUpperCase())} ${verb} dans cette pose (${keptNotes} contre ${mine} sur 100)`;
+    }
     case 'plafond':
-      return 'Au-delà du maximum de photos gardées pour ce paquet';
+      return `Le paquet a déjà ses meilleures photos (${photoList(kept, numberOf)}, ${keptNotes} contre ${mine} sur 100)`;
     case 'veto':
       return 'Écartée : défaut rédhibitoire';
   }

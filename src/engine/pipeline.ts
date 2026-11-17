@@ -14,6 +14,8 @@ export interface PackAnalysis {
   /** Identifiant stable du paquet (date de sa première photo). */
   key: string;
   scene: SceneType;
+  /** Type de chaque photo, décidé par groupe de pose (un paquet peut mêler personnes et paysages). */
+  sceneOf: Map<string, SceneType>;
   scores: Map<string, PhotoScore>;
   poses: PoseGroup[];
   /** Décision de l'app. */
@@ -30,9 +32,13 @@ export interface DayAnalysis {
 export function analyzeDay(items: readonly MediaItem[], gapSeconds: number, learned: LearnedWeights = {}): DayAnalysis {
   const day = groupIntoPacks(items, gapSeconds);
   const packs = day.packs.map((pack): PackAnalysis => {
-    const { scene, scores } = scorePackDetailed(pack.items, learned);
     const poses = groupPoses(pack.items);
-    return { pack, key: String(pack.startAt ?? pack.id), scene, scores, poses, decisions: selectPack(pack.items, scores, poses) };
+    const { scene, sceneOf, scores } = scorePackDetailed(
+      pack.items,
+      learned,
+      poses.map((pose) => pose.items),
+    );
+    return { pack, key: String(pack.startAt ?? pack.id), scene, sceneOf, scores, poses, decisions: selectPack(pack.items, scores, poses) };
   });
   return { packs, undated: day.undated, setAside: day.setAside, dayIndex: day.dayIndex };
 }

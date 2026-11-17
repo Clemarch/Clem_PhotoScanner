@@ -21,6 +21,9 @@ Décisions prises et écarts : `docs/decisions.md` — à mettre à jour à chaq
 Novice, sans ordinateur. Toute consigne qui lui est adressée : en français, numérotée, sans jargon,
 avec l'endroit exact où toucher, et chaque terme technique expliqué en une phrase.
 Ne pas entamer un nouveau jalon sans son accord.
+Après chaque mise à jour, lui dire précisément quels tests faire sur l'iPhone et quelles informations renvoyer
+pour avancer (demande de l'utilisateur, 17/11) : s'appuyer sur `docs/protocole-test.md` et préciser ce qui est
+propre à ce test.
 
 ## Architecture
 
