@@ -5,6 +5,7 @@ import { finalKeep, type Choice, type Choices } from '../choices';
 import { formatGap, formatShortTime, formatSize, plural } from '../format';
 import { sceneGoal, sceneLabel } from '../reasons';
 import { Visionneuse, type ViewerEntry } from './Visionneuse';
+import { dayEntries } from '../entries';
 
 interface Props {
   session: Session;
@@ -13,6 +14,8 @@ interface Props {
   onGap: (seconds: number) => void;
   /** Rattacher un paquet au précédent (true) ou annuler (false). */
   onJoin: (key: string, join: boolean) => void;
+  /** Choisir de nouvelles photos (nouvelle journée). */
+  onNewDay: (files: File[]) => void;
   choices: Choices;
   onChoose: (item: MediaItem, pack: PackAnalysis, choice: Choice | null) => void;
 }
@@ -20,18 +23,12 @@ interface Props {
 /** Le paquet mêle-t-il plusieurs types de photo (personnes et paysages, par exemple) ? */
 const mixed = (pack: PackAnalysis): boolean => new Set(pack.sceneOf.values()).size > 1;
 
-export function Paquets({ session, day, gap, onGap, onJoin, choices, onChoose }: Props) {
+export function Paquets({ session, day, gap, onGap, onJoin, onNewDay, choices, onChoose }: Props) {
   const [viewing, setViewing] = useState<number | null>(null);
   const numberOf = (id: string) => day.dayIndex.get(id) ?? null;
 
   // Toutes les photos de la journée dans l'ordre, pour feuilleter d'un paquet à l'autre.
-  const entries = useMemo<ViewerEntry[]>(
-    () => [
-      ...day.packs.flatMap((pack, i) => pack.pack.items.map((item) => ({ item, pack, packNumber: i + 1 }))),
-      ...day.undated.map((item) => ({ item, pack: null, packNumber: null })),
-    ],
-    [day],
-  );
+  const entries = useMemo<ViewerEntry[]>(() => dayEntries(day), [day]);
   const positionOf = useMemo(() => new Map(entries.map((e, i) => [e.item.id, i])), [entries]);
 
   const totals = useMemo(() => {
@@ -69,7 +66,23 @@ export function Paquets({ session, day, gap, onGap, onJoin, choices, onChoose }:
   return (
     <main className="page">
       <header className="entete">
-        <h2>Tri du jour</h2>
+        <div className="entete-ligne">
+          <h2>Tri du jour</h2>
+          <label className="nouvelle">
+            Nouvelle journée
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+              onChange={(event) => {
+                const files = Array.from(event.target.files ?? []);
+                event.target.value = '';
+                if (files.length) onNewDay(files);
+              }}
+            />
+          </label>
+        </div>
         <p className="doux">
           {plural(day.packs.length, 'paquet')} · {plural(totals.total, 'photo')}
         </p>
@@ -186,6 +199,7 @@ export function Paquets({ session, day, gap, onGap, onJoin, choices, onChoose }:
           entries={entries}
           start={viewing}
           previews={session.previews}
+          originals={session.originals}
           thumbnails={session.thumbnails}
           choices={choices}
           numberOf={numberOf}

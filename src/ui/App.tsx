@@ -9,20 +9,23 @@ import {
   type InterruptedRun,
 } from '../platform/device';
 import type { AnalyzeResult } from '../platform/image/types';
-import { analyzeDay, config, learnWeights, measureFace, photoKey, sortChronologically, type ChoiceRecord } from '../engine';
+import { analyzeDay, config, learnWeights, measureBody, measureFace, photoKey, sortChronologically, type ChoiceRecord, type MediaItem, type PackAnalysis } from '../engine';
 import { clearChoices, loadChoices, removeChoice, saveChoice } from '../platform/storage/choices';
-import { makeRecord, type Choices } from './choices';
+import { makeRecord, type Choice, type Choices } from './choices';
 import { createFaceDetector, type FaceDetector } from '../platform/vision/faceDetector';
 import { createObjectDetector, type ObjectDetector } from '../platform/vision/objectDetector';
 import { findFaces } from '../platform/vision/retry';
+import { createBodyDetector, type BodyDetector } from '../platform/vision/bodyDetector';
 import { createAnalyzer } from '../platform/worker/analyzer';
 import type { Session } from './session';
 import { Accueil } from './screens/Accueil';
 import { Analyse } from './screens/Analyse';
 import { Diagnostic } from './screens/Diagnostic';
 import { Paquets } from './screens/Paquets';
+import { ASupprimer } from './screens/ASupprimer';
+import { finalKeep } from './choices';
 
-type Tab = 'paquets' | 'diagnostic';
+type Tab = 'paquets' | 'supprimer' | 'diagnostic';
 
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -72,7 +75,14 @@ export function App() {
     } catch (e) {
       faceError ??= `objets : ${e instanceof Error ? e.message : String(e)}`;
     }
+    let bodyDetector: BodyDetector | null = null;
+    try {
+      bodyDetector = await createBodyDetector();
+    } catch (e) {
+      faceError ??= `corps : ${e instanceof Error ? e.message : String(e)}`;
+    }
     const results: AnalyzeResult[] = [];
+    const originals = new Map<string, File>();
     const thumbnails = new Map<string, string>();
     const previews = new Map<string, string>();
     const startedAt = performance.now();
@@ -109,9 +119,20 @@ export function App() {
             faceError ??= e instanceof Error ? e.message : String(e);
           }
         }
+        if (bodyDetector) {
+          try {
+            const t = performance.now();
+            result.item.bodies = bodyDetector.detect(frame.bitmap).map(measureBody);
+            result.diagnostic.bodyMs = performance.now() - t;
+          } catch (e) {
+            faceError ??= `corps : ${e instanceof Error ? e.message : String(e)}`;
+          }
+        }
         frame.bitmap.close();
       }
       results.push(result);
+      // Le fichier d'origine reste sur l'iPhone ; on garde seulement sa référence, pour le zoom en pleine définition.
+      originals.set(result.item.id, file);
       if (result.thumbnail) thumbnails.set(result.item.id, URL.createObjectURL(result.thumbnail));
       if (result.preview) previews.set(result.item.id, URL.createObjectURL(result.preview));
     }
@@ -119,6 +140,7 @@ export function App() {
     analyzer.dispose();
     detector?.close();
     objectDetector?.close();
+    bodyDetector?.close();
     wake.release();
     clearProgress();
     const device = await readDeviceReport();
@@ -129,6 +151,7 @@ export function App() {
       results,
       thumbnails,
       previews,
+      originals,
       totalMs: performance.now() - startedAt,
       cancelled: cancelRef.current,
       wakeLock: wake.active,
@@ -140,6 +163,19 @@ export function App() {
     setProgress(null);
     setTab('paquets');
   };
+
+  const choose = (item: MediaItem, pack: PackAnalysis, choice: Choice | null) => {
+    const key = photoKey(item);
+    if (choice === null) {
+      setRecords((list) => list.filter((r) => r.key !== key));
+      void removeChoice(key);
+    } else {
+      const record = makeRecord(item, pack, choice);
+      setRecords((list) => [...list.filter((r) => r.key !== key), record]);
+      void saveChoice(record);
+    }
+  };
+  const toRemove = day.packs.reduce((n, pack) => n + pack.pack.items.filter((it) => !finalKeep(it, pack, choices).keep).length, 0);
 
   if (progress) {
     return (
@@ -173,18 +209,11 @@ export function App() {
             })
           }
           choices={choices}
-          onChoose={(item, pack, choice) => {
-            const key = photoKey(item);
-            if (choice === null) {
-              setRecords((list) => list.filter((r) => r.key !== key));
-              void removeChoice(key);
-            } else {
-              const record = makeRecord(item, pack, choice);
-              setRecords((list) => [...list.filter((r) => r.key !== key), record]);
-              void saveChoice(record);
-            }
-          }}
+          onNewDay={(files) => void start(files)}
+          onChoose={choose}
         />
+      ) : tab === 'supprimer' ? (
+        <ASupprimer session={session} day={day} choices={choices} onChoose={choose} />
       ) : (
         <Diagnostic
           session={session}
@@ -199,25 +228,14 @@ export function App() {
       )}
       <nav className="onglets">
         <button className={tab === 'paquets' ? 'actif' : ''} onClick={() => setTab('paquets')}>
-          Paquets
+          Tri
+        </button>
+        <button className={tab === 'supprimer' ? 'actif' : ''} onClick={() => setTab('supprimer')}>
+          À supprimer{toRemove > 0 && <span className="pastille">{toRemove}</span>}
         </button>
         <button className={tab === 'diagnostic' ? 'actif' : ''} onClick={() => setTab('diagnostic')}>
           Diagnostic
         </button>
-        <label className="nouveau">
-          Nouvelle journée
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            hidden
-            onChange={(event) => {
-              const files = Array.from(event.target.files ?? []);
-              event.target.value = '';
-              if (files.length) void start(files);
-            }}
-          />
-        </label>
       </nav>
     </>
   );
