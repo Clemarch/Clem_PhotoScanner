@@ -2,7 +2,7 @@
 // Fonctionne aussi bien dans un Web Worker que dans la page.
 
 import exifr from 'exifr';
-import { config, detectFormat, measureExposure, measureTilt, rgbaToGray, sharpnessFromGray, type MediaItem } from '../../engine';
+import { config, detectFormat, imageSignature, measureColor, measureExposure, measureTilt, rgbaToGray, sharpnessFromGray, type MediaItem } from '../../engine';
 import type { AnalysisFrame, AnalyzeResult, FileDiagnostic } from './types';
 
 interface ExifData {
@@ -182,6 +182,8 @@ export async function analyzeFile(
     tiltDeg: null,
     tiltStrength: null,
     exposure: null,
+    color: null,
+    signature: null,
   };
 
   const diagnostic: FileDiagnostic = {
@@ -200,13 +202,15 @@ export async function analyzeFile(
     error: null,
     faceMs: null,
     faceCount: null,
+    faceRetry: 0,
     objectMs: null,
   };
 
   // RAW et vidéos : repérés, mis de côté, jamais décodés.
-  if (info.isRaw || info.kind !== 'photo') return { item, thumbnail: null, diagnostic, frame: null };
+  if (info.isRaw || info.kind !== 'photo') return { item, thumbnail: null, preview: null, diagnostic, frame: null };
 
   let thumbnail: Blob | null = null;
+  let preview: Blob | null = null;
   let frame: AnalysisFrame | null = null;
   try {
     const t1 = performance.now();
@@ -234,13 +238,21 @@ export async function analyzeFile(
       item.tiltDeg = tilt.degrees;
       item.tiltStrength = tilt.strength;
       item.exposure = measureExposure(gray);
+      item.color = measureColor(pixels.data, size.w, size.h);
+      item.signature = imageSignature(pixels.data, size.w, size.h);
       diagnostic.analysisMs = performance.now() - t2;
 
-      const thumbSize = fit(size.w, size.h, config.image.thumbnailMaxSide);
-      const thumb = makeCanvas(thumbSize.w, thumbSize.h);
-      thumb.ctx.drawImage(work.canvas, 0, 0, thumbSize.w, thumbSize.h);
-      thumbnail = await canvasToJpeg(thumb.canvas, config.image.thumbnailQuality);
-      releaseCanvas(thumb.canvas);
+      // Deux images légères : une vignette pour la grille, une image moyenne pour la visionneuse.
+      const encode = async (maxSide: number, quality: number) => {
+        const target = fit(size.w, size.h, maxSide);
+        const c = makeCanvas(target.w, target.h);
+        c.ctx.drawImage(work.canvas, 0, 0, target.w, target.h);
+        const blob = await canvasToJpeg(c.canvas, quality);
+        releaseCanvas(c.canvas);
+        return blob;
+      };
+      thumbnail = await encode(config.image.thumbnailMaxSide, config.image.thumbnailQuality);
+      preview = await encode(config.image.previewMaxSide, config.image.previewQuality);
 
       // L'image réduite part vers la recherche de visages, puis sera libérée.
       const bitmap =
@@ -254,5 +266,5 @@ export async function analyzeFile(
     diagnostic.error = e instanceof Error ? e.message : String(e);
   }
 
-  return { item, thumbnail, diagnostic, frame };
+  return { item, thumbnail, preview, diagnostic, frame };
 }
