@@ -182,6 +182,28 @@ Alternatives écartées pour l'instant :
 - **Apprentissage des goûts de l'utilisateur** (jalon 5 du plan) : seule façon de couvrir les critères qu'on ne peut
   pas tous énumérer. Proposé à l'utilisateur pour être avancé ; nécessite ses choix sur des paquets réels.
 
+### 15. Réglage 4, d'après le premier rapport du réglage 3
+Le réglage 3 a donné un ordre jugé « mieux » par l'utilisateur (n° 4 meilleure ; la photo à la casquette 6e sur 8,
+pénalisée pour « moue »). Le rapport a montré :
+
+- **Casquette non vue comme objet.** Elle est tenue devant le buste, sous le visage : la couleur du bas du visage
+  n'a pas bougé (masquage 0,00). Ajout : couleur de la zone sous le visage (cou, buste), comparée à la même personne
+  sur les autres photos, avec des seuils plus larges que pour le visage car le buste bouge davantage. Raison :
+  « quelque chose devant la personne ». Non vérifié sur les photos de l'utilisateur (le rapport du réglage 4 le dira).
+- **Fausse « personne en arrière-plan »** sur la photo où une personne a détourné la tête : sans visage trouvé, sa
+  silhouette passait pour un passant. Une personne détectée à la place d'un sujet sur une autre photo du paquet
+  (recouvrement d'au moins 30 %) est maintenant un sujet.
+- **Visage sombre ≠ visage masqué.** Un visage entièrement plus sombre est une question de lumière : la mesure de
+  masquage ne tient plus compte de la luminosité générale du visage, et une raison distincte « visage plus sombre »
+  apparaît sous 70 % de la luminosité habituelle de la personne.
+- **Exposition** (critère du plan pour les paysages, absent jusque-là) : part de pixels brûlés et bouchés, comparée
+  à la photo la mieux exposée du paquet.
+- **Horizon : jamais jugé sur les vraies photos.** La force de la mesure y vaut 0,06 à 0,09, sous le seuil de 0,10
+  (texture des nuages). Essai d'un tri des contours (ne garder que les 15 % les plus marqués) : aucun gain sur les
+  tests, et moins bon sur un portrait penché ; écarté. Le seuil reste à calibrer sur des photos réellement penchées.
+- Observé, non modifié : le détecteur voit un sac à dos sur toutes les photos du paquet ; présent partout, il ne
+  pénalise pas. Durée totale : 2,9 s pour 14 photos, soit environ 20 s pour une journée de 100 photos.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

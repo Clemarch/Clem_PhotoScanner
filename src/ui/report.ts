@@ -4,6 +4,8 @@ import { formatDateTime, formatMs, formatOrientation, formatSize } from './forma
 
 const color = (c: readonly number[] | null): string => (c ? c.map((v) => Math.round(v)).join(',') : '?');
 
+const pct = (v: number | undefined): string => (v === undefined ? '?' : `${(v * 100).toFixed(1)}%`);
+
 const avg = (values: number[]): number | null =>
   values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
 
@@ -121,12 +123,12 @@ export function buildReport(session: Session): string {
         .sort((a, b) => a.box.x + a.box.width / 2 - (b.box.x + b.box.width / 2))
         .map(
           (f) =>
-            `[x ${(f.box.x + f.box.width / 2).toFixed(2)} yeux ${f.eyesOpen.toFixed(2)} regard ${f.gaze.toFixed(2)} expr ${f.expression.toFixed(2)} sourire ${f.smile.toFixed(2)} parle ${f.talking.toFixed(2)} moue ${f.pout.toFixed(2)} net ${f.sharpness.toFixed(0)} tête ${f.yawDeg.toFixed(0)}°/${f.pitchDeg.toFixed(0)}° écart-objectif ${f.offAxisHDeg.toFixed(0)}°/${f.offAxisVDeg.toFixed(0)}° yeux-dir ${f.eyeH.toFixed(2)}/${f.eyeV.toFixed(2)}${f.cut ? ' COUPÉ' : ''} couleur ${color(f.upperColor)}/${color(f.lowerColor)}]`,
+            `[x ${(f.box.x + f.box.width / 2).toFixed(2)} yeux ${f.eyesOpen.toFixed(2)} regard ${f.gaze.toFixed(2)} expr ${f.expression.toFixed(2)} sourire ${f.smile.toFixed(2)} parle ${f.talking.toFixed(2)} moue ${f.pout.toFixed(2)} net ${f.sharpness.toFixed(0)} tête ${f.yawDeg.toFixed(0)}°/${f.pitchDeg.toFixed(0)}° écart-objectif ${f.offAxisHDeg.toFixed(0)}°/${f.offAxisVDeg.toFixed(0)}° yeux-dir ${f.eyeH.toFixed(2)}/${f.eyeV.toFixed(2)}${f.cut ? ' COUPÉ' : ''} couleur ${color(f.upperColor)}/${color(f.lowerColor)}/${color(f.bodyColor)}]`,
         )
         .join(' ');
       const objects = (item.objects ?? []).map((o) => `${o.label} ${o.score.toFixed(2)}`).join(', ') || 'aucun';
       lines.push(
-        `    ${score.pack} note ${score.score.toFixed(2)} rang ${score.rank}${score.vetoed ? ' VETO' : ''} · visages ${score.faceCount}/${score.expectedFaces} (${g.faceCount ?? '?'} détectés, ${formatMs(g.faceMs)}) · ${score.reasons.map((r) => r.code).join(', ') || '—'} · masquage ${score.occlusion.toFixed(2)} arrière-plan ${score.background.toFixed(2)} gêne ${score.distraction} · penché ${item.tiltDeg?.toFixed(1) ?? '?'}° (force ${item.tiltStrength?.toFixed(2) ?? '?'}) · objets : ${objects} ${faces}`,
+        `    ${score.pack} note ${score.score.toFixed(2)} rang ${score.rank}${score.vetoed ? ' VETO' : ''} · visages ${score.faceCount}/${score.expectedFaces} (${g.faceCount ?? '?'} détectés, ${formatMs(g.faceMs)}) · ${score.reasons.map((r) => r.code).join(', ') || '—'} · masquage ${score.occlusion.toFixed(2)} devant ${score.front.toFixed(2)} lum-visage ${score.faceBrightness.toFixed(2)} arrière-plan ${score.background.toFixed(2)} gêne ${score.distraction} · penché ${item.tiltDeg?.toFixed(1) ?? '?'}° (force ${item.tiltStrength?.toFixed(2) ?? '?'}) · expo brûlé ${pct(item.exposure?.highlights)} bouché ${pct(item.exposure?.shadows)} moy ${item.exposure?.mean.toFixed(0) ?? '?'} · objets : ${objects} ${faces}`,
       );
     }
   });
