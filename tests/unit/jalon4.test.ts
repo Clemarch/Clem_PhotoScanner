@@ -93,6 +93,13 @@ describe('retours du 17/11 (deuxième journée)', () => {
     for (const s of scores.values()) expect(s.reasons.map((r) => r.code)).not.toContain('membre-coupe');
   });
 
+  it('ruelle (n° 25/27) : un passant qui apparaît dans un paysage est signalé et fait préférer l’autre photo', () => {
+    const passant = [{ label: 'person', score: 0.39, box: { x: 0.55, y: 0.5, width: 0.08, height: 0.2 } }];
+    const scores = scorePack([photo('25', { objects: [] }), photo('27', { objects: passant, sharpness: 320 })]);
+    expect(scores.get('27')!.reasons.map((r) => r.code)).toContain('arriere-plan');
+    expect(scores.get('25')!.rank).toBe(1);
+  });
+
   it('ruelle (n° 27) : des murs sombres ne sont pas des bords masqués hors d’un avion', () => {
     const scores = scorePack([photo('25', { obstruction: 0.01 }), photo('27', { obstruction: 0.3 })]);
     expect(scores.get('27')!.reasons.map((r) => r.code)).not.toContain('bords-masques');

@@ -122,9 +122,9 @@ describe('sélection', () => {
       scoresOf({ '9': 0.87, '10': 0.84, '11': 0.869, '12': 0.868, '13': 0.83, '14': 0.78, '15': 0.8, '16': 0.82, '17': 0.83 }),
       pose(items),
     );
-    // Seules les notes comptent : toutes les photos à moins de 0,04 de la meilleure sont gardées, les autres non.
-    for (const id of ['9', '11', '12', '10', '13', '17']) expect(d.get(id)!.keep).toBe(true);
-    for (const id of ['14', '15', '16']) expect(d.get(id)).toMatchObject({ keep: false, code: 'moins-bonne', refId: '9' });
+    // Seules les notes comptent : toutes les photos à moins de 0,06 de la meilleure sont gardées, les autres non.
+    for (const id of ['9', '11', '12', '10', '13', '17', '16']) expect(d.get(id)!.keep).toBe(true);
+    for (const id of ['14', '15']) expect(d.get(id)).toMatchObject({ keep: false, code: 'moins-bonne', refId: '9' });
     expect([...d.values()].some((x) => (x.code as string) === 'budget' || (x.code as string) === 'plafond')).toBe(false);
   });
 

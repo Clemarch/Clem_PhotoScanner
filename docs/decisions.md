@@ -385,6 +385,21 @@ Retours de l'utilisateur, avec captures :
   personne).
 - Coût mesuré sur ordinateur : environ 0,55 s par photo pour les trois modèles ensemble ; à mesurer sur iPhone.
 
+### 27. Explications de l'utilisateur sur quatre de ses choix (17/11)
+- Plage n° 3 / n° 4 : « j'aurais pu garder les 2 » (n° 4 pour le regard, n° 3 pour le profil et les deux personnes
+  en arrière-plan). → Marge de sélection élargie de 0,04 à 0,06 : deux bonnes photos proches sont gardées toutes
+  les deux plus souvent. Regard un peu plus compté (0,12 au lieu de 0,10, pris sur la netteté du visage) : à 0,15, un visage souriant
+  qui regarde au loin passait derrière un visage neutre tourné vers l'objectif, contre la remarque du 17/11
+  (« regarder au loin peut faire une superbe photo ») ; 0,12 respecte les deux remarques.
+- Rue n° 24 : gardée parce qu'un peu plus zoomée (cadrage). Ruelle n° 25 : gardée parce que prise de plus loin
+  (profondeur), et parce qu'un passant apparaît sur la n° 27. → Le cadrage préféré dépend de la scène : c'est du goût,
+  laissé à l'apprentissage (et, plus tard, à un apprentissage sur l'empreinte fine de l'image). Le passant, lui,
+  est mesurable : sans personne au premier plan, une personne qui apparaît pèse trois fois plus et est signalée dès
+  un poids de 0,05 (au lieu de 0,5).
+- Moto n° 33 : « les sourires, les doigts en V, le regard vers le photographe : l'alignement de tous ces petits
+  détails ». Sourire et regard sont mesurés ; le V ne l'est pas : il faudrait le modèle des gestes, proposé à
+  nouveau à l'utilisateur.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

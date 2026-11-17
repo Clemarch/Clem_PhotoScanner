@@ -107,6 +107,10 @@ export const config = {
     backgroundEdgeWeight: 0.35,
     /** Pénalité pour une « personne entière » d'écart avec la photo du paquet la plus dégagée, et pénalité maximale. */
     backgroundPenalty: 0.1,
+    /** Sans personne au premier plan (paysage, rue), un passant gêne davantage : pénalité multipliée, et raison
+     *  affichée dès ce seuil (ruelle du 17/11 : « un bonhomme apparaît et cache un peu la photo »). */
+    backgroundLandscapeFactor: 3,
+    backgroundLandscapeFrom: 0.05,
     backgroundPenaltyMax: 0.3,
     /** Une personne détectée qui recouvre à ce point la place d'un sujet sur une autre photo du paquet est un sujet
      *  (son visage n'a simplement pas été trouvé sur cette photo), pas un passant. */
@@ -252,7 +256,7 @@ export const config = {
   selection: {
     /** Une photo est gardée si sa note est à moins de ceci (sur 1) de la meilleure de sa pose : seules les notes
      *  décident, il n'y a pas de nombre maximal de photos par pose. */
-    scoreMargin: 0.04,
+    scoreMargin: 0.06,
     /** Deux photos dont l'empreinte diffère de moins de ceci sont des quasi-doublons : on n'en garde qu'une.
      *  Avec l'empreinte fine : ressemblance d'au moins `nearDuplicateSimilar`. */
     nearDuplicate: 0.015,
@@ -272,7 +276,7 @@ export const config = {
   scoring: {
     /** Note d'un visage. Le contenu d'abord : l'expression domine. Le regard compte peu,
      *  car regarder au loin peut faire une très belle photo. */
-    faceWeights: { eyes: 0.15, gaze: 0.1, expression: 0.55, sharpness: 0.2 },
+    faceWeights: { eyes: 0.15, gaze: 0.12, expression: 0.55, sharpness: 0.18 },
     /** Note « visages » d'une photo : le visage le plus raté pèse le plus. */
     worstFaceWeight: 0.6,
     meanFaceWeight: 0.4,

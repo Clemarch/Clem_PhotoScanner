@@ -360,8 +360,13 @@ export function scorePackDetailed(
     // Pénalités de contenu et de cadrage.
     const content = contentOf.get(item.id)!;
     const extraBackground = content.background - minBackground;
-    const backgroundPenalty = Math.min(c.backgroundPenaltyMax, c.backgroundPenalty * extraBackground);
-    if (extraBackground >= r.backgroundFrom) reasons.push({ code: 'arriere-plan', tone: 'moins' });
+    const landscape = expected === 0;
+    const backgroundPenalty = Math.min(
+      c.backgroundPenaltyMax,
+      c.backgroundPenalty * extraBackground * (landscape ? c.backgroundLandscapeFactor : 1),
+    );
+    if (extraBackground >= (landscape ? c.backgroundLandscapeFrom : r.backgroundFrom))
+      reasons.push({ code: 'arriere-plan', tone: 'moins' });
 
     const extraObjects = content.distractions.length - minDistractions;
     const objectPenalty = Math.min(c.objectPenaltyMax, c.objectPenalty * extraObjects);
