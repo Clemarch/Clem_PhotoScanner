@@ -128,3 +128,49 @@ describe('retours de l’utilisateur sur ses selfies du 16/11', () => {
     for (const id of ['1', '3', '7']) expect(scores.get(id)!.rank).toBeLessThanOrEqual(5);
   });
 });
+
+// Test du 17/11 : paquet de 29 photos (18:16 à 18:18) qui mêle photos de personnes et paysages.
+// Pose B (n° 9 à 17) : visages trouvés sur 12 à 16 seulement ; l'utilisateur pense que la meilleure est la 15.
+describe('retours du 17/11 : paquet mêlant personnes et paysages', () => {
+  const sig = (v: number): number[] => Array.from({ length: 192 }, () => v);
+  const oneFace = (expression: number, smile: number): FaceMetrics[] => [
+    {
+      ...face({ x: 0.52, eyes: 1, smile, pout: 0, sharp: 2000, upper: [110, 100, 110], lower: [100, 86, 90] }),
+      expression,
+    },
+  ];
+  const twoPersons: DetectedObject[] = [
+    { label: 'person', score: 0.86, box: { x: 0.35, y: 0.3, width: 0.35, height: 0.7 } },
+    { label: 'person', score: 0.8, box: { x: 0.6, y: 0.35, width: 0.3, height: 0.6 } },
+  ];
+  const shot = (id: string, faces: FaceMetrics[], sharpness: number, s: number): MediaItem => ({
+    ...photo(id, faces, twoPersons),
+    sharpness,
+    focal35: 24,
+    signature: sig(s),
+  });
+  // Mesures du rapport (expression, sourire, netteté globale).
+  const poseB = [
+    shot('9', [], 5081, 100),
+    shot('10', [], 4400, 102),
+    shot('11', [], 5356, 103),
+    shot('12', oneFace(0.71, 0.02), 5207, 104),
+    shot('13', oneFace(0.78, 0), 3655, 106),
+    shot('14', oneFace(0.88, 0.61), 3237, 108),
+    shot('15', oneFace(0.85, 0.49), 3117, 109),
+    shot('16', oneFace(0.92, 0.74), 3795, 111),
+    shot('17', [], 4666, 113),
+  ];
+  const landscapes = Array.from({ length: 12 }, (_, i) => shot(`p${i}`, [], 2500, 160 + i));
+
+  it('les visages comptent dans le groupe de pose qui en a, même si le paquet est surtout fait de paysages', () => {
+    const scores = scorePack([...poseB, ...landscapes], {}, [poseB, landscapes]);
+    expect(scores.get('15')!.expectedFaces).toBe(1);
+    expect(scores.get('p0')!.expectedFaces).toBe(0);
+    // Les photos où un visage réussi est visible passent devant celles où on ne voit pas le visage.
+    for (const withFace of ['14', '15', '16'])
+      for (const without of ['9', '10', '11', '17']) expect(scores.get(withFace)!.score).toBeGreaterThan(scores.get(without)!.score);
+    // La netteté globale ne fait plus perdre la 15 (« moins nette » n'est plus une raison de l'écarter).
+    expect(scores.get('15')!.reasons.map((r) => r.code)).not.toContain('moins-nette');
+  });
+});

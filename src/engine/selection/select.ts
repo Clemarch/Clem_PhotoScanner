@@ -5,13 +5,6 @@ import { config } from '../config';
 import { signatureDistance } from '../analysis/color';
 import type { Decision, MediaItem, PhotoScore, PoseGroup } from '../types';
 
-/** Ressemblance entre deux photos, entre 0 (différentes) et 1 (identiques). */
-function similarity(a: MediaItem, b: MediaItem): number {
-  const d = signatureDistance(a.signature, b.signature);
-  if (d === Infinity) return 0.5;
-  return Math.max(0, 1 - d / (2 * config.poses.fromFirst));
-}
-
 export function selectPack(
   items: readonly MediaItem[],
   scores: ReadonlyMap<string, PhotoScore>,
@@ -41,24 +34,16 @@ export function selectPack(
     const groupKept = [best];
     set(best, { keep: true, code: 'meilleure' });
 
-    // Choix suivants : bonne note et différente de ce qui est déjà gardé.
-    let remaining = candidates.slice(1);
-    while (remaining.length > 0) {
-      const pick = remaining
-        .map((item) => ({
-          item,
-          value:
-            cfg.diversityScore * scoreOf(item) +
-            cfg.diversityWeight * (1 - Math.max(...groupKept.map((k) => similarity(item, k)))),
-        }))
-        .sort((a, b) => b.value - a.value)[0]!.item;
-      remaining = remaining.filter((item) => item !== pick);
+    // Choix suivants, dans l'ordre des notes : la qualité d'abord. On saute seulement les quasi-doublons
+    // (deux fois la même photo) ; une photo n'est jamais écartée au profit d'une moins bonne.
+    for (const pick of candidates.slice(1)) {
       const nearest = groupKept
         .map((k) => ({ k, d: signatureDistance(pick.signature, k.signature) }))
-        .sort((a, b) => a.d - b.d)[0]!;
-      if (groupKept.length >= budget) set(pick, { keep: false, code: 'budget', refId: best.id });
-      else if (scoreOf(pick) < scoreOf(best) - cfg.scoreMargin) set(pick, { keep: false, code: 'moins-bonne', refId: best.id });
+        .sort((x, y) => x.d - y.d)[0]!;
+      const keptIds = groupKept.map((k) => k.id);
+      if (scoreOf(pick) < scoreOf(best) - cfg.scoreMargin) set(pick, { keep: false, code: 'moins-bonne', refId: best.id, keptIds });
       else if (nearest.d < cfg.nearDuplicate) set(pick, { keep: false, code: 'trop-proche', refId: nearest.k.id });
+      else if (groupKept.length >= budget) set(pick, { keep: false, code: 'budget', refId: best.id, keptIds });
       else {
         groupKept.push(pick);
         set(pick, { keep: true, code: 'variete' });
@@ -71,7 +56,8 @@ export function selectPack(
   const cap = Math.max(1, Math.ceil(cfg.packShare * items.length));
   if (kept.length > cap) {
     const ordered = [...kept].sort((a, b) => scoreOf(b) - scoreOf(a));
-    for (const item of ordered.slice(cap)) set(item, { keep: false, code: 'plafond' });
+    const keptIds = ordered.slice(0, cap).map((item) => item.id);
+    for (const item of ordered.slice(cap)) set(item, { keep: false, code: 'plafond', keptIds });
   }
 
   // Au moins une photo par paquet.

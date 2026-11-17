@@ -36,15 +36,45 @@ function expectedFaceCount(counts: number[]): number {
 }
 
 export interface PackScoring {
+  /** Type majoritaire du paquet, et type de chaque photo (décidé par groupe de pose). */
   scene: SceneType;
+  sceneOf: Map<string, SceneType>;
   scores: Map<string, PhotoScore>;
 }
 
-export function scorePack(items: readonly MediaItem[], learned: LearnedWeights = {}): Map<string, PhotoScore> {
-  return scorePackDetailed(items, learned).scores;
+export function scorePack(
+  items: readonly MediaItem[],
+  learned: LearnedWeights = {},
+  groups?: readonly (readonly MediaItem[])[],
+): Map<string, PhotoScore> {
+  return scorePackDetailed(items, learned, groups).scores;
 }
 
-export function scorePackDetailed(items: readonly MediaItem[], learned: LearnedWeights = {}): PackScoring {
+/** Ce qui se juge à l'échelle d'un groupe de pose : le type de photo, les personnes attendues et leur place. */
+interface GroupContext {
+  items: readonly MediaItem[];
+  expected: number;
+  scene: SceneType;
+  anyFaceRef: number;
+  completeCount: number;
+  slotRef: number[];
+  slotX: number[];
+  changesOf: Map<string, { occlusion: number[]; front: number[]; brightness: number[] }>;
+  knownSubjects: ReturnType<typeof subjectPersons>;
+  sharpest: MediaItem | null;
+  bestAesthetic: number;
+}
+
+/**
+ * `groups` : les groupes de pose du paquet. Le type de photo et les visages attendus se décident par groupe
+ * (un paquet peut mêler des photos de personnes et des paysages) ; les comparaisons de netteté, de couleurs et
+ * d'arrière-plan restent faites sur tout le paquet.
+ */
+export function scorePackDetailed(
+  items: readonly MediaItem[],
+  learned: LearnedWeights = {},
+  groups: readonly (readonly MediaItem[])[] = [items],
+): PackScoring {
   const cfg = config.scoring;
   const r = cfg.reasons;
   const c = config.content;
@@ -57,41 +87,82 @@ export function scorePackDetailed(items: readonly MediaItem[], learned: LearnedW
     const main = new Set(facesOf.get(item.id));
     return (item.faces ?? []).filter((face) => !main.has(face) && face.areaRatio >= config.faces.minAreaRatio);
   };
-  const expected = expectedFaceCount(items.filter((item) => item.faces !== null).map((item) => facesOf.get(item.id)!.length));
-  const scene = classifyPack(items, expected, (item) => facesOf.get(item.id)!);
+  const nearestSlot = (ctx: GroupContext, face: FaceMetrics): number =>
+    ctx.slotX.reduce((best, x, k) => (Math.abs(x - centerX(face)) < Math.abs(ctx.slotX[best]! - centerX(face)) ? k : best), 0);
 
-  // Netteté de référence : globale pour l'image, et par personne pour les visages.
+  const contextOf = new Map<string, GroupContext>();
+  const contexts: GroupContext[] = [];
+  for (const group of groups) {
+    const expected = expectedFaceCount(group.filter((item) => item.faces !== null).map((item) => facesOf.get(item.id)!.length));
+    const completeItems = group.filter((item) => expected > 0 && facesOf.get(item.id)!.length === expected);
+    // Masquage, objet devant, luminosité : chaque personne comparée à elle-même sur les photos où tout le monde est visible.
+    const changes = compareFaces(completeItems.map((item) => facesOf.get(item.id)!));
+    const ctx: GroupContext = {
+      items: group,
+      expected,
+      scene: classifyPack(group, expected, (item) => facesOf.get(item.id)!),
+      // Netteté de référence de chaque personne, et sa place habituelle (pour savoir qui est qui quand un visage manque).
+      anyFaceRef: reference(group.flatMap((item) => facesOf.get(item.id)!).map((face) => face.sharpness)),
+      completeCount: completeItems.length,
+      slotRef: Array.from({ length: expected }, (_, slot) =>
+        reference(completeItems.map((item) => facesOf.get(item.id)![slot]!.sharpness)),
+      ),
+      slotX: Array.from({ length: expected }, (_, slot) => {
+        const xs = completeItems.map((item) => centerX(facesOf.get(item.id)![slot]!)).sort((x, y) => x - y);
+        return xs.length ? xs[Math.floor(xs.length / 2)]! : (slot + 0.5) / Math.max(1, expected);
+      }),
+      changesOf: new Map(
+        completeItems.map((item, i) => [
+          item.id,
+          { occlusion: changes.occlusion[i]!, front: changes.front[i]!, brightness: changes.brightness[i]! },
+        ]),
+      ),
+      // Places occupées par les sujets dans ce groupe.
+      knownSubjects: group.flatMap((item) => subjectPersons(facesOf.get(item.id)!, item.objects)),
+      sharpest: group.reduce<MediaItem | null>(
+        (best, item) => ((item.sharpness ?? -1) > (best?.sharpness ?? -1) ? item : best),
+        null,
+      ),
+      bestAesthetic: 0,
+    };
+    contexts.push(ctx);
+    for (const item of group) contextOf.set(item.id, ctx);
+  }
+  // Coucher de soleil ou paysage : c'est la scène qui compte, pas la pose. On en décide sur toutes les photos
+  // sans personne du paquet (une version plus sombre du même coucher de soleil reste un coucher de soleil).
+  const sceneless = contexts.filter((ctx) => ctx.expected === 0);
+  if (sceneless.length > 0) {
+    const landscapeScene = classifyPack(sceneless.flatMap((ctx) => [...ctx.items]), 0, () => []);
+    for (const ctx of sceneless) ctx.scene = landscapeScene;
+  }
+
+  // Note typique d'un visage dans un groupe : sert pour une photo où la personne est là mais son visage invisible
+  // (de dos, tête tournée). On ne sait pas s'il est réussi : on ne le suppose pas parfait.
+  const typicalFace = new Map<GroupContext, number>();
+  const typicalFaceScore = (ctx: GroupContext): number => {
+    const cached = typicalFace.get(ctx);
+    if (cached !== undefined) return cached;
+    const w = cfg.faceWeights;
+    const values = ctx.items
+      .map((item) => facesOf.get(item.id)!)
+      .filter((faces) => faces.length > 0)
+      .map((faces) => Math.min(...faces.map((f) => w.eyes * f.eyesOpen + w.gaze * f.gaze + w.expression * f.expression + w.sharpness)))
+      .sort((x, y) => x - y);
+    const value = values.length ? values[Math.floor((values.length - 1) / 2)]! : 1;
+    typicalFace.set(ctx, value);
+    return value;
+  };
+
+  // Une photo absente des groupes fournis forme son propre groupe (sécurité).
+  const ctxOf = (item: MediaItem): GroupContext => contextOf.get(item.id) ?? contexts[0]!;
+
+  // Netteté de référence de l'image : sur tout le paquet.
   const techRef = reference(items.map((item) => item.sharpness ?? 0));
-  const allFaces = [...facesOf.values()];
-  const anyFaceRef = reference(allFaces.flat().map((face) => face.sharpness));
-  const completeItems = items.filter((item) => expected > 0 && facesOf.get(item.id)!.length === expected);
-  const slotRef = Array.from({ length: expected }, (_, slot) =>
-    reference(completeItems.map((item) => facesOf.get(item.id)![slot]!.sharpness)),
-  );
-  // Place habituelle de chaque personne : quand un visage manque, on retrouve qui est qui par la position.
-  const slotX = Array.from({ length: expected }, (_, slot) => {
-    const xs = completeItems.map((item) => centerX(facesOf.get(item.id)![slot]!)).sort((a, b) => a - b);
-    return xs.length ? xs[Math.floor(xs.length / 2)]! : (slot + 0.5) / Math.max(1, expected);
-  });
-  const nearestSlot = (face: FaceMetrics): number =>
-    slotX.reduce((best, x, k) => (Math.abs(x - centerX(face)) < Math.abs(slotX[best]! - centerX(face)) ? k : best), 0);
-
-  // Masquage, objet devant, luminosité : chaque personne comparée à elle-même sur les photos où tout le monde est visible.
-  const changes = compareFaces(completeItems.map((item) => facesOf.get(item.id)!));
-  const changesOf = new Map(
-    completeItems.map((item, i) => [
-      item.id,
-      { occlusion: changes.occlusion[i]!, front: changes.front[i]!, brightness: changes.brightness[i]! },
-    ]),
-  );
-
-  // Places occupées par les sujets sur l'ensemble du paquet.
-  const knownSubjects = items.flatMap((item) => subjectPersons(facesOf.get(item.id)!, item.objects));
 
   // Arrière-plan et objets : jugés par rapport à la photo la plus dégagée du paquet,
   // pour ne pas pénaliser ce qui est présent partout (la plage derrière, un sac porté sur toutes les photos).
   const contentOf = new Map(
-    items.map((item) => [item.id, analyzeContent(facesOf.get(item.id)!, otherFacesOf(item), item.objects, knownSubjects)]),
+    items.map((item) => [item.id, analyzeContent(facesOf.get(item.id)!, otherFacesOf(item), item.objects, ctxOf(item).knownSubjects)]),
   );
   const contents = [...contentOf.values()];
   const minBackground = Math.min(...contents.map((x) => x.background));
@@ -106,7 +177,7 @@ export function scorePackDetailed(items: readonly MediaItem[], learned: LearnedW
   const bestContrast = Math.max(0, ...colored.map((item) => item.color!.contrast));
   const bestColorful = Math.max(0, ...colored.map((item) => item.color!.colorfulness));
   const bestBalance = Math.max(0, ...items.map((item) => exposureBalance(item) ?? 0));
-  const aestheticWeights =
+  const aestheticWeightsOf = (scene: SceneType) =>
     scene === 'coucher' ? config.scene.aesthetic.coucher : scene === 'paysage' ? config.scene.aesthetic.paysage : config.scene.aesthetic.personnes;
   const aestheticParts = (item: MediaItem) => {
     if (!item.color) return null;
@@ -121,20 +192,18 @@ export function scorePackDetailed(items: readonly MediaItem[], learned: LearnedW
   const aestheticOf = (item: MediaItem): number => {
     const parts = aestheticParts(item);
     if (!parts) return 1;
-    const w = aestheticWeights;
+    const w = aestheticWeightsOf(ctxOf(item).scene);
     const total = w.warm + w.contrast + w.colorful + w.balance;
     return (w.warm * parts.warm + w.contrast * parts.contrast + w.colorful * parts.colorful + w.balance * parts.balance) / total;
   };
-  const bestAesthetic = Math.max(0, ...items.map(aestheticOf));
+  for (const ctx of contexts) ctx.bestAesthetic = Math.max(0, ...ctx.items.map(aestheticOf));
 
   const rawRatioOf = (item: MediaItem): number => (techRef > 0 ? Math.min(1, (item.sharpness ?? 0) / techRef) : 1);
-  const sharpest = items.reduce<MediaItem | null>(
-    (best, item) => ((item.sharpness ?? -1) > (best?.sharpness ?? -1) ? item : best),
-    null,
-  );
 
   const scores: PhotoScore[] = items.map((item) => {
     const faces = facesOf.get(item.id)!;
+    const ctx = ctxOf(item);
+    const { expected, sharpest, bestAesthetic } = ctx;
     const reasons: Reason[] = [];
     const rawRatio = rawRatioOf(item);
     const aesthetic = aestheticOf(item);
@@ -153,18 +222,18 @@ export function scorePackDetailed(items: readonly MediaItem[], learned: LearnedW
 
     if (expected > 0) {
       technique = sharpEnough(rawRatio);
-      const present = countSubjects(faces, item.objects, knownSubjects);
+      const present = countSubjects(faces, item.objects, ctx.knownSubjects);
       if (faces.length === 0) {
-        faceScore = present >= expected ? 1 - cfg.unanalyzedFacePenalty : 0;
+        faceScore = present >= expected ? typicalFaceScore(ctx) * (1 - cfg.unanalyzedFacePenalty) : 0;
         reasons.push(present >= expected ? { code: 'visage-non-analyse', tone: 'moins' } : { code: 'aucun-visage', tone: 'moins' });
       } else {
         const w = cfg.faceWeights;
         const ratios = faces.map((face, slot) => {
           const ref =
-            faces.length === expected ? slotRef[slot]! : completeItems.length > 0 ? slotRef[nearestSlot(face)]! : anyFaceRef;
+            faces.length === expected ? ctx.slotRef[slot]! : ctx.completeCount > 0 ? ctx.slotRef[nearestSlot(ctx, face)]! : ctx.anyFaceRef;
           return ref > 0 ? face.sharpness / ref : 1;
         });
-        const change = changesOf.get(item.id);
+        const change = ctx.changesOf.get(item.id);
         const occl = change?.occlusion ?? faces.map(() => 0);
         occlusion = Math.max(0, ...occl);
         front = Math.max(0, ...(change?.front ?? [0]));
@@ -212,12 +281,12 @@ export function scorePackDetailed(items: readonly MediaItem[], learned: LearnedW
     } else {
       // Paquet sans visage (paysage, coucher de soleil) : la netteté départage en douceur, l'esthétique compte d'abord.
       technique = Math.sqrt(rawRatio);
-      if (items.length > 1 && sharpest && sharpest.id !== item.id && rawRatio < r.lessSharpBelow)
+      if (ctx.items.length > 1 && sharpest && sharpest.id !== item.id && rawRatio < r.lessSharpBelow)
         reasons.push({ code: 'moins-nette', tone: 'moins', refId: sharpest.id });
     }
 
     // Couleurs et exposition : raisons comparées à la meilleure du paquet.
-    if (items.length > 1 && parts) {
+    if (ctx.items.length > 1 && parts) {
       if (bestAesthetic > 0 && aesthetic >= bestAesthetic - 1e-9 && expected === 0) reasons.push({ code: 'couleurs-vives', tone: 'plus' });
       else if (aesthetic < config.scene.dullBelow * bestAesthetic) reasons.push({ code: 'couleurs-ternes', tone: 'moins' });
     }
@@ -317,5 +386,13 @@ export function scorePackDetailed(items: readonly MediaItem[], learned: LearnedW
       score.rank = i + 1;
     });
 
-  return { scene, scores: new Map(scores.map((score) => [score.id, score])) };
+  // Type du paquet : celui du plus grand nombre de photos.
+  const counts = new Map<SceneType, number>();
+  for (const item of items) counts.set(ctxOf(item).scene, (counts.get(ctxOf(item).scene) ?? 0) + 1);
+  const scene = [...counts.entries()].sort((x, y) => y[1] - x[1])[0]?.[0] ?? 'paysage';
+  return {
+    scene,
+    sceneOf: new Map(items.map((item) => [item.id, ctxOf(item).scene])),
+    scores: new Map(scores.map((score) => [score.id, score])),
+  };
 }
