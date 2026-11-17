@@ -3,7 +3,7 @@
 
 import exifr from 'exifr';
 import { config, detectFormat, rgbaToGray, sharpnessFromGray, type MediaItem } from '../../engine';
-import type { AnalyzeResult, FileDiagnostic } from './types';
+import type { AnalysisFrame, AnalyzeResult, FileDiagnostic } from './types';
 
 interface ExifData {
   capturedAt: number | null;
@@ -173,6 +173,7 @@ export async function analyzeFile(
     height: exif.height,
     orientation: exif.orientation,
     sharpness: null,
+    faces: null,
   };
 
   const diagnostic: FileDiagnostic = {
@@ -189,12 +190,15 @@ export async function analyzeFile(
     estimatedDecodedMB: exif.width && exif.height ? (exif.width * exif.height * 4) / 1_048_576 : null,
     thread,
     error: null,
+    faceMs: null,
+    faceCount: null,
   };
 
   // RAW et vidéos : repérés, mis de côté, jamais décodés.
-  if (info.isRaw || info.kind !== 'photo') return { item, thumbnail: null, diagnostic };
+  if (info.isRaw || info.kind !== 'photo') return { item, thumbnail: null, diagnostic, frame: null };
 
   let thumbnail: Blob | null = null;
+  let frame: AnalysisFrame | null = null;
   try {
     const t1 = performance.now();
     const decoded = await decode(file, config.image.analysisMaxSide);
@@ -224,6 +228,11 @@ export async function analyzeFile(
       thumb.ctx.drawImage(work.canvas, 0, 0, thumbSize.w, thumbSize.h);
       thumbnail = await canvasToJpeg(thumb.canvas, config.image.thumbnailQuality);
       releaseCanvas(thumb.canvas);
+
+      // L'image réduite part vers la recherche de visages, puis sera libérée.
+      const bitmap =
+        'transferToImageBitmap' in work.canvas ? work.canvas.transferToImageBitmap() : await createImageBitmap(work.canvas);
+      frame = { bitmap, gray, width: size.w, height: size.h };
       releaseCanvas(work.canvas);
     } finally {
       decoded.release();
@@ -232,5 +241,5 @@ export async function analyzeFile(
     diagnostic.error = e instanceof Error ? e.message : String(e);
   }
 
-  return { item, thumbnail, diagnostic };
+  return { item, thumbnail, diagnostic, frame };
 }

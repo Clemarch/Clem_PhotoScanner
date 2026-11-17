@@ -66,8 +66,28 @@ button, label.bouton, .onglets label { font: inherit; color: inherit; cursor: po
 .vignette .vide { font-size: 11px; color: var(--doux); }
 .vignette.meilleure { outline: 2px solid var(--accent); outline-offset: -2px; }
 .numero { position: absolute; top: 4px; left: 4px; background: rgba(0, 0, 0, 0.6); border-radius: 6px; padding: 1px 5px; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.badge { position: absolute; top: 4px; right: 4px; background: var(--accent); color: #14120a; border-radius: 6px; padding: 1px 5px; font-size: 10px; font-weight: 700; }
+.badge { position: absolute; top: 4px; right: 4px; background: var(--accent); color: #14120a; border-radius: 6px; padding: 1px 4px; font-size: 9px; font-weight: 700; }
 .jauge { position: absolute; left: 0; bottom: 0; height: 3px; background: var(--accent); }
+
+.vignette.ecartee img { opacity: 0.38; filter: grayscale(0.6); }
+.drapeau { position: absolute; top: 6px; right: 6px; width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid rgba(0, 0, 0, 0.55); }
+.drapeau.veto { background: var(--alerte); }
+.drapeau.moins { background: #e0a23c; }
+.classement { font-size: 15px; font-weight: 600; }
+.classement span { color: var(--doux); font-weight: 400; }
+.raisons { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 15px; }
+.raisons li { display: flex; align-items: center; gap: 10px; }
+.raisons li::before { content: ''; width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--doux); }
+.raisons li.veto::before { background: var(--alerte); }
+.raisons li.moins::before { background: #e0a23c; }
+.raisons li.plus::before { background: var(--ok); }
+.raisons li.veto { color: var(--alerte); }
+
+/* Bandeau sous l'heure et la batterie : le contenu ne passe plus dessous en défilant. */
+.page::before {
+  content: ''; position: fixed; top: 0; left: 0; right: 0; height: env(safe-area-inset-top); z-index: 15;
+  background: rgba(14, 15, 18, 0.86); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+}
 
 .liste-simple { margin: 0; padding-left: 18px; color: var(--doux); font-size: 14px; }
 
@@ -78,7 +98,7 @@ button, label.bouton, .onglets label { font: inherit; color: inherit; cursor: po
   padding: 14px 16px calc(env(safe-area-inset-bottom) + 16px); animation: montee 0.22s ease;
 }
 @keyframes montee { from { transform: translateY(30%); } to { transform: none; } }
-.feuille img { width: 100%; max-height: 52dvh; object-fit: contain; border-radius: 12px; background: #000; }
+.feuille img { width: 100%; max-height: 44dvh; object-fit: contain; border-radius: 12px; background: #000; }
 
 .onglets {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; gap: 6px; align-items: center;

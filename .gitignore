@@ -10,3 +10,4 @@ tests/fixtures/*
 *.HEIC
 *.dng
 *.DNG
+public/models/wasm/

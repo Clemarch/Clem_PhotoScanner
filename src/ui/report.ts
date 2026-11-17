@@ -1,4 +1,5 @@
 import type { Session } from './session';
+import { config, groupIntoPacks, mainFaces, scorePack, type PhotoScore } from '../engine';
 import { formatDateTime, formatMs, formatOrientation, formatSize } from './format';
 
 const avg = (values: number[]): number | null =>
@@ -16,6 +17,8 @@ export interface Summary {
   formats: Record<string, number>;
   methods: Record<string, number>;
   threads: Record<string, number>;
+  avgFaceMs: number | null;
+  photosWithFaces: number;
 }
 
 export function summarize(session: Session): Summary {
@@ -23,6 +26,8 @@ export function summarize(session: Session): Summary {
   const methods: Record<string, number> = {};
   const threads: Record<string, number> = {};
   const decodeTimes: number[] = [];
+  const faceTimes: number[] = [];
+  let photosWithFaces = 0;
   let withDate = 0;
   let withoutDate = 0;
   let raw = 0;
@@ -35,6 +40,8 @@ export function summarize(session: Session): Summary {
     if (item.isRaw) raw++;
     if (diagnostic.error) errors++;
     if (diagnostic.decodeMs !== null) decodeTimes.push(diagnostic.decodeMs);
+    if (diagnostic.faceMs !== null) faceTimes.push(diagnostic.faceMs);
+    if (mainFaces(item.faces).length > 0) photosWithFaces++;
     if (diagnostic.decodeMethod) {
       methods[diagnostic.decodeMethod] = (methods[diagnostic.decodeMethod] ?? 0) + 1;
       threads[diagnostic.thread] = (threads[diagnostic.thread] ?? 0) + 1;
@@ -51,6 +58,8 @@ export function summarize(session: Session): Summary {
     formats,
     methods,
     threads,
+    avgFaceMs: avg(faceTimes),
+    photosWithFaces,
   };
 }
 
@@ -74,11 +83,19 @@ export function buildReport(session: Session): string {
     `Types : ${counts(s.formats)}`,
     `Décodage : ${counts(s.methods)} · fil : ${counts(s.threads)}`,
     `Temps : total ${formatMs(session.totalMs)} · décodage moyen ${formatMs(s.avgDecodeMs)} · max ${formatMs(s.maxDecodeMs)}`,
+    `Visages : ${session.faceError ? `INDISPONIBLE (${session.faceError})` : `${s.photosWithFaces} photos avec visage · recherche moyenne ${formatMs(s.avgFaceMs)}`}`,
     `Mémoire : ${session.heapAfterMB === null ? 'non mesurable sur ce navigateur' : `${session.heapBeforeMB?.toFixed(0)} → ${session.heapAfterMB.toFixed(0)} Mo`}`,
     `Écran maintenu allumé : ${session.wakeLock ? 'oui' : 'non'} · analyse ${session.cancelled ? 'ANNULÉE' : 'terminée'}`,
     '',
     'n° | nom | type (type déclaré) | taille | date de prise de vue | date du fichier | orientation | dimensions | décodage | netteté | erreur',
+    '    puis : note, rang dans le paquet, raisons, et pour chaque visage principal : yeux / regard / expression / netteté / rotation tête',
   ];
+  const day = groupIntoPacks(
+    session.results.map((r) => r.item),
+    config.grouping.packGapSeconds,
+  );
+  const scores = new Map<string, PhotoScore & { pack: string }>();
+  day.packs.forEach((pack, i) => scorePack(pack.items).forEach((score, id) => scores.set(id, { ...score, pack: `P${i + 1}` })));
   session.results.forEach(({ item, diagnostic: g }, i) => {
     lines.push(
       [
@@ -95,6 +112,18 @@ export function buildReport(session: Session): string {
         g.error ?? '',
       ].join(' | '),
     );
+    const score = scores.get(item.id);
+    if (score) {
+      const faces = mainFaces(item.faces)
+        .map(
+          (f) =>
+            `[yeux ${f.eyesOpen.toFixed(2)} regard ${f.gaze.toFixed(2)} expr ${f.expression.toFixed(2)} net ${f.sharpness.toFixed(0)} tête ${f.yawDeg.toFixed(0)}°/${f.pitchDeg.toFixed(0)}°${f.cut ? ' COUPÉ' : ''}]`,
+        )
+        .join(' ');
+      lines.push(
+        `    ${score.pack} note ${score.score.toFixed(2)} rang ${score.rank}${score.vetoed ? ' VETO' : ''} · visages ${score.faceCount}/${score.expectedFaces} (${g.faceCount ?? '?'} détectés, ${formatMs(g.faceMs)}) · ${score.reasons.map((r) => r.code).join(', ') || '—'} ${faces}`,
+      );
+    }
   });
   return lines.join('\n');
 }

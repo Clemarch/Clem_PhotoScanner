@@ -8,7 +8,8 @@ import { VitePWA } from 'vite-plugin-pwa';
 const CSP = [
   "default-src 'self'",
   "connect-src 'self'",
-  "script-src 'self'",
+  // 'wasm-unsafe-eval' autorise seulement l'exécution du moteur de calcul embarqué (WebAssembly).
+  "script-src 'self' 'wasm-unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' blob: data:",
   "worker-src 'self' blob:",
@@ -40,7 +41,11 @@ export default defineConfig({
       registerType: 'autoUpdate',
       injectRegister: 'script',
       includeAssets: ['apple-touch-icon.png', 'icon.svg'],
-      workbox: { globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'] },
+      workbox: {
+        // Le modèle de visages et son moteur sont mis en cache avec l'app : tout marche hors ligne.
+        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,wasm,task}'],
+        maximumFileSizeToCacheInBytes: 25 * 1024 * 1024,
+      },
       manifest: {
         name: 'Photo Triage',
         short_name: 'Photo Triage',

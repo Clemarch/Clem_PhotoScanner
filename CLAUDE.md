@@ -26,9 +26,14 @@ Ne pas entamer un nouveau jalon sans son accord.
 
 - `src/engine` : TypeScript pur. N'importe ni `platform`, ni `ui`, ni bibliothèque externe ; ne touche pas au navigateur.
   Tous les seuils et poids dans `src/engine/config.ts`.
-- `src/platform` : tout ce qui dépend de Safari (décodage, Worker, appareil). Importe `engine`.
+- `src/platform` : tout ce qui dépend de Safari (décodage, Worker, MediaPipe, appareil). Importe `engine`.
 - `src/ui` : React. Importe `engine` et `platform`.
 - Mémoire iOS : une photo décodée à la fois, réduite à 1024 px, `close()` et canvas remis à zéro après usage.
+
+## MediaPipe : ne pas mettre à jour sans inspection
+
+`@mediapipe/tasks-vision` est figé en 0.10.34. Les versions 1.x envoient des statistiques d'usage à Google
+(voir `docs/decisions.md`, point 8). Un test et `tools/check-dist.mjs` bloquent toute régression.
 
 ## Commandes
 
@@ -43,4 +48,5 @@ GitHub Actions (`.github/workflows/deploy.yml`) publie sur GitHub Pages à chaqu
 
 ## État
 
-Jalons 0 (diagnostic) et 1 (paquets par temps + netteté globale) faits. Suite : voir `docs/decisions.md`.
+Jalons 0 (diagnostic), 1 (paquets par temps + netteté globale) et 2 (visages, note par photo, raisons) faits.
+Suite : jalon 3 (groupes de pose, sélection avec quota). Voir `docs/decisions.md`.

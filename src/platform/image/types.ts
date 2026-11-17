@@ -20,10 +20,22 @@ export interface FileDiagnostic {
   /** Où l'analyse a tourné : 'worker' (en arrière-plan) ou 'principal'. */
   thread: 'worker' | 'principal';
   error: string | null;
+  /** Durée de la recherche de visages, et nombre de visages trouvés (null si non cherchés). */
+  faceMs: number | null;
+  faceCount: number | null;
+}
+
+/** Image réduite gardée juste le temps de chercher les visages, puis libérée. */
+export interface AnalysisFrame {
+  bitmap: ImageBitmap;
+  gray: Uint8Array;
+  width: number;
+  height: number;
 }
 
 export interface AnalyzeResult {
   item: MediaItem;
   thumbnail: Blob | null;
   diagnostic: FileDiagnostic;
+  frame: AnalysisFrame | null;
 }

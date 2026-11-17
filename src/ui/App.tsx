@@ -9,6 +9,8 @@ import {
   type InterruptedRun,
 } from '../platform/device';
 import type { AnalyzeResult } from '../platform/image/types';
+import { measureFace } from '../engine';
+import { createFaceDetector, type FaceDetector } from '../platform/vision/faceDetector';
 import { createAnalyzer } from '../platform/worker/analyzer';
 import type { Session } from './session';
 import { Accueil } from './screens/Accueil';
@@ -40,6 +42,13 @@ export function App() {
     const heapBeforeMB = readJsHeapMB();
     const wake = await keepScreenAwake();
     const analyzer = createAnalyzer();
+    let detector: FaceDetector | null = null;
+    let faceError: string | null = null;
+    try {
+      detector = await createFaceDetector();
+    } catch (e) {
+      faceError = e instanceof Error ? e.message : String(e);
+    }
     const results: AnalyzeResult[] = [];
     const thumbnails = new Map<string, string>();
     const startedAt = performance.now();
@@ -49,11 +58,28 @@ export function App() {
       setProgress({ done: i, total: files.length, name: file.name });
       markProgress(i + 1, files.length);
       const result = await analyzer.analyze(`m${i + 1}`, file);
+      const frame = result.frame;
+      result.frame = null;
+      if (frame) {
+        if (detector) {
+          try {
+            const t = performance.now();
+            const observations = detector.detect(frame.bitmap);
+            result.item.faces = observations.map((o) => measureFace(o, frame.gray, frame.width, frame.height));
+            result.diagnostic.faceMs = performance.now() - t;
+            result.diagnostic.faceCount = observations.length;
+          } catch (e) {
+            faceError ??= e instanceof Error ? e.message : String(e);
+          }
+        }
+        frame.bitmap.close();
+      }
       results.push(result);
       if (result.thumbnail) thumbnails.set(result.item.id, URL.createObjectURL(result.thumbnail));
     }
 
     analyzer.dispose();
+    detector?.close();
     wake.release();
     clearProgress();
     const device = await readDeviceReport();
@@ -66,6 +92,7 @@ export function App() {
       heapBeforeMB,
       heapAfterMB: readJsHeapMB(),
       device,
+      faceError,
     });
     setProgress(null);
     setTab('paquets');
