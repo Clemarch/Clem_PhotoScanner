@@ -15,6 +15,9 @@ interface Props {
   onChoose: (item: MediaItem, pack: PackAnalysis, choice: Choice | null) => void;
 }
 
+/** Le paquet mêle-t-il plusieurs types de photo (personnes et paysages, par exemple) ? */
+const mixed = (pack: PackAnalysis): boolean => new Set(pack.sceneOf.values()).size > 1;
+
 export function Paquets({ session, day, gap, onGap, choices, onChoose }: Props) {
   const [viewing, setViewing] = useState<number | null>(null);
   const numberOf = (id: string) => day.dayIndex.get(id) ?? null;
@@ -112,16 +115,21 @@ export function Paquets({ session, day, gap, onGap, choices, onChoose }: Props) 
           <section className="carte" key={pack.key}>
             <div className="titre-paquet">
               <h3>
-                Paquet {i + 1} <span className="type">{sceneLabel[pack.scene]}</span>
+                Paquet {i + 1} <span className="type">{mixed(pack) ? 'Mixte' : sceneLabel[pack.scene]}</span>
               </h3>
               <span>
                 {formatShortTime(pack.pack.startAt)} · {keep} / {pack.pack.items.length} gardée{keep > 1 ? 's' : ''}
               </span>
             </div>
-            <p className="cherche">On cherche : {sceneGoal[pack.scene]}.</p>
+            {mixed(pack) ? null : <p className="cherche">On cherche : {sceneGoal[pack.scene]}.</p>}
             {pack.poses.map((pose) => (
               <div className="pose" key={pose.id}>
-                {pack.poses.length > 1 && <span className="pose-lettre">Pose {pose.label}</span>}
+                {pack.poses.length > 1 && (
+                  <span className="pose-lettre">
+                    Pose {pose.label}
+                    {mixed(pack) && ` · ${sceneLabel[pack.sceneOf.get(pose.items[0]!.id) ?? pack.scene]}`}
+                  </span>
+                )}
                 <div className="grille">{pose.items.map((item) => tile(item, pack))}</div>
               </div>
             ))}
