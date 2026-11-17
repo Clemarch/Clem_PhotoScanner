@@ -11,6 +11,7 @@ import {
 import type { AnalyzeResult } from '../platform/image/types';
 import { measureFace, sortChronologically } from '../engine';
 import { createFaceDetector, type FaceDetector } from '../platform/vision/faceDetector';
+import { createObjectDetector, type ObjectDetector } from '../platform/vision/objectDetector';
 import { createAnalyzer } from '../platform/worker/analyzer';
 import type { Session } from './session';
 import { Accueil } from './screens/Accueil';
@@ -49,6 +50,12 @@ export function App() {
     } catch (e) {
       faceError = e instanceof Error ? e.message : String(e);
     }
+    let objectDetector: ObjectDetector | null = null;
+    try {
+      objectDetector = await createObjectDetector();
+    } catch (e) {
+      faceError ??= `objets : ${e instanceof Error ? e.message : String(e)}`;
+    }
     const results: AnalyzeResult[] = [];
     const thumbnails = new Map<string, string>();
     const startedAt = performance.now();
@@ -65,11 +72,20 @@ export function App() {
           try {
             const t = performance.now();
             const observations = detector.detect(frame.bitmap);
-            result.item.faces = observations.map((o) => measureFace(o, frame.gray, frame.width, frame.height, result.item.focal35));
+            result.item.faces = observations.map((o) => measureFace(o, frame.gray, frame.width, frame.height, result.item.focal35, frame.rgba));
             result.diagnostic.faceMs = performance.now() - t;
             result.diagnostic.faceCount = observations.length;
           } catch (e) {
             faceError ??= e instanceof Error ? e.message : String(e);
+          }
+        }
+        if (objectDetector) {
+          try {
+            const t = performance.now();
+            result.item.objects = objectDetector.detect(frame.bitmap);
+            result.diagnostic.objectMs = performance.now() - t;
+          } catch (e) {
+            faceError ??= `objets : ${e instanceof Error ? e.message : String(e)}`;
           }
         }
         frame.bitmap.close();
@@ -80,6 +96,7 @@ export function App() {
 
     analyzer.dispose();
     detector?.close();
+    objectDetector?.close();
     wake.release();
     clearProgress();
     const device = await readDeviceReport();

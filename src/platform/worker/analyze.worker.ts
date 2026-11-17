@@ -13,7 +13,7 @@ scope.onmessage = async (event: MessageEvent<AnalyzeRequest>) => {
   try {
     const result = await analyzeFile(id, file, 'worker');
     // L'image et ses pixels sont donnés à la page sans copie.
-    if (result.frame) transfer.push(result.frame.bitmap, result.frame.gray.buffer);
+    if (result.frame) transfer.push(result.frame.bitmap, result.frame.gray.buffer, result.frame.rgba.buffer);
     response = { id, ok: true, result };
   } catch (e) {
     response = { id, ok: false, error: e instanceof Error ? e.message : String(e) };

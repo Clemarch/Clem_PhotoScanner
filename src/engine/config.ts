@@ -60,29 +60,100 @@ export const config = {
     poutFrom: 0.3,
     poutPenalty: 0.5,
   },
+  content: {
+    /** Catégories du détecteur d'objets considérées comme gênantes quand elles touchent les personnes
+     *  (objet tenu en main, sac…). Nom anglais du modèle → nom affiché. */
+    distractingLabels: {
+      bottle: 'bouteille',
+      'wine glass': 'verre',
+      cup: 'tasse ou gobelet',
+      'cell phone': 'téléphone',
+      handbag: 'sac',
+      backpack: 'sac à dos',
+      suitcase: 'valise',
+      umbrella: 'parapluie',
+      remote: 'télécommande',
+      book: 'livre',
+      bowl: 'bol',
+      fork: 'fourchette',
+      knife: 'couteau',
+      spoon: 'cuillère',
+      banana: 'banane',
+      sandwich: 'sandwich',
+      'hot dog': 'hot-dog',
+      pizza: 'pizza',
+      donut: 'beignet',
+      cake: 'gâteau',
+      scissors: 'ciseaux',
+      toothbrush: 'brosse à dents',
+      'hair drier': 'sèche-cheveux',
+    } as Record<string, string>,
+    /** Score minimal pour retenir une détection d'objet ou de personne. */
+    minObjectScore: 0.35,
+    /** Un objet gênant est compté s'il touche la zone des personnes, ou s'il occupe au moins cette part de l'image. */
+    largeObjectArea: 0.04,
+    /** Zone des personnes autour d'un visage : largeur et hauteur en multiples de la taille du visage. */
+    subjectZoneWidth: 3,
+    subjectZoneHeight: 4.5,
+    /** Pénalité par objet gênant, et pénalité maximale. */
+    objectPenalty: 0.12,
+    objectPenaltyMax: 0.3,
+    /** Personnes en arrière-plan : une personne pèse selon sa taille (part de l'image × ce facteur, plafonné à 1)
+     *  et sa position (plus elle est au centre, plus elle gêne). */
+    backgroundAreaFactor: 12,
+    backgroundEdgeWeight: 0.35,
+    /** Pénalité pour une « personne entière » d'écart avec la photo du paquet la plus dégagée, et pénalité maximale. */
+    backgroundPenalty: 0.1,
+    backgroundPenaltyMax: 0.3,
+    /** Visage en partie masqué : écart de couleur avec la même personne sur les autres photos du paquet.
+     *  Écart de teinte (chromaticité) et de luminosité à partir duquel on commence à compter, et pleine échelle. */
+    occlusionChromaFrom: 0.025,
+    occlusionChromaFull: 0.07,
+    occlusionLumaFrom: 0.35,
+    occlusionLumaFull: 0.9,
+    /** Part de la note du visage perdue quand il est entièrement masqué. */
+    occlusionPenalty: 0.6,
+    /** Il faut au moins ce nombre de photos complètes dans le paquet pour juger un masquage. */
+    occlusionMinPhotos: 3,
+  },
+  framing: {
+    /** Lignes considérées : celles à moins de ce nombre de degrés de l'horizontale ou de la verticale. */
+    tiltSearchDeg: 15,
+    /** Contraste minimal d'un contour pour qu'il compte. */
+    tiltEdgeMin: 40,
+    /** La mesure n'est retenue que si cette part des contours s'aligne sur une même direction. */
+    tiltStrengthMin: 0.1,
+    /** Sous cette inclinaison, la photo est considérée droite ; à `tiltFullDeg` la pénalité est pleine. */
+    tiltToleranceDeg: 1.5,
+    tiltFullDeg: 6,
+    tiltPenalty: 0.2,
+  },
   scoring: {
-    /** Note d'un visage. */
-    faceWeights: { eyes: 0.2, gaze: 0.3, expression: 0.3, sharpness: 0.2 },
+    /** Note d'un visage. Le contenu d'abord : l'expression domine. Le regard compte peu,
+     *  car regarder au loin peut faire une très belle photo. */
+    faceWeights: { eyes: 0.15, gaze: 0.1, expression: 0.55, sharpness: 0.2 },
     /** Note « visages » d'une photo : le visage le plus raté pèse le plus. */
     worstFaceWeight: 0.6,
     meanFaceWeight: 0.4,
-    /** Note d'une photo. Le cadrage (0,15 dans le plan) n'est pas encore mesuré : les poids sont renormalisés. */
-    photoWeights: { faces: 0.7, technique: 0.15 },
-    /** La netteté varie sur plusieurs ordres de grandeur : cet exposant adoucit la comparaison. */
-    sharpnessExponent: 0.5,
+    /** Note d'une photo : visages, puis technique (netteté globale). */
+    photoWeights: { faces: 0.85, technique: 0.15 },
+    /** La netteté ne sert qu'à repérer un défaut : au-dessus de `sharpEnough` fois la référence du paquet,
+     *  elle vaut le maximum (une photo plus nette n'est pas une meilleure photo) ; sous `sharpFloor`, zéro. */
+    sharpEnough: 0.6,
+    sharpFloor: 0.2,
     /** Part de la note « visages » perdue quand tous les visages attendus manquent. */
     missingFacePenalty: 0.5,
     /** Veto : yeux considérés fermés sous cette note d'ouverture. */
     eyesClosedBelow: 0.3,
     /** Seuils des raisons affichées. */
     reasons: {
-      gazeAwayBelow: 0.5,
-      gazeGoodFrom: 0.75,
-      expressionBadBelow: 0.35,
+      talkingFrom: 0.15,
+      poutFrom: 0.15,
       smileFrom: 0.5,
       faceBlurBelow: 0.5,
-      faceSharpFrom: 0.85,
       lessSharpBelow: 0.7,
+      occlusionFrom: 0.35,
+      backgroundFrom: 0.5,
     },
   },
 } as const;

@@ -2,7 +2,7 @@
 // Fonctionne aussi bien dans un Web Worker que dans la page.
 
 import exifr from 'exifr';
-import { config, detectFormat, rgbaToGray, sharpnessFromGray, type MediaItem } from '../../engine';
+import { config, detectFormat, measureTilt, rgbaToGray, sharpnessFromGray, type MediaItem } from '../../engine';
 import type { AnalysisFrame, AnalyzeResult, FileDiagnostic } from './types';
 
 interface ExifData {
@@ -178,6 +178,9 @@ export async function analyzeFile(
     focal35: exif.focal35,
     sharpness: null,
     faces: null,
+    objects: null,
+    tiltDeg: null,
+    tiltStrength: null,
   };
 
   const diagnostic: FileDiagnostic = {
@@ -196,6 +199,7 @@ export async function analyzeFile(
     error: null,
     faceMs: null,
     faceCount: null,
+    objectMs: null,
   };
 
   // RAW et vidéos : repérés, mis de côté, jamais décodés.
@@ -225,6 +229,9 @@ export async function analyzeFile(
         config.sharpness.gridSize,
         config.sharpness.topFraction,
       );
+      const tilt = measureTilt(gray, size.w, size.h);
+      item.tiltDeg = tilt.degrees;
+      item.tiltStrength = tilt.strength;
       diagnostic.analysisMs = performance.now() - t2;
 
       const thumbSize = fit(size.w, size.h, config.image.thumbnailMaxSide);
@@ -236,7 +243,7 @@ export async function analyzeFile(
       // L'image réduite part vers la recherche de visages, puis sera libérée.
       const bitmap =
         'transferToImageBitmap' in work.canvas ? work.canvas.transferToImageBitmap() : await createImageBitmap(work.canvas);
-      frame = { bitmap, gray, width: size.w, height: size.h };
+      frame = { bitmap, gray, rgba: pixels.data, width: size.w, height: size.h };
       releaseCanvas(work.canvas);
     } finally {
       decoded.release();

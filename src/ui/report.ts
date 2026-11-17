@@ -2,6 +2,8 @@ import type { Session } from './session';
 import { config, groupIntoPacks, mainFaces, scorePack, type PhotoScore } from '../engine';
 import { formatDateTime, formatMs, formatOrientation, formatSize } from './format';
 
+const color = (c: readonly number[] | null): string => (c ? c.map((v) => Math.round(v)).join(',') : '?');
+
 const avg = (values: number[]): number | null =>
   values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
 
@@ -83,6 +85,7 @@ export function buildReport(session: Session): string {
     `Types : ${counts(s.formats)}`,
     `Décodage : ${counts(s.methods)} · fil : ${counts(s.threads)}`,
     `Temps : total ${formatMs(session.totalMs)} · décodage moyen ${formatMs(s.avgDecodeMs)} · max ${formatMs(s.maxDecodeMs)}`,
+    `Objets : ${avg(session.results.flatMap((r) => (r.diagnostic.objectMs === null ? [] : [r.diagnostic.objectMs]))) === null ? 'non détectés' : `recherche moyenne ${formatMs(avg(session.results.flatMap((r) => (r.diagnostic.objectMs === null ? [] : [r.diagnostic.objectMs]))))}`}`,
     `Visages : ${session.faceError ? `INDISPONIBLE (${session.faceError})` : `${s.photosWithFaces} photos avec visage · recherche moyenne ${formatMs(s.avgFaceMs)}`}`,
     `Mémoire : ${session.heapAfterMB === null ? 'non mesurable sur ce navigateur' : `${session.heapBeforeMB?.toFixed(0)} → ${session.heapAfterMB.toFixed(0)} Mo`}`,
     `Écran maintenu allumé : ${session.wakeLock ? 'oui' : 'non'} · analyse ${session.cancelled ? 'ANNULÉE' : 'terminée'}`,
@@ -118,11 +121,12 @@ export function buildReport(session: Session): string {
         .sort((a, b) => a.box.x + a.box.width / 2 - (b.box.x + b.box.width / 2))
         .map(
           (f) =>
-            `[x ${(f.box.x + f.box.width / 2).toFixed(2)} yeux ${f.eyesOpen.toFixed(2)} regard ${f.gaze.toFixed(2)} expr ${f.expression.toFixed(2)} sourire ${f.smile.toFixed(2)} net ${f.sharpness.toFixed(0)} tête ${f.yawDeg.toFixed(0)}°/${f.pitchDeg.toFixed(0)}° écart-objectif ${f.offAxisHDeg.toFixed(0)}°/${f.offAxisVDeg.toFixed(0)}° yeux-dir ${f.eyeH.toFixed(2)}/${f.eyeV.toFixed(2)}${f.cut ? ' COUPÉ' : ''}]`,
+            `[x ${(f.box.x + f.box.width / 2).toFixed(2)} yeux ${f.eyesOpen.toFixed(2)} regard ${f.gaze.toFixed(2)} expr ${f.expression.toFixed(2)} sourire ${f.smile.toFixed(2)} parle ${f.talking.toFixed(2)} moue ${f.pout.toFixed(2)} net ${f.sharpness.toFixed(0)} tête ${f.yawDeg.toFixed(0)}°/${f.pitchDeg.toFixed(0)}° écart-objectif ${f.offAxisHDeg.toFixed(0)}°/${f.offAxisVDeg.toFixed(0)}° yeux-dir ${f.eyeH.toFixed(2)}/${f.eyeV.toFixed(2)}${f.cut ? ' COUPÉ' : ''} couleur ${color(f.upperColor)}/${color(f.lowerColor)}]`,
         )
         .join(' ');
+      const objects = (item.objects ?? []).map((o) => `${o.label} ${o.score.toFixed(2)}`).join(', ') || 'aucun';
       lines.push(
-        `    ${score.pack} note ${score.score.toFixed(2)} rang ${score.rank}${score.vetoed ? ' VETO' : ''} · visages ${score.faceCount}/${score.expectedFaces} (${g.faceCount ?? '?'} détectés, ${formatMs(g.faceMs)}) · ${score.reasons.map((r) => r.code).join(', ') || '—'} ${faces}`,
+        `    ${score.pack} note ${score.score.toFixed(2)} rang ${score.rank}${score.vetoed ? ' VETO' : ''} · visages ${score.faceCount}/${score.expectedFaces} (${g.faceCount ?? '?'} détectés, ${formatMs(g.faceMs)}) · ${score.reasons.map((r) => r.code).join(', ') || '—'} · masquage ${score.occlusion.toFixed(2)} arrière-plan ${score.background.toFixed(2)} gêne ${score.distraction} · penché ${item.tiltDeg?.toFixed(1) ?? '?'}° (force ${item.tiltStrength?.toFixed(2) ?? '?'}) · objets : ${objects} ${faces}`,
       );
     }
   });
