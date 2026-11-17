@@ -33,8 +33,14 @@ describe('corps : mains et pieds coupés', () => {
     expect(measureBody(body({ 14: { y: 0.8 }, 16: { y: 0.98 }, 20: { y: 1.02 } })).cutHands).toBe(1);
   });
 
+  it('repère une main en partie visible au bord, même si le coude est hors champ (selfie très proche)', () => {
+    // Coude hors champ ; poignet bien dans l'image, doigts sous le bord.
+    const b = measureBody(body({ 13: { x: 0.4, y: 1.15, visibility: 0.2 }, 15: { x: 0.42, y: 0.93 }, 19: { x: 0.43, y: 1.01, visibility: 0.4 } }));
+    expect(b.cutHands).toBe(1);
+  });
+
   it('ne compte pas une main hors champ si le coude l’est aussi (bras entier hors cadre)', () => {
-    expect(measureBody(body({ 13: { y: 1.2 }, 15: { y: 1.4 }, 19: { y: 1.45 } })).cutHands).toBe(0);
+    expect(measureBody(body({ 13: { y: 1.2 }, 15: { y: 1.4 }, 17: { y: 1.42 }, 19: { y: 1.45 }, 21: { y: 1.41 } })).cutHands).toBe(0);
   });
 
   it('repère des pieds coupés (genou dedans, cheville dehors)', () => {
