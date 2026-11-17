@@ -4,11 +4,11 @@
 // Ce qui est recherché dépend du type de photo (selfie, portrait, groupe, paysage, coucher de soleil).
 
 import { config } from '../config';
-import { analyzeContent, compareFaces, countSubjects, subjectPersons } from '../analysis/content';
+import { analyzeContent, compareFaces, countSubjects, recurringPersons, subjectPersons } from '../analysis/content';
 import { mainFaces } from '../analysis/faces';
 import { tiltDefect } from '../analysis/framing';
 import { classifyPack, exposureBalance } from '../analysis/scene';
-import { learnedAdjustment } from '../learning/preferences';
+import { learnedAdjustment, meanFeatures } from '../learning/preferences';
 import type { FaceMetrics, Features, LearnedWeights, MediaItem, PhotoScore, Reason, SceneType } from '../types';
 
 /** Valeur haute de référence, sans se laisser tromper par une mesure isolée anormalement élevée. */
@@ -117,8 +117,12 @@ export function scorePackDetailed(
           { occlusion: changes.occlusion[i]!, front: changes.front[i]!, brightness: changes.brightness[i]! },
         ]),
       ),
-      // Places occupées par les sujets dans ce groupe.
-      knownSubjects: group.flatMap((item) => subjectPersons(facesOf.get(item.id)!, item.objects)),
+      // Places occupées par les sujets dans ce groupe : personnes dont on voit le visage, et personnes qui reviennent
+      // au même endroit sur la plupart des photos (vues de dos).
+      knownSubjects: [
+        ...group.flatMap((item) => subjectPersons(facesOf.get(item.id)!, item.objects)),
+        ...recurringPersons(group.map((item) => item.objects)),
+      ],
       sharpest: group.reduce<MediaItem | null>(
         (best, item) => ((item.sharpness ?? -1) > (best?.sharpness ?? -1) ? item : best),
         null,
@@ -347,11 +351,10 @@ export function scorePackDetailed(
       equilibre: parts?.balance ?? 1,
       nettete: rawRatio,
     };
-    const learnedBonus = learnedAdjustment(features, learned);
 
     return {
       id: item.id,
-      score: baseScore + learnedBonus,
+      score: baseScore,
       rank: 0,
       vetoed,
       reasons,
@@ -365,10 +368,19 @@ export function scorePackDetailed(
       front,
       faceBrightness,
       baseScore,
-      learned: learnedBonus,
+      learned: 0,
       features,
     };
   });
+
+  // Goûts appris : ajustement centré sur la moyenne du paquet (départage, sans relever le paquet entier).
+  if (Object.keys(learned).length > 0) {
+    const reference = meanFeatures(scores.map((score) => score.features));
+    for (const score of scores) {
+      score.learned = learnedAdjustment(score.features, learned, reference);
+      score.score = score.baseScore + score.learned;
+    }
+  }
 
   // Jugement relatif : si tout le paquet est sous veto, le veto ne départage plus rien, on le lève.
   if (scores.length > 0 && scores.every((score) => score.vetoed)) for (const score of scores) score.vetoed = false;

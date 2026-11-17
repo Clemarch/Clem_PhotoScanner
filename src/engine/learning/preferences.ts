@@ -5,14 +5,24 @@
 import { config } from '../config';
 import { FEATURE_NAMES, type ChoiceRecord, type Features, type LearnedWeights } from '../types';
 
-/** Ajustement de la note d'une photo d'après les poids appris, plafonné. */
-export function learnedAdjustment(features: Features, weights: LearnedWeights): number {
+/**
+ * Ajustement de la note d'une photo d'après les poids appris, plafonné.
+ * `reference` : valeur moyenne de chaque critère dans le paquet. Seul l'écart à cette moyenne compte :
+ * l'ajustement départage les photos d'un paquet, il ne relève ni n'abaisse le paquet entier.
+ */
+export function learnedAdjustment(features: Features, weights: LearnedWeights, reference?: Features): number {
   const max = config.learning.maxAdjustment;
   let sum = 0;
-  for (const name of FEATURE_NAMES) sum += (weights[name] ?? 0) * features[name];
-  // Centré : un critère moyen (0,5) n'ajoute rien, seuls les écarts comptent.
-  for (const name of FEATURE_NAMES) sum -= (weights[name] ?? 0) * 0.5;
+  for (const name of FEATURE_NAMES) sum += (weights[name] ?? 0) * (features[name] - (reference ? reference[name] : 0.5));
   return Math.max(-max, Math.min(max, sum));
+}
+
+/** Moyenne de chaque critère sur un ensemble de photos. */
+export function meanFeatures(list: readonly Features[]): Features {
+  const out = Object.fromEntries(FEATURE_NAMES.map((name) => [name, 0])) as Features;
+  if (list.length === 0) return Object.fromEntries(FEATURE_NAMES.map((name) => [name, 0.5])) as Features;
+  for (const f of list) for (const name of FEATURE_NAMES) out[name] += f[name] / list.length;
+  return out;
 }
 
 export interface Preference {
