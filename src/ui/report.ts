@@ -88,7 +88,7 @@ export function buildReport(session: Session): string {
     `Écran maintenu allumé : ${session.wakeLock ? 'oui' : 'non'} · analyse ${session.cancelled ? 'ANNULÉE' : 'terminée'}`,
     '',
     'n° | nom | type (type déclaré) | taille | date de prise de vue | date du fichier | orientation | dimensions | décodage | netteté | erreur',
-    '    puis : note, rang dans le paquet, raisons, et pour chaque visage principal : yeux / regard / expression / netteté / rotation tête',
+    '    puis : note, rang dans le paquet, raisons, et les mesures de chaque visage principal (de gauche à droite)',
   ];
   const day = groupIntoPacks(
     session.results.map((r) => r.item),
@@ -106,7 +106,7 @@ export function buildReport(session: Session): string {
         item.capturedAt === null ? 'ABSENTE' : formatDateTime(item.capturedAt),
         formatDateTime(g.fileModifiedAt),
         formatOrientation(item.orientation),
-        item.width && item.height ? `${item.width}x${item.height}` : '?',
+        `${item.width && item.height ? `${item.width}x${item.height}` : '?'} f${item.focal35 ?? '?'}`,
         g.decodeMs === null ? '—' : `${formatMs(g.decodeMs)} ${g.decodeMethod}/${g.thread}`,
         item.sharpness === null ? '—' : item.sharpness.toFixed(0),
         g.error ?? '',
@@ -115,9 +115,10 @@ export function buildReport(session: Session): string {
     const score = scores.get(item.id);
     if (score) {
       const faces = mainFaces(item.faces)
+        .sort((a, b) => a.box.x + a.box.width / 2 - (b.box.x + b.box.width / 2))
         .map(
           (f) =>
-            `[yeux ${f.eyesOpen.toFixed(2)} regard ${f.gaze.toFixed(2)} expr ${f.expression.toFixed(2)} net ${f.sharpness.toFixed(0)} tête ${f.yawDeg.toFixed(0)}°/${f.pitchDeg.toFixed(0)}°${f.cut ? ' COUPÉ' : ''}]`,
+            `[x ${(f.box.x + f.box.width / 2).toFixed(2)} yeux ${f.eyesOpen.toFixed(2)} regard ${f.gaze.toFixed(2)} expr ${f.expression.toFixed(2)} sourire ${f.smile.toFixed(2)} net ${f.sharpness.toFixed(0)} tête ${f.yawDeg.toFixed(0)}°/${f.pitchDeg.toFixed(0)}° écart-objectif ${f.offAxisHDeg.toFixed(0)}°/${f.offAxisVDeg.toFixed(0)}° yeux-dir ${f.eyeH.toFixed(2)}/${f.eyeV.toFixed(2)}${f.cut ? ' COUPÉ' : ''}]`,
         )
         .join(' ');
       lines.push(

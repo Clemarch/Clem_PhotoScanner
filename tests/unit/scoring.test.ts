@@ -12,6 +12,10 @@ const face = (extra: Partial<FaceMetrics> = {}): FaceMetrics => ({
   cut: false,
   yawDeg: 0,
   pitchDeg: 0,
+  offAxisHDeg: 0,
+  offAxisVDeg: 0,
+  eyeH: 0,
+  eyeV: 0,
   ...extra,
 });
 
@@ -48,7 +52,7 @@ describe('note des photos d’un paquet', () => {
   });
 
   it('lève le veto quand tout le paquet est concerné : la moins mauvaise gagne', () => {
-    const scores = scorePack([photo('a', [face({ eyesOpen: 0.1 })]), photo('b', [face({ eyesOpen: 0.3 })])]);
+    const scores = scorePack([photo('a', [face({ eyesOpen: 0.05 })]), photo('b', [face({ eyesOpen: 0.2 })])]);
     expect([...scores.values()].some((s) => s.vetoed)).toBe(false);
     expect(scores.get('b')!.rank).toBe(1);
   });
@@ -77,6 +81,19 @@ describe('note des photos d’un paquet', () => {
     expect(scores.get('net')!.rank).toBe(1);
     expect(codes(scores.get('boug'))).toContain('visage-flou');
     expect(codes(scores.get('net'))).toContain('visage-net');
+  });
+
+  it('compare la netteté de chaque personne à elle-même, pas à sa voisine', () => {
+    // À gauche un visage toujours mesuré vers 320, à droite un visage vers 550 : aucun des deux n'est flou.
+    const left = (sharpness: number) => face({ box: { x: 0.1, y: 0.3, width: 0.2, height: 0.25 }, sharpness });
+    const right = (sharpness: number) => face({ box: { x: 0.6, y: 0.3, width: 0.2, height: 0.25 }, sharpness });
+    const scores = scorePack([
+      photo('a', [right(1187), left(244)]),
+      photo('b', [left(327), right(376)]),
+      photo('c', [left(341), right(611)]),
+      photo('d', [left(319), right(546)]),
+    ]);
+    for (const id of ['a', 'b', 'c', 'd']) expect(codes(scores.get(id))).not.toContain('visage-flou');
   });
 
   it('pénalise une photo sans visage dans un paquet de portraits', () => {

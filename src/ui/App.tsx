@@ -9,7 +9,7 @@ import {
   type InterruptedRun,
 } from '../platform/device';
 import type { AnalyzeResult } from '../platform/image/types';
-import { measureFace } from '../engine';
+import { measureFace, sortChronologically } from '../engine';
 import { createFaceDetector, type FaceDetector } from '../platform/vision/faceDetector';
 import { createAnalyzer } from '../platform/worker/analyzer';
 import type { Session } from './session';
@@ -65,7 +65,7 @@ export function App() {
           try {
             const t = performance.now();
             const observations = detector.detect(frame.bitmap);
-            result.item.faces = observations.map((o) => measureFace(o, frame.gray, frame.width, frame.height));
+            result.item.faces = observations.map((o) => measureFace(o, frame.gray, frame.width, frame.height, result.item.focal35));
             result.diagnostic.faceMs = performance.now() - t;
             result.diagnostic.faceCount = observations.length;
           } catch (e) {
@@ -83,6 +83,9 @@ export function App() {
     wake.release();
     clearProgress();
     const device = await readDeviceReport();
+    // Ordre de la journée : le numéro d'une photo est le même dans les deux onglets.
+    const order = new Map(sortChronologically(results.map((r) => r.item)).map((item, i) => [item.id, i]));
+    results.sort((a, b) => order.get(a.item.id)! - order.get(b.item.id)!);
     setSession({
       results,
       thumbnails,

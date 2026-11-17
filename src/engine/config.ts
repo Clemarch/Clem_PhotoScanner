@@ -35,12 +35,23 @@ export const config = {
     mainRelativeArea: 0.35,
     /** Marge (en proportion de l'image) sous laquelle un visage est considéré coupé par le bord. */
     cutMargin: 0.004,
-    /** Regard : écart des yeux et rotation de la tête à partir desquels la note tombe à zéro. */
-    eyeDeviationMax: 0.6,
-    yawMaxDeg: 40,
-    pitchMaxDeg: 30,
-    eyeDeviationWeight: 0.55,
-    headDeviationWeight: 0.55,
+    /** Yeux : en dessous de `eyesClosedAt` ils comptent comme fermés, au-dessus de `eyesOpenAt` comme
+     *  grands ouverts. Entre les deux la note monte en ligne droite. Évite de départager deux photos
+     *  sur un simple plissement (sourire, lunettes). */
+    eyesClosedAt: 0.3,
+    eyesOpenAt: 0.65,
+    /** Regard : écart (degrés) entre la direction du visage et celle de l'objectif.
+     *  Sous `gazeFullDeg` la note est maximale, au-delà de `gazeZeroDeg` elle est nulle. */
+    gazeFullDeg: 10,
+    gazeZeroDeg: 40,
+    /** L'inclinaison haut-bas de la tête renseigne moins sur le regard que sa rotation gauche-droite
+     *  (ce sont surtout les yeux qui montent et descendent) : elle compte moitié moins. */
+    gazeVerticalWeight: 0.5,
+    /** Focale supposée (équivalent 35 mm) quand la photo ne l'indique pas : objectif principal d'un iPhone. */
+    defaultFocal35: 26,
+    /** Rotation des yeux (degrés) quand ils sont tournés à fond dans la tête : sert à reconnaître
+     *  une tête tournée dont les yeux reviennent vers l'objectif. */
+    eyeRangeDeg: 30,
     /** Expression : note neutre, bonus du sourire, pénalités bouche ouverte (parole) et moue. */
     expressionNeutral: 0.55,
     smileBonus: 0.45,
@@ -51,7 +62,7 @@ export const config = {
   },
   scoring: {
     /** Note d'un visage. */
-    faceWeights: { eyes: 0.3, gaze: 0.25, expression: 0.2, sharpness: 0.25 },
+    faceWeights: { eyes: 0.2, gaze: 0.3, expression: 0.3, sharpness: 0.2 },
     /** Note « visages » d'une photo : le visage le plus raté pèse le plus. */
     worstFaceWeight: 0.6,
     meanFaceWeight: 0.4,
@@ -61,8 +72,8 @@ export const config = {
     sharpnessExponent: 0.5,
     /** Part de la note « visages » perdue quand tous les visages attendus manquent. */
     missingFacePenalty: 0.5,
-    /** Veto : yeux considérés fermés sous ce niveau d'ouverture. */
-    eyesClosedBelow: 0.4,
+    /** Veto : yeux considérés fermés sous cette note d'ouverture. */
+    eyesClosedBelow: 0.3,
     /** Seuils des raisons affichées. */
     reasons: {
       gazeAwayBelow: 0.5,

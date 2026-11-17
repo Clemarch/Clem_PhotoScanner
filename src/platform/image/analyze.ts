@@ -10,6 +10,7 @@ interface ExifData {
   orientation: number | null;
   width: number | null;
   height: number | null;
+  focal35: number | null;
   found: boolean;
 }
 
@@ -22,6 +23,7 @@ const EXIF_TAGS = [
   'ExifImageHeight',
   'ImageWidth',
   'ImageHeight',
+  'FocalLengthIn35mmFormat',
 ];
 
 function asNumber(value: unknown): number | null {
@@ -29,7 +31,7 @@ function asNumber(value: unknown): number | null {
 }
 
 async function readExif(file: Blob): Promise<ExifData> {
-  const empty: ExifData = { capturedAt: null, orientation: null, width: null, height: null, found: false };
+  const empty: ExifData = { capturedAt: null, orientation: null, width: null, height: null, focal35: null, found: false };
   try {
     const tags = (await exifr.parse(file, { pick: EXIF_TAGS, translateValues: false })) as
       | Record<string, unknown>
@@ -48,6 +50,7 @@ async function readExif(file: Blob): Promise<ExifData> {
       orientation: asNumber(tags.Orientation),
       width: asNumber(tags.ExifImageWidth) ?? asNumber(tags.ImageWidth),
       height: asNumber(tags.ExifImageHeight) ?? asNumber(tags.ImageHeight),
+      focal35: asNumber(tags.FocalLengthIn35mmFormat) || null,
       found: true,
     };
   } catch {
@@ -172,6 +175,7 @@ export async function analyzeFile(
     width: exif.width,
     height: exif.height,
     orientation: exif.orientation,
+    focal35: exif.focal35,
     sharpness: null,
     faces: null,
   };

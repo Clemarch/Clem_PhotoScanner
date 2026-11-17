@@ -86,7 +86,7 @@ button, label.bouton, .onglets label { font: inherit; color: inherit; cursor: po
 /* Bandeau sous l'heure et la batterie : le contenu ne passe plus dessous en défilant. */
 .page::before {
   content: ''; position: fixed; top: 0; left: 0; right: 0; height: env(safe-area-inset-top); z-index: 15;
-  background: rgba(14, 15, 18, 0.86); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  background: var(--fond);
 }
 
 .liste-simple { margin: 0; padding-left: 18px; color: var(--doux); font-size: 14px; }

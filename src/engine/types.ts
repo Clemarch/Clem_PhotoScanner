@@ -41,6 +41,12 @@ export interface FaceMetrics {
   /** Rotation de la tête en degrés : gauche-droite, puis haut-bas. */
   yawDeg: number;
   pitchDeg: number;
+  /** Écart (degrés) entre la direction de la tête et la direction de l'objectif : horizontal, puis vertical. */
+  offAxisHDeg: number;
+  offAxisVDeg: number;
+  /** Direction des yeux dans la tête, entre -1 et 1 : horizontale, puis verticale. */
+  eyeH: number;
+  eyeV: number;
 }
 
 export interface MediaItem {
@@ -59,6 +65,8 @@ export interface MediaItem {
   height: number | null;
   /** Orientation EXIF (1 à 8), si connue. */
   orientation: number | null;
+  /** Focale de l'objectif en « équivalent 35 mm » (23 pour la caméra selfie, 24 pour la principale…), si connue. */
+  focal35: number | null;
   /** Netteté globale (plus grand = plus net). Ne se compare qu'entre photos d'un même paquet. */
   sharpness: number | null;
   /** Visages trouvés ; null si la recherche de visages n'a pas pu tourner. */
