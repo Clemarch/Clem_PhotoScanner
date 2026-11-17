@@ -20,7 +20,9 @@ for (const file of [
   'apple-touch-icon.png',
   'models/face_landmarker.task',
   'models/efficientdet_lite0.tflite',
-  'models/pose_landmarker_lite.task',
+  'models/selfie_multiclass_256x256.tflite',
+  'models/mobilenet_v3_small.tflite',
+  'models/efficientnet_lite0.tflite',
   'models/wasm/vision_wasm_internal.wasm',
 ])
   if (!existsSync(`dist/${file}`)) problems.push(`dist/${file} est absent`);
