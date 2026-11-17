@@ -78,10 +78,20 @@ export function measureTilt(gray: Uint8Array | Uint8ClampedArray, width: number,
   return { degrees: center / binsPerDeg - range, strength: near / total };
 }
 
-/** Pénalité d'inclinaison, entre 0 (droite ou mesure peu fiable) et 1 (franchement penchée). */
-export function tiltDefect(tiltDeg: number | null, strength: number | null): number {
+/** La mesure d'inclinaison est-elle assez fiable pour être prise en compte ? */
+export function tiltReliable(tiltDeg: number | null, strength: number | null): tiltDeg is number {
+  return tiltDeg !== null && strength !== null && strength >= config.framing.tiltStrengthMin;
+}
+
+/**
+ * Pénalité d'inclinaison, entre 0 (droite, ou mesure peu fiable) et 1 (franchement penchée).
+ * `referenceDeg` : inclinaison de la photo la plus droite du paquet. Seul l'écart avec elle compte :
+ * par le hublot d'un avion, tout est penché, et c'est la moins penchée qu'il faut préférer.
+ */
+export function tiltDefect(tiltDeg: number | null, strength: number | null, referenceDeg = 0): number {
   const cfg = config.framing;
-  if (tiltDeg === null || strength === null || strength < cfg.tiltStrengthMin) return 0;
-  const excess = Math.abs(tiltDeg) - cfg.tiltToleranceDeg;
+  if (!tiltReliable(tiltDeg, strength)) return 0;
+  const excess = Math.abs(tiltDeg) - Math.abs(referenceDeg) - cfg.tiltToleranceDeg;
   return Math.min(1, Math.max(0, excess / (cfg.tiltFullDeg - cfg.tiltToleranceDeg)));
 }
+

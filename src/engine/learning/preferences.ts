@@ -13,7 +13,7 @@ import { FEATURE_NAMES, type ChoiceRecord, type Features, type LearnedWeights } 
 export function learnedAdjustment(features: Features, weights: LearnedWeights, reference?: Features): number {
   const max = config.learning.maxAdjustment;
   let sum = 0;
-  for (const name of FEATURE_NAMES) sum += (weights[name] ?? 0) * (features[name] - (reference ? reference[name] : 0.5));
+  for (const name of FEATURE_NAMES) sum += (weights[name] ?? 0) * ((features[name] ?? 0.5) - (reference ? (reference[name] ?? 0.5) : 0.5));
   return Math.max(-max, Math.min(max, sum));
 }
 
@@ -21,7 +21,7 @@ export function learnedAdjustment(features: Features, weights: LearnedWeights, r
 export function meanFeatures(list: readonly Features[]): Features {
   const out = Object.fromEntries(FEATURE_NAMES.map((name) => [name, 0])) as Features;
   if (list.length === 0) return Object.fromEntries(FEATURE_NAMES.map((name) => [name, 0.5])) as Features;
-  for (const f of list) for (const name of FEATURE_NAMES) out[name] += f[name] / list.length;
+  for (const f of list) for (const name of FEATURE_NAMES) out[name] += (f[name] ?? 0.5) / list.length;
   return out;
 }
 
@@ -58,10 +58,12 @@ export function learnWeights(records: readonly ChoiceRecord[]): LearnedWeights {
     const grad: Record<string, number> = Object.fromEntries(FEATURE_NAMES.map((name) => [name, 0]));
     for (const { preferred, other } of pairs) {
       let z = preferred.baseScore - other.baseScore;
-      for (const name of FEATURE_NAMES) z += weights[name]! * (preferred.features[name] - other.features[name]);
+      // Un critère ajouté après l'enregistrement d'un choix vaut 0,5 (neutre) pour ce choix.
+      const diff = (name: (typeof FEATURE_NAMES)[number]) => (preferred.features[name] ?? 0.5) - (other.features[name] ?? 0.5);
+      for (const name of FEATURE_NAMES) z += weights[name]! * diff(name);
       // Probabilité que l'app classe comme l'utilisateur ; on corrige d'autant plus qu'elle se trompe.
       const miss = 1 / (1 + Math.exp(cfg.scale * z));
-      for (const name of FEATURE_NAMES) grad[name]! += miss * cfg.scale * (preferred.features[name] - other.features[name]);
+      for (const name of FEATURE_NAMES) grad[name]! += miss * cfg.scale * diff(name);
     }
     for (const name of FEATURE_NAMES) {
       const step = cfg.rate * (grad[name]! / pairs.length - cfg.regularization * weights[name]!);

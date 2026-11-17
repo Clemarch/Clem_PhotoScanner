@@ -25,6 +25,8 @@ function photo(id: string, secondsAfterStart: number | null, extra: Partial<Medi
     exposure: null,
     color: null,
     signature: null,
+    bodies: null,
+    obstruction: null,
     ...extra,
   };
 }

@@ -31,7 +31,7 @@ const left = (extra: Partial<FaceMetrics> = {}) => face({ box: { x: 0.15, y: 0.3
 const right = (extra: Partial<FaceMetrics> = {}) => face({ box: { x: 0.6, y: 0.3, width: 0.2, height: 0.25 }, ...extra });
 
 const photo = (id: string, faces: FaceMetrics[] | null, sharpness = 300, extra: Partial<MediaItem> = {}): MediaItem =>
-  ({ id, kind: 'photo', isRaw: false, sharpness, faces, objects: null, tiltDeg: null, tiltStrength: null, exposure: null, color: null, signature: null, ...extra }) as MediaItem;
+  ({ id, kind: 'photo', isRaw: false, sharpness, faces, objects: null, tiltDeg: null, tiltStrength: null, exposure: null, color: null, signature: null, bodies: null, obstruction: null, ...extra }) as MediaItem;
 
 const obj = (label: string, x: number, y: number, width: number, height: number): DetectedObject => ({
   label,
@@ -207,7 +207,7 @@ describe('éléments qui gâchent la photo', () => {
     const scores = scorePack([
       photo('droite', [face()], 300, { tiltDeg: 0.3, tiltStrength: 0.4 }),
       photo('penchee', [face()], 300, { tiltDeg: -4, tiltStrength: 0.4 }),
-      photo('incertaine', [face()], 300, { tiltDeg: 8, tiltStrength: 0.05 }),
+      photo('incertaine', [face()], 300, { tiltDeg: 8, tiltStrength: 0.02 }),
     ]);
     expect(codes(scores.get('penchee'))).toContain('horizon');
     expect(scores.get('penchee')!.reasons.find((r) => r.code === 'horizon')!.degrees).toBe(4);
@@ -230,9 +230,9 @@ describe('règles conservées', () => {
     expect(scores.get('ok')!.rank).toBe(1);
   });
 
-  it('lève le veto quand tout le paquet est concerné : la moins mauvaise gagne', () => {
+  it('garde le veto même quand tout le paquet est concerné (le paquet peut être entièrement supprimé)', () => {
     const scores = scorePack([photo('a', [face({ eyesOpen: 0.05 })]), photo('b', [face({ eyesOpen: 0.2 })])]);
-    expect([...scores.values()].some((s) => s.vetoed)).toBe(false);
+    expect([...scores.values()].every((s) => s.vetoed && s.failed)).toBe(true);
     expect(scores.get('b')!.rank).toBe(1);
   });
 

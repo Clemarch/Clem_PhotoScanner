@@ -16,8 +16,15 @@ export function selectPack(
   const poseOf = new Map<string, string>();
   for (const group of poses) for (const item of group.items) poseOf.set(item.id, group.label);
   const scoreOf = (item: MediaItem) => scores.get(item.id)?.score ?? 0;
-  const vetoed = (item: MediaItem) => scores.get(item.id)?.vetoed ?? false;
+  // Photo ratée en elle-même (défaut rédhibitoire, très floue) : jamais gardée d'office.
+  const vetoed = (item: MediaItem) => scores.get(item.id)?.failed ?? scores.get(item.id)?.vetoed ?? false;
   const set = (item: MediaItem, d: Omit<Decision, 'pose'>) => decisions.set(item.id, { ...d, pose: poseOf.get(item.id) ?? 'A' });
+
+  // Paquet entièrement raté : tout peut être supprimé (choix de l'utilisateur, 17/11).
+  if (items.length > 0 && items.every(vetoed)) {
+    for (const item of items) set(item, { keep: false, code: 'ratee' });
+    return decisions;
+  }
 
   if (items.length === 1) {
     set(items[0]!, { keep: true, code: 'seule' });

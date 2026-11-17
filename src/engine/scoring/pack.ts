@@ -6,10 +6,10 @@
 import { config } from '../config';
 import { analyzeContent, compareFaces, countSubjects, recurringPersons, subjectPersons } from '../analysis/content';
 import { mainFaces } from '../analysis/faces';
-import { tiltDefect } from '../analysis/framing';
+import { tiltDefect, tiltReliable } from '../analysis/framing';
 import { classifyPack, exposureBalance } from '../analysis/scene';
 import { learnedAdjustment, meanFeatures } from '../learning/preferences';
-import type { FaceMetrics, Features, LearnedWeights, MediaItem, PhotoScore, Reason, SceneType } from '../types';
+import type { BodyMetrics, FaceMetrics, Features, LearnedWeights, MediaItem, PhotoScore, Reason, SceneType } from '../types';
 
 /** Valeur haute de référence, sans se laisser tromper par une mesure isolée anormalement élevée. */
 function reference(values: number[]): number {
@@ -157,6 +157,30 @@ export function scorePackDetailed(
     return value;
   };
 
+  // Corps des sujets : ceux dont le nez est dans un visage principal ; sans visage dans le groupe, les grands corps.
+  const subjectBodies = (item: MediaItem, ctx: GroupContext): BodyMetrics[] => {
+    const faces = facesOf.get(item.id)!;
+    return (item.bodies ?? []).filter((body) =>
+      ctx.expected > 0
+        ? body.nose !== null &&
+          faces.some(
+            (f) =>
+              body.nose!.x >= f.box.x - f.box.width * 0.5 &&
+              body.nose!.x <= f.box.x + f.box.width * 1.5 &&
+              body.nose!.y >= f.box.y - f.box.height * 0.5 &&
+              body.nose!.y <= f.box.y + f.box.height * 1.5,
+          )
+        : body.box.width * body.box.height >= config.body.subjectMinArea,
+    );
+  };
+  const cutsOf = (item: MediaItem, ctx: GroupContext) => {
+    const bodies = subjectBodies(item, ctx);
+    return {
+      hands: bodies.reduce((n, b) => n + b.cutHands, 0),
+      feet: bodies.reduce((n, b) => n + b.cutFeet, 0),
+    };
+  };
+
   // Une photo absente des groupes fournis forme son propre groupe (sécurité).
   const ctxOf = (item: MediaItem): GroupContext => contextOf.get(item.id) ?? contexts[0]!;
 
@@ -203,6 +227,23 @@ export function scorePackDetailed(
   for (const ctx of contexts) ctx.bestAesthetic = Math.max(0, ...ctx.items.map(aestheticOf));
 
   const rawRatioOf = (item: MediaItem): number => (techRef > 0 ? Math.min(1, (item.sharpness ?? 0) / techRef) : 1);
+
+  // Mains et pieds coupés : comparés à la photo la mieux cadrée du même groupe de pose
+  // (sur un selfie, le bras qui tient le téléphone est coupé partout ; seule une coupure en plus compte).
+  const minCuts = new Map<GroupContext, { hands: number; feet: number }>();
+  for (const ctx of contexts) {
+    const measured = ctx.items.filter((item) => item.bodies !== null).map((item) => cutsOf(item, ctx));
+    minCuts.set(ctx, {
+      hands: Math.min(...measured.map((x) => x.hands), Infinity),
+      feet: Math.min(...measured.map((x) => x.feet), Infinity),
+    });
+  }
+  // Bords masqués : comparés à la photo la plus dégagée du paquet.
+  const obstructed = items.filter((item) => item.obstruction !== null);
+  const minObstruction = Math.min(...obstructed.map((item) => item.obstruction!), Infinity);
+  // Inclinaison : comparée à la photo la plus droite du paquet (parmi les mesures fiables).
+  const reliableTilts = items.filter((item) => tiltReliable(item.tiltDeg, item.tiltStrength)).map((item) => Math.abs(item.tiltDeg!));
+  const straightest = reliableTilts.length ? Math.min(...reliableTilts) : 0;
 
   const scores: PhotoScore[] = items.map((item) => {
     const faces = facesOf.get(item.id)!;
@@ -313,8 +354,27 @@ export function scorePackDetailed(
     const objectPenalty = Math.min(c.objectPenaltyMax, c.objectPenalty * extraObjects);
     if (extraObjects > 0) reasons.push({ code: 'objet', tone: 'moins', labels: [...new Set(content.distractions)] });
 
-    const tilt = tiltDefect(item.tiltDeg, item.tiltStrength);
+    const tilt = tiltDefect(item.tiltDeg, item.tiltStrength, straightest);
     if (tilt > 0) reasons.push({ code: 'horizon', tone: 'moins', degrees: Math.abs(item.tiltDeg ?? 0) });
+
+    // Membres coupés et bords masqués.
+    const mins = minCuts.get(ctx)!;
+    const cuts = item.bodies !== null ? cutsOf(item, ctx) : null;
+    const extraHands = cuts && Number.isFinite(mins.hands) ? Math.max(0, cuts.hands - mins.hands) : 0;
+    const extraFeet = cuts && Number.isFinite(mins.feet) ? Math.max(0, cuts.feet - mins.feet) : 0;
+    if (extraHands > 0) reasons.push({ code: 'main-coupee', tone: 'moins' });
+    if (extraFeet > 0) reasons.push({ code: 'pieds-coupes', tone: 'moins' });
+    const limbPenalty = Math.min(config.body.cutPenaltyMax, config.body.cutPenalty * (extraHands + extraFeet));
+    const o = config.obstruction;
+    // Seulement sans personne au premier plan : avec des personnes, des vêtements sombres touchent souvent le bord.
+    const extraObstruction =
+      expected === 0 && item.obstruction !== null && Number.isFinite(minObstruction) ? Math.max(0, item.obstruction - minObstruction) : 0;
+    const obstructionDefect = clamp01((extraObstruction - o.from) / (o.full - o.from));
+    if (obstructionDefect > 0) reasons.push({ code: 'bords-masques', tone: 'moins' });
+
+    // Photo ratée en elle-même : défaut rédhibitoire, ou très floue sans personne à juger.
+    const veryBlurry = expected === 0 && item.sharpness !== null && item.sharpness < cfg.absoluteBlurBelow;
+    if (veryBlurry) reasons.push({ code: 'tres-floue', tone: 'veto' });
 
     // Exposition : pixels brûlés ou bouchés en plus de la photo la mieux exposée du paquet.
     const e = config.exposure;
@@ -332,7 +392,9 @@ export function scorePackDetailed(
       (1 - config.framing.tiltPenalty * tilt) *
       (1 - c.frontPenalty * front) *
       (1 - c.darkFacePenalty * dark) *
-      (1 - e.penalty * Math.max(over, under));
+      (1 - e.penalty * Math.max(over, under)) *
+      (1 - limbPenalty) *
+      (1 - o.penalty * obstructionDefect);
 
     const features: Features = {
       expression: expressionF,
@@ -345,6 +407,8 @@ export function scorePackDetailed(
       arrierePlan: clamp01(extraBackground),
       objets: clamp01(extraObjects / 2),
       penchee: tilt,
+      membres: clamp01((extraHands + extraFeet) / 2),
+      bords: obstructionDefect,
       couleurs: parts?.colorful ?? 1,
       chaud: parts?.warm ?? 1,
       contraste: parts?.contrast ?? 1,
@@ -370,6 +434,9 @@ export function scorePackDetailed(
       baseScore,
       learned: 0,
       features,
+      failed: vetoed || veryBlurry,
+      extraCutLimbs: extraHands + extraFeet,
+      extraObstruction,
     };
   });
 
@@ -382,8 +449,8 @@ export function scorePackDetailed(
     }
   }
 
-  // Jugement relatif : si tout le paquet est sous veto, le veto ne départage plus rien, on le lève.
-  if (scores.length > 0 && scores.every((score) => score.vetoed)) for (const score of scores) score.vetoed = false;
+  // Si toutes les photos du paquet sont ratées, elles peuvent toutes être supprimées (choix de l'utilisateur, 17/11) :
+  // le veto n'est plus levé.
 
   // Classement ; à note égale, la plus nette passe devant.
   const rawRatio = new Map(items.map((item) => [item.id, rawRatioOf(item)]));

@@ -69,6 +69,28 @@ export interface FaceMetrics {
   bodyColor: Rgb | null;
 }
 
+/** Point du corps fourni par le modèle de pose : position (en proportions de l'image, peut sortir de 0..1
+ *  quand le point est hors champ) et visibilité entre 0 et 1. */
+export interface BodyPoint {
+  x: number;
+  y: number;
+  visibility: number;
+}
+
+/** Mesures du corps d'une personne. */
+export interface BodyMetrics {
+  /** Rectangle des points visibles. */
+  box: Box;
+  /** Nez (pour rattacher le corps à un visage). */
+  nose: { x: number; y: number } | null;
+  /** Mains coupées par le bord (coude dans l'image, poignet ou doigts dehors), et pieds coupés (genou dedans,
+   *  cheville ou orteils dehors). */
+  cutHands: number;
+  cutFeet: number;
+  /** Coudes, poignets et index (gauche puis droite) : x, y, visibilité. Pour le rapport de diagnostic. */
+  arms?: [number, number, number][];
+}
+
 /** Exposition d'une image : parts de pixels brûlés (blanc pur) et bouchés (noir pur), luminosité moyenne (0 à 255). */
 export interface Exposure {
   highlights: number;
@@ -125,6 +147,10 @@ export interface MediaItem {
   color: ColorStats | null;
   /** Empreinte de l'image : vignette de 8 x 8 pixels en couleur (192 nombres de 0 à 255), pour comparer les poses. */
   signature: number[] | null;
+  /** Corps des personnes (modèle de pose) ; null si non analysés. */
+  bodies: BodyMetrics[] | null;
+  /** Part de l'image envahie depuis les bords par une zone sombre et uniforme (hublot, doigt), entre 0 et 1. */
+  obstruction: number | null;
 }
 
 /** Type de photo, décidé pour un paquet entier. */
@@ -145,7 +171,8 @@ export type DecisionCode =
   | 'trop-proche'
   | 'moins-bonne'
   | 'plafond'
-  | 'veto';
+  | 'veto'
+  | 'ratee';
 
 export interface Decision {
   keep: boolean;
@@ -170,6 +197,8 @@ export const FEATURE_NAMES = [
   'arrierePlan',
   'objets',
   'penchee',
+  'membres',
+  'bords',
   'couleurs',
   'chaud',
   'contraste',
@@ -215,6 +244,10 @@ export type ReasonCode =
   | 'visage-coupe'
   | 'visage-cache'
   | 'visage-masque'
+  | 'main-coupee'
+  | 'pieds-coupes'
+  | 'bords-masques'
+  | 'tres-floue'
   | 'devant'
   | 'visage-sombre'
   | 'surexposee'
@@ -277,4 +310,9 @@ export interface PhotoScore {
   learned: number;
   /** Mesures relatives au paquet, utilisées pour l'apprentissage. */
   features: Features;
+  /** Photo ratée en elle-même (défaut rédhibitoire ou très floue) : elle peut être supprimée même si c'est la seule. */
+  failed: boolean;
+  /** Mains et pieds coupés en plus de la photo la mieux cadrée du groupe, et bords masqués en plus de la plus dégagée. */
+  extraCutLimbs: number;
+  extraObstruction: number;
 }
