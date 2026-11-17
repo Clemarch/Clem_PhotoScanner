@@ -46,6 +46,9 @@ export function Visionneuse({ entries, start, previews, originals, thumbnails, c
     midY: number;
   } | null>(null);
   const lastTap = useRef<{ t: number; x: number; y: number } | null>(null);
+  // Sur iPhone, après un double toucher, le système rejoue le geste comme un double clic de souris environ une
+  // seconde plus tard : sans ce garde-fou, le zoom s'annulait aussitôt.
+  const lastTouchAt = useRef(0);
   const entry = entries[index]!;
   const zoomed = zoom.s > 1.01;
   const go = (step: number) => setIndex((i) => Math.min(entries.length - 1, Math.max(0, i + step)));
@@ -115,8 +118,12 @@ export function Visionneuse({ entries, start, previews, originals, thumbnails, c
       <div
         className="vis-image"
         ref={area}
-        onDoubleClick={(e) => toggleZoom(e.clientX, e.clientY)}
+        onDoubleClick={(e) => {
+          if (Date.now() - lastTouchAt.current < 1500) return;
+          toggleZoom(e.clientX, e.clientY);
+        }}
         onTouchStart={(e) => {
+          lastTouchAt.current = Date.now();
           const t = e.touches[0]!;
           if (e.touches.length === 2) {
             const u = e.touches[1]!;
@@ -185,6 +192,7 @@ export function Visionneuse({ entries, start, previews, originals, thumbnails, c
           }
         }}
         onTouchEnd={(e) => {
+          lastTouchAt.current = Date.now();
           const g = gesture.current;
           if (!g || e.touches.length > 0) return;
           gesture.current = null;
@@ -269,15 +277,18 @@ export function Visionneuse({ entries, start, previews, originals, thumbnails, c
               className={`bouton ${state.keep ? 'choisi-garder' : ''}`}
               onClick={() => onChoose(entry, state.byUser && state.keep ? null : 'garder')}
             >
-              Garder
+              ✓ À garder
             </button>
             <button
               className={`bouton ${!state.keep ? 'choisi-supprimer' : ''}`}
               onClick={() => onChoose(entry, state.byUser && !state.keep ? null : 'supprimer')}
             >
-              Supprimer
+              ✕ À supprimer
             </button>
           </div>
+        )}
+        {pack && state && (
+          <p className="note centre">Ces boutons marquent la photo. Rien n’est supprimé ici : vous le faites dans Photos.</p>
         )}
         {state?.byUser && (
           <button className="lien" onClick={() => onChoose(entry, null)}>
