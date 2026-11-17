@@ -1,7 +1,7 @@
 // Contenu de la photo autour des personnes : objets gênants, personnes en arrière-plan.
 
 import { config } from '../config';
-import type { Box, DetectedObject, FaceMetrics } from '../types';
+import type { Box, DetectedObject, FaceMetrics, Rgb } from '../types';
 
 const area = (b: Box): number => Math.max(0, b.width) * Math.max(0, b.height);
 
@@ -9,6 +9,12 @@ function overlap(a: Box, b: Box): number {
   const w = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
   const h = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
   return w > 0 && h > 0 ? w * h : 0;
+}
+
+function iou(a: Box, b: Box): number {
+  const inter = overlap(a, b);
+  const union = area(a) + area(b) - inter;
+  return union > 0 ? inter / union : 0;
 }
 
 const contains = (b: Box, x: number, y: number): boolean => x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height;
@@ -32,14 +38,24 @@ export interface ContentAnalysis {
   background: number;
 }
 
+/** Boîtes des personnes détectées qui portent l'un des visages principaux : les sujets de la photo. */
+export function subjectPersons(mainFaces: readonly FaceMetrics[], objects: readonly DetectedObject[] | null): Box[] {
+  return (objects ?? [])
+    .filter((o) => o.label === 'person' && o.score >= config.content.minObjectScore)
+    .filter((o) => mainFaces.some((f) => contains(o.box, f.box.x + f.box.width / 2, f.box.y + f.box.height / 2)))
+    .map((o) => o.box);
+}
+
 /**
  * `mainFaces` : les personnes photographiées. `otherFaces` : visages plus petits, donc en arrière-plan.
  * `objects` : détections du modèle d'objets (personnes comprises), ou null s'il n'a pas tourné.
+ * `knownSubjects` : places occupées par les sujets sur les autres photos du paquet.
  */
 export function analyzeContent(
   mainFaces: readonly FaceMetrics[],
   otherFaces: readonly FaceMetrics[],
   objects: readonly DetectedObject[] | null,
+  knownSubjects: readonly Box[] = [],
 ): ContentAnalysis {
   const cfg = config.content;
   const zones = mainFaces.map(subjectZone);
@@ -50,9 +66,11 @@ export function analyzeContent(
     .filter((o) => area(o.box) >= cfg.largeObjectArea || zones.some((zone) => overlap(zone, o.box) > 0))
     .map((o) => o.label);
 
-  // Une personne détectée est l'un des sujets si elle contient le centre d'un visage principal.
+  // Une personne détectée est l'un des sujets si elle contient le centre d'un visage principal,
+  // ou si elle se tient là où se tient un sujet sur les autres photos (visage détourné, non trouvé).
   const isSubject = (b: Box) =>
-    mainFaces.some((f) => contains(b, f.box.x + f.box.width / 2, f.box.y + f.box.height / 2));
+    mainFaces.some((f) => contains(b, f.box.x + f.box.width / 2, f.box.y + f.box.height / 2)) ||
+    knownSubjects.some((s) => iou(s, b) >= cfg.subjectOverlap);
   const weight = (b: Box): number => {
     const size = Math.min(1, area(b) * cfg.backgroundAreaFactor);
     const dx = Math.abs(b.x + b.width / 2 - 0.5) * 2;
@@ -83,32 +101,79 @@ const median = (values: number[]): number => {
   return sorted.length % 2 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
 };
 
+interface Thresholds {
+  chromaFrom: number;
+  chromaFull: number;
+  lumaFrom: number;
+  lumaFull: number;
+}
+
+const ramp = (value: number, from: number, full: number): number => Math.min(1, Math.max(0, (value - from) / (full - from)));
+
+export interface FaceChanges {
+  /** Visage masqué (objet devant la bouche ou les yeux), entre 0 et 1. */
+  occlusion: number[][];
+  /** Objet devant la personne (zone sous le visage), entre 0 et 1. */
+  front: number[][];
+  /** Luminosité du visage rapportée à la même personne sur les autres photos (1 = habituelle). */
+  brightness: number[][];
+}
+
 /**
- * Masquage de chaque visage (0 = dégagé, 1 = masqué), par comparaison avec la même personne
- * sur les autres photos du paquet : un objet devant la bouche ou les yeux change la couleur de la zone.
+ * Compare chaque personne à elle-même sur les photos du paquet.
  * `slots[p][k]` est le k-ième visage (de gauche à droite) de la photo p ; toutes les photos ont le même nombre de visages.
+ * Un changement de couleur d'une partie du visage signale un objet devant ; un changement de luminosité de tout
+ * le visage n'est pas un masquage mais une question d'exposition, et il est donc retiré de la mesure de masquage.
  */
-export function occlusionBySlot(slots: readonly (readonly FaceMetrics[])[]): number[][] {
+export function compareFaces(slots: readonly (readonly FaceMetrics[])[]): FaceChanges {
   const cfg = config.content;
-  const result = slots.map((faces) => faces.map(() => 0));
+  const zeros = () => slots.map((faces) => faces.map(() => 0));
+  const result: FaceChanges = { occlusion: zeros(), front: zeros(), brightness: slots.map((faces) => faces.map(() => 1)) };
   if (slots.length < cfg.occlusionMinPhotos) return result;
   const count = slots[0]?.length ?? 0;
+
   for (let k = 0; k < count; k++) {
-    for (const part of ['upperColor', 'lowerColor'] as const) {
-      const colors = slots.map((faces) => faces[k]![part]);
-      if (colors.some((c) => c === null)) continue;
+    const part = (pick: (f: FaceMetrics) => Rgb | null) => {
+      const colors = slots.map((faces) => pick(faces[k]!));
+      if (colors.some((c) => c === null)) return null;
       const values = colors.map((c) => chroma(c!));
       const ref = [0, 1, 2].map((i) => median(values.map((v) => v[i]!)));
-      values.forEach((v, p) => {
-        const dc = Math.hypot(v[0]! - ref[0]!, v[1]! - ref[1]!);
-        const dl = Math.abs(Math.log((v[2]! + 1) / (ref[2]! + 1)));
-        const score = Math.max(
-          (dc - cfg.occlusionChromaFrom) / (cfg.occlusionChromaFull - cfg.occlusionChromaFrom),
-          (dl - cfg.occlusionLumaFrom) / (cfg.occlusionLumaFull - cfg.occlusionLumaFrom),
-        );
-        result[p]![k] = Math.max(result[p]![k]!, Math.min(1, Math.max(0, score)));
-      });
-    }
+      return { values, ref };
+    };
+    const upper = part((f) => f.upperColor);
+    const lower = part((f) => f.lowerColor);
+    const body = part((f) => f.bodyColor);
+
+    // Luminosité de tout le visage, par rapport à la même personne ailleurs.
+    const faceRatio = slots.map((_, p) => {
+      if (!upper || !lower) return 1;
+      const lum = upper.values[p]![2]! + lower.values[p]![2]!;
+      const ref = upper.ref[2]! + lower.ref[2]!;
+      return ref > 0 ? lum / ref : 1;
+    });
+    faceRatio.forEach((ratio, p) => {
+      result.brightness[p]![k] = ratio;
+    });
+
+    const deviation = (data: NonNullable<ReturnType<typeof part>>, t: Thresholds, p: number, relative: number) => {
+      const v = data.values[p]!;
+      const dc = Math.hypot(v[0]! - data.ref[0]!, v[1]! - data.ref[1]!);
+      const dl = Math.abs(Math.log((v[2]! + 1) / (data.ref[2]! + 1) / relative));
+      return Math.max(ramp(dc, t.chromaFrom, t.chromaFull), ramp(dl, t.lumaFrom, t.lumaFull));
+    };
+    const faceT = {
+      chromaFrom: cfg.occlusionChromaFrom,
+      chromaFull: cfg.occlusionChromaFull,
+      lumaFrom: cfg.occlusionLumaFrom,
+      lumaFull: cfg.occlusionLumaFull,
+    };
+    const bodyT = { chromaFrom: cfg.frontChromaFrom, chromaFull: cfg.frontChromaFull, lumaFrom: cfg.frontLumaFrom, lumaFull: cfg.frontLumaFull };
+    slots.forEach((_, p) => {
+      for (const data of [upper, lower]) {
+        if (data) result.occlusion[p]![k] = Math.max(result.occlusion[p]![k]!, deviation(data, faceT, p, faceRatio[p]!));
+      }
+      if (body) result.front[p]![k] = deviation(body, bodyT, p, faceRatio[p]!);
+    });
   }
   return result;
 }

@@ -13,6 +13,14 @@ export function reasonText(reason: Reason, numberOf: (id: string) => number | nu
       return 'Aucun visage visible';
     case 'visage-masque':
       return 'Visage en partie masqué (objet, main…)';
+    case 'devant':
+      return 'Quelque chose devant la personne (objet tenu, bras…)';
+    case 'visage-sombre':
+      return 'Visage plus sombre que sur les autres photos';
+    case 'surexposee':
+      return 'Zones trop claires (détails perdus)';
+    case 'sous-exposee':
+      return 'Zones trop sombres (détails perdus)';
     case 'parle':
       return 'Bouche ouverte, en train de parler';
     case 'moue':

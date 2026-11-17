@@ -2,7 +2,7 @@
 // Fonctionne aussi bien dans un Web Worker que dans la page.
 
 import exifr from 'exifr';
-import { config, detectFormat, measureTilt, rgbaToGray, sharpnessFromGray, type MediaItem } from '../../engine';
+import { config, detectFormat, measureExposure, measureTilt, rgbaToGray, sharpnessFromGray, type MediaItem } from '../../engine';
 import type { AnalysisFrame, AnalyzeResult, FileDiagnostic } from './types';
 
 interface ExifData {
@@ -181,6 +181,7 @@ export async function analyzeFile(
     objects: null,
     tiltDeg: null,
     tiltStrength: null,
+    exposure: null,
   };
 
   const diagnostic: FileDiagnostic = {
@@ -232,6 +233,7 @@ export async function analyzeFile(
       const tilt = measureTilt(gray, size.w, size.h);
       item.tiltDeg = tilt.degrees;
       item.tiltStrength = tilt.strength;
+      item.exposure = measureExposure(gray);
       diagnostic.analysisMs = performance.now() - t2;
 
       const thumbSize = fit(size.w, size.h, config.image.thumbnailMaxSide);

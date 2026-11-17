@@ -65,6 +65,15 @@ export interface FaceMetrics {
    *  Sert à repérer un objet devant le visage, par comparaison avec la même personne sur les autres photos. */
   upperColor: Rgb | null;
   lowerColor: Rgb | null;
+  /** Couleur moyenne juste sous le visage (cou, buste) : un objet tenu devant la personne la change. */
+  bodyColor: Rgb | null;
+}
+
+/** Exposition d'une image : parts de pixels brûlés (blanc pur) et bouchés (noir pur), luminosité moyenne (0 à 255). */
+export interface Exposure {
+  highlights: number;
+  shadows: number;
+  mean: number;
 }
 
 export interface MediaItem {
@@ -95,6 +104,8 @@ export interface MediaItem {
    *  et force de cette mesure entre 0 (aucune ligne nette) et 1. */
   tiltDeg: number | null;
   tiltStrength: number | null;
+  /** Exposition mesurée sur l'image réduite ; null si non mesurée. */
+  exposure: Exposure | null;
 }
 
 export interface Pack {
@@ -120,6 +131,10 @@ export type ReasonCode =
   | 'visage-coupe'
   | 'visage-cache'
   | 'visage-masque'
+  | 'devant'
+  | 'visage-sombre'
+  | 'surexposee'
+  | 'sous-exposee'
   | 'aucun-visage'
   | 'parle'
   | 'moue'
@@ -164,4 +179,8 @@ export interface PhotoScore {
   distraction: number;
   /** Visage le plus masqué de la photo, entre 0 et 1. */
   occlusion: number;
+  /** Objet devant la personne la plus concernée, entre 0 et 1. */
+  front: number;
+  /** Luminosité du visage le plus sombre, rapportée à la même personne sur les autres photos (1 = habituelle). */
+  faceBrightness: number;
 }

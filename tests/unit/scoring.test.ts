@@ -22,6 +22,7 @@ const face = (extra: Partial<FaceMetrics> = {}): FaceMetrics => ({
   pout: 0,
   upperColor: SKIN,
   lowerColor: SKIN,
+  bodyColor: [235, 235, 235],
   ...extra,
 });
 
@@ -30,7 +31,7 @@ const left = (extra: Partial<FaceMetrics> = {}) => face({ box: { x: 0.15, y: 0.3
 const right = (extra: Partial<FaceMetrics> = {}) => face({ box: { x: 0.6, y: 0.3, width: 0.2, height: 0.25 }, ...extra });
 
 const photo = (id: string, faces: FaceMetrics[] | null, sharpness = 300, extra: Partial<MediaItem> = {}): MediaItem =>
-  ({ id, kind: 'photo', isRaw: false, sharpness, faces, objects: null, tiltDeg: null, tiltStrength: null, ...extra }) as MediaItem;
+  ({ id, kind: 'photo', isRaw: false, sharpness, faces, objects: null, tiltDeg: null, tiltStrength: null, exposure: null, ...extra }) as MediaItem;
 
 const obj = (label: string, x: number, y: number, width: number, height: number): DetectedObject => ({
   label,
@@ -128,6 +129,61 @@ describe('éléments qui gâchent la photo', () => {
     expect(codes(scores.get('passant-loin'))).not.toContain('arriere-plan');
     // Les deux personnes photographiées ne comptent pas comme arrière-plan.
     expect(scores.get('degagee')!.background).toBe(0);
+  });
+
+  it('ne prend pas pour un passant une personne à la place d’un sujet dont le visage n’a pas été trouvé', () => {
+    // Cas réel (photo 7) : la personne de gauche a détourné la tête, son visage n'est pas détecté,
+    // mais le détecteur d'objets la voit toujours au même endroit.
+    const leftPerson = obj('person', 0.05, 0.25, 0.4, 0.75);
+    const rightPerson = obj('person', 0.5, 0.25, 0.4, 0.75);
+    const scores = scorePack([
+      photo('a', [left(), right()], 300, { objects: [leftPerson, rightPerson] }),
+      photo('b', [left(), right()], 300, { objects: [leftPerson, rightPerson] }),
+      photo('tete-tournee', [right()], 300, { objects: [obj('person', 0.07, 0.27, 0.38, 0.73), rightPerson] }),
+    ]);
+    expect(codes(scores.get('tete-tournee'))).toContain('visage-cache');
+    expect(codes(scores.get('tete-tournee'))).not.toContain('arriere-plan');
+    expect(scores.get('tete-tournee')!.background).toBe(0);
+  });
+
+  it('repère un objet tenu devant la personne, sous le visage (cas réel de la casquette tenue devant le buste)', () => {
+    const cap: Rgb = [215, 90, 120];
+    const scores = scorePack([
+      photo('1', [left(), right()]),
+      photo('casquette', [left({ bodyColor: cap }), right()]),
+      photo('3', [left(), right()]),
+      photo('4', [left(), right()]),
+    ]);
+    expect(codes(scores.get('casquette'))).toContain('devant');
+    expect(codes(scores.get('casquette'))).not.toContain('visage-masque');
+    expect(scores.get('casquette')!.rank).toBe(4);
+  });
+
+  it('distingue un visage plus sombre d’un visage masqué', () => {
+    const dim = (c: Rgb): Rgb => [c[0] * 0.5, c[1] * 0.5, c[2] * 0.5];
+    const scores = scorePack([
+      photo('1', [face()]),
+      photo('sombre', [face({ upperColor: dim(SKIN), lowerColor: dim(SKIN) })]),
+      photo('3', [face()]),
+    ]);
+    expect(codes(scores.get('sombre'))).toContain('visage-sombre');
+    expect(codes(scores.get('sombre'))).not.toContain('visage-masque');
+    expect(scores.get('sombre')!.faceBrightness).toBeCloseTo(0.5, 1);
+    expect(scores.get('sombre')!.rank).toBe(3);
+  });
+
+  it('pénalise une photo brûlée ou bouchée par rapport aux autres du paquet', () => {
+    const exposure = (highlights: number, shadows: number) => ({ highlights, shadows, mean: 120 });
+    const scores = scorePack([
+      photo('bonne', [face()], 300, { exposure: exposure(0.01, 0.01) }),
+      photo('brulee', [face()], 300, { exposure: exposure(0.2, 0.01) }),
+      photo('bouchee', [face()], 300, { exposure: exposure(0.01, 0.1) }),
+      photo('a-peine', [face()], 300, { exposure: exposure(0.02, 0.015) }),
+    ]);
+    expect(codes(scores.get('brulee'))).toContain('surexposee');
+    expect(codes(scores.get('bouchee'))).toContain('sous-exposee');
+    expect(codes(scores.get('a-peine'))).toEqual(['sourire']);
+    expect(scores.get('brulee')!.rank).toBe(4);
   });
 
   it('pénalise une photo penchée, si la mesure est fiable', () => {

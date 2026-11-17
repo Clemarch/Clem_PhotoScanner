@@ -106,6 +106,18 @@ const within = (box: Box, part: Box): Box => ({
   height: part.height * box.height,
 });
 
+/** Zone juste sous le visage (cou, haut du buste). */
+export function bodyZone(box: Box): Box {
+  const c = config.content;
+  const w = box.width * c.bodyZoneWidth;
+  return {
+    x: box.x + box.width / 2 - w / 2,
+    y: box.y + box.height * c.bodyZoneTop,
+    width: w,
+    height: box.height * (c.bodyZoneBottom - c.bodyZoneTop),
+  };
+}
+
 export function measureFace(
   observation: FaceObservation,
   gray: Uint8Array | Uint8ClampedArray,
@@ -177,6 +189,7 @@ export function measureFace(
     pout: clamp01(pout / (1 - cfg.poutFrom)),
     upperColor: rgba ? regionColor(rgba, width, height, within(box, UPPER)) : null,
     lowerColor: rgba ? regionColor(rgba, width, height, within(box, LOWER)) : null,
+    bodyColor: rgba ? regionColor(rgba, width, height, bodyZone(box)) : null,
   };
 }
 
