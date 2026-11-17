@@ -9,10 +9,10 @@ Claude complète la partie « Ce test-ci » à chaque mise à jour.
 2. Fermer complètement l'app, la rouvrir deux fois, vérifier la version écrite en bas de l'écran d'accueil.
 3. Choisir les photos d'une journée et lancer l'analyse.
 4. Pour chaque paquet, ouvrir les photos et les feuilleter en glissant le doigt.
-   - Quand l'app se trompe, toucher **Garder** ou **Supprimer**.
-   - Faire au moins **un « Garder » et un « Supprimer » dans un même paquet** : c'est cette paire qui permet à
+   - Quand l'app se trompe, toucher **✓ À garder** ou **✕ À supprimer** (ces boutons marquent la photo, ils ne suppriment rien).
+   - Faire au moins **un « À garder » et un « À supprimer » dans un même paquet** : c'est cette paire qui permet à
      l'app d'apprendre.
-5. Onglet **À supprimer** : reproduire la suppression dans Photos pour au moins un paquet, et dire si c'était simple.
+5. Onglet **2. Dans Photos** : reproduire la suppression dans Photos pour au moins un paquet, et dire si c'était simple.
 6. Onglet **Diagnostic** → **Copier le rapport** (après les choix, pour qu'il les contienne), et le coller à Claude.
 
 ## Ce qu'il faut écrire à Claude avec le rapport
