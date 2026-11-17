@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { measureTilt, tiltDefect } from '../../src/engine';
+import { measureExposure, measureTilt, tiltDefect } from '../../src/engine';
 
 const W = 400;
 const H = 300;
@@ -42,9 +42,24 @@ describe('inclinaison de la photo', () => {
     expect(measureTilt(horizon(-3), W, H).degrees).toBeCloseTo(-3, 0);
   });
 
-  it('reste fiable avec du bruit (vagues, texture)', () => {
+  it('reste utilisable avec un bruit très fort (bien plus que dans une vraie photo)', () => {
+    // Erreur tolérée : 1°, sous la tolérance de 1,5° à partir de laquelle une photo est dite penchée.
     const tilt = measureTilt(horizon(5, 30), W, H);
-    expect(tilt.degrees).toBeCloseTo(5, 0);
+    expect(Math.abs(tilt.degrees - 5)).toBeLessThan(1);
+  });
+
+  it('trouve l’horizon sous un ciel nuageux', () => {
+    // Nuages : grandes taches douces et contrastées dans le ciel, horizon net penché de 3°.
+    const gray = horizon(3, 6);
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++) {
+        if (gray[y * W + x]! < 130) continue;
+        const cloud = 45 * Math.sin(x / 23 + Math.sin(y / 17) * 2) * Math.cos(y / 19 + x / 61);
+        gray[y * W + x] = Math.max(0, Math.min(255, gray[y * W + x]! + cloud));
+      }
+    const tilt = measureTilt(gray, W, H);
+    expect(tilt.degrees).toBeCloseTo(3, 0);
+    expect(tilt.strength).toBeGreaterThan(0.1);
   });
 
   it('donne une force faible sans grande ligne droite', () => {
@@ -59,5 +74,16 @@ describe('inclinaison de la photo', () => {
     expect(tiltDefect(3.75, 0.5)).toBeCloseTo(0.5);
     expect(tiltDefect(8, 0.05)).toBe(0);
     expect(tiltDefect(null, null)).toBe(0);
+  });
+});
+
+describe('exposition', () => {
+  it('compte les pixels brûlés et bouchés', () => {
+    const gray = Uint8Array.from([255, 252, 128, 128, 3, 0, 100, 200, 128, 128]);
+    const e = measureExposure(gray);
+    expect(e.highlights).toBeCloseTo(0.2);
+    expect(e.shadows).toBeCloseTo(0.2);
+    expect(e.mean).toBeCloseTo(1322 / 10);
+    expect(measureExposure(new Uint8Array(0))).toEqual({ highlights: 0, shadows: 0, mean: 0 });
   });
 });

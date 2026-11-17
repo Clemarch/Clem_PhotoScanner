@@ -3,7 +3,7 @@
 // la technique (netteté, yeux) ne sert qu'à repérer un défaut, jamais à préférer une photo « plus nette ».
 
 import { config } from '../config';
-import { analyzeContent, occlusionBySlot } from '../analysis/content';
+import { analyzeContent, compareFaces, subjectPersons } from '../analysis/content';
 import { mainFaces } from '../analysis/faces';
 import { tiltDefect } from '../analysis/framing';
 import type { FaceMetrics, MediaItem, PhotoScore, Reason } from '../types';
@@ -54,20 +54,29 @@ export function scorePack(items: readonly MediaItem[]): Map<string, PhotoScore> 
     reference(completeItems.map((item) => facesOf.get(item.id)![slot]!.sharpness)),
   );
 
-  // Masquage : chaque personne comparée à elle-même sur les photos où tout le monde est visible.
-  const occlusionOf = new Map<string, number[]>();
-  occlusionBySlot(completeItems.map((item) => facesOf.get(item.id)!)).forEach((values, i) =>
-    occlusionOf.set(completeItems[i]!.id, values),
+  // Masquage, objet devant, luminosité : chaque personne comparée à elle-même sur les photos où tout le monde est visible.
+  const changes = compareFaces(completeItems.map((item) => facesOf.get(item.id)!));
+  const changesOf = new Map(
+    completeItems.map((item, i) => [
+      item.id,
+      { occlusion: changes.occlusion[i]!, front: changes.front[i]!, brightness: changes.brightness[i]! },
+    ]),
   );
+
+  // Places occupées par les sujets sur l'ensemble du paquet.
+  const knownSubjects = items.flatMap((item) => subjectPersons(facesOf.get(item.id)!, item.objects));
 
   // Arrière-plan et objets : jugés par rapport à la photo la plus dégagée du paquet,
   // pour ne pas pénaliser ce qui est présent partout (la plage derrière, un sac porté sur toutes les photos).
   const contentOf = new Map(
-    items.map((item) => [item.id, analyzeContent(facesOf.get(item.id)!, otherFacesOf(item), item.objects)]),
+    items.map((item) => [item.id, analyzeContent(facesOf.get(item.id)!, otherFacesOf(item), item.objects, knownSubjects)]),
   );
   const contents = [...contentOf.values()];
   const minBackground = Math.min(...contents.map((c) => c.background));
   const minDistractions = Math.min(...contents.map((c) => c.distractions.length));
+  const exposed = items.filter((item) => item.exposure !== null);
+  const minHighlights = Math.min(...exposed.map((item) => item.exposure!.highlights));
+  const minShadows = Math.min(...exposed.map((item) => item.exposure!.shadows));
 
   const sharpest = items.reduce<MediaItem | null>(
     (best, item) => ((item.sharpness ?? -1) > (best?.sharpness ?? -1) ? item : best),
@@ -83,6 +92,8 @@ export function scorePack(items: readonly MediaItem[]): Map<string, PhotoScore> 
     let faceScore: number | null = null;
     let vetoed = false;
     let occlusion = 0;
+    let front = 0;
+    let faceBrightness = 1;
 
     if (expected > 0) {
       technique = sharpEnough(rawRatio);
@@ -95,8 +106,11 @@ export function scorePack(items: readonly MediaItem[]): Map<string, PhotoScore> 
           const ref = faces.length === expected ? slotRef[slot]! : anyFaceRef;
           return ref > 0 ? face.sharpness / ref : 1;
         });
-        const occl = occlusionOf.get(item.id) ?? faces.map(() => 0);
+        const change = changesOf.get(item.id);
+        const occl = change?.occlusion ?? faces.map(() => 0);
         occlusion = Math.max(0, ...occl);
+        front = Math.max(0, ...(change?.front ?? [0]));
+        faceBrightness = Math.min(1, ...(change?.brightness ?? [1]));
         const quality = faces.map(
           (face, i) =>
             (w.eyes * face.eyesOpen + w.gaze * face.gaze + w.expression * face.expression + w.sharpness * sharpEnough(ratios[i]!)) *
@@ -120,6 +134,8 @@ export function scorePack(items: readonly MediaItem[]): Map<string, PhotoScore> 
           reasons.push({ code: 'visage-coupe', tone: 'veto' });
         }
         if (occlusion >= r.occlusionFrom) reasons.push({ code: 'visage-masque', tone: 'moins' });
+        if (front >= r.frontFrom) reasons.push({ code: 'devant', tone: 'moins' });
+        if (faceBrightness < config.content.darkFaceBelow) reasons.push({ code: 'visage-sombre', tone: 'moins' });
         const talking = faces.some((face) => face.talking >= r.talkingFrom);
         if (talking) reasons.push({ code: 'parle', tone: 'moins' });
         if (faces.some((face) => face.pout >= r.poutFrom)) reasons.push({ code: 'moue', tone: 'moins' });
@@ -153,7 +169,23 @@ export function scorePack(items: readonly MediaItem[]): Map<string, PhotoScore> 
     const tilt = tiltDefect(item.tiltDeg, item.tiltStrength);
     if (tilt > 0) reasons.push({ code: 'horizon', tone: 'moins', degrees: Math.abs(item.tiltDeg ?? 0) });
 
-    const score = base * (1 - backgroundPenalty) * (1 - objectPenalty) * (1 - config.framing.tiltPenalty * tilt);
+    // Exposition : pixels brûlés ou bouchés en plus de la photo la mieux exposée du paquet.
+    const e = config.exposure;
+    const ramp = (value: number) => clamp01((value - e.clippedFrom) / (e.clippedFull - e.clippedFrom));
+    const over = item.exposure ? ramp(item.exposure.highlights - minHighlights) : 0;
+    const under = item.exposure ? ramp(item.exposure.shadows - minShadows) : 0;
+    if (over > 0) reasons.push({ code: 'surexposee', tone: 'moins' });
+    if (under > 0) reasons.push({ code: 'sous-exposee', tone: 'moins' });
+
+    const dark = clamp01((c.darkFaceBelow - faceBrightness) / (c.darkFaceBelow - c.darkFaceFull));
+    const score =
+      base *
+      (1 - backgroundPenalty) *
+      (1 - objectPenalty) *
+      (1 - config.framing.tiltPenalty * tilt) *
+      (1 - c.frontPenalty * front) *
+      (1 - c.darkFacePenalty * dark) *
+      (1 - e.penalty * Math.max(over, under));
 
     return {
       id: item.id,
@@ -168,6 +200,8 @@ export function scorePack(items: readonly MediaItem[]): Map<string, PhotoScore> 
       background: content.background,
       distraction: content.distractions.length,
       occlusion,
+      front,
+      faceBrightness,
     };
   });
 

@@ -22,6 +22,7 @@ function photo(id: string, secondsAfterStart: number | null, extra: Partial<Medi
     objects: null,
     tiltDeg: null,
     tiltStrength: null,
+    exposure: null,
     ...extra,
   };
 }

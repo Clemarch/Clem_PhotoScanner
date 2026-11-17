@@ -105,6 +105,9 @@ export const config = {
     /** Pénalité pour une « personne entière » d'écart avec la photo du paquet la plus dégagée, et pénalité maximale. */
     backgroundPenalty: 0.1,
     backgroundPenaltyMax: 0.3,
+    /** Une personne détectée qui recouvre à ce point la place d'un sujet sur une autre photo du paquet est un sujet
+     *  (son visage n'a simplement pas été trouvé sur cette photo), pas un passant. */
+    subjectOverlap: 0.3,
     /** Visage en partie masqué : écart de couleur avec la même personne sur les autres photos du paquet.
      *  Écart de teinte (chromaticité) et de luminosité à partir duquel on commence à compter, et pleine échelle. */
     occlusionChromaFrom: 0.025,
@@ -115,6 +118,31 @@ export const config = {
     occlusionPenalty: 0.6,
     /** Il faut au moins ce nombre de photos complètes dans le paquet pour juger un masquage. */
     occlusionMinPhotos: 3,
+    /** Objet tenu devant la personne : même principe sur la zone sous le visage (cou, buste), qui bouge davantage
+     *  d'une photo à l'autre ; seuils plus larges. */
+    frontChromaFrom: 0.05,
+    frontChromaFull: 0.12,
+    frontLumaFrom: 0.45,
+    frontLumaFull: 1.1,
+    frontPenalty: 0.35,
+    /** Zone sous le visage : largeur et position, en tailles de visage. */
+    bodyZoneWidth: 1.2,
+    bodyZoneTop: 1.15,
+    bodyZoneBottom: 2.0,
+    /** Visage trop sombre : luminosité sous cette part de celle de la même personne sur les autres photos. */
+    darkFaceBelow: 0.7,
+    darkFaceFull: 0.45,
+    darkFacePenalty: 0.3,
+  },
+  exposure: {
+    /** Un pixel est « brûlé » au-dessus de ce niveau de gris, « bouché » en dessous de celui-ci. */
+    highlightFrom: 250,
+    shadowBelow: 6,
+    /** Part de pixels brûlés ou bouchés en plus de la photo la mieux exposée du paquet, à partir de laquelle
+     *  on pénalise, et à laquelle la pénalité est pleine. */
+    clippedFrom: 0.02,
+    clippedFull: 0.15,
+    penalty: 0.25,
   },
   framing: {
     /** Lignes considérées : celles à moins de ce nombre de degrés de l'horizontale ou de la verticale. */
@@ -153,6 +181,7 @@ export const config = {
       faceBlurBelow: 0.5,
       lessSharpBelow: 0.7,
       occlusionFrom: 0.35,
+      frontFrom: 0.35,
       backgroundFrom: 0.5,
     },
   },
