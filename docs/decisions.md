@@ -77,5 +77,6 @@ Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.
 
 ## Hébergement
 
-GitHub Pages n'est gratuit que pour un dépôt public. Le dépôt est privé au départ : il faut soit le rendre public
-(le code est visible, jamais les photos, qui n'y sont pas), soit un abonnement GitHub payant. Décision à l'utilisateur.
+GitHub Pages n'est gratuit que pour un dépôt public. Le premier dépôt (`ClemPhotoScanner`) était privé :
+l'utilisateur a créé le dépôt public `Clem_PhotoScanner`, qui devient le dépôt du projet. Le code y est visible,
+jamais les photos, qui n'y sont pas.
