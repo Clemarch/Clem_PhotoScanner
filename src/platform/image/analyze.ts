@@ -207,6 +207,7 @@ export async function analyzeFile(
     faceRetry: 0,
     objectMs: null,
     bodyMs: null,
+    bodyRetry: 0,
   };
 
   // RAW et vidéos : repérés, mis de côté, jamais décodés.

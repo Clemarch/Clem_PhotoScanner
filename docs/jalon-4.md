@@ -51,17 +51,21 @@ Plan préparé avant le code, à partir des réponses de l'utilisateur du 17/11.
 
 ## Autres modèles proposés (à valider par l'utilisateur avant ajout)
 
-Tous sont des modèles MediaPipe de la même bibliothèque, déjà inspectée (aucun envoi de données), embarqués.
+Tous publiés par Google pour MediaPipe (fiches et téléchargement : ai.google.dev/edge/mediapipe/solutions/vision),
+exécutés par la même bibliothèque, déjà inspectée (aucun envoi de données), embarqués dans l'app. Tailles vérifiées
+le 17/11 sur le serveur officiel des modèles.
 
-| Modèle | Taille | Ce qu'il apporterait |
-| --- | --- | --- |
-| Reconnaissance de gestes | 8 Mo | Repère les gestes voulus (V de la victoire, pouce levé…) et les mains : confirme une « pose », et voit une **main devant le visage** (aujourd'hui invisible, car de la même couleur que la peau). |
-| Silhouette des personnes (« selfie segmenter ») | 0,25 Mo | Contour exact des personnes : cadrage précis (personne coupée, trop petite, mal placée), séparation sujet / fond. |
-| Empreinte d'image (« image embedder ») | 4 Mo | Ressemblance fine entre photos : meilleurs groupes de pose et quasi-doublons, et apprentissage des goûts sur le contenu de l'image. |
-| Classement de scène (« image classifier ») | 5 Mo | Reconnaît environ 1000 types de scènes et d'objets : critères adaptés à plus de types (nourriture, animaux, villes…) et repérage des captures d'écran et photos de documents. |
+| Modèle | Taille | Ce qu'il apporterait | Avis |
+| --- | --- | --- | --- |
+| Silhouette avec peau (« Selfie Multiclass ») | 15,6 Mo | Pour chaque pixel : fond, cheveux, peau du corps, peau du visage, vêtements, accessoires. **Main, bras, tête coupés par le bord** (peau du corps qui touche le bord : 0 % contre 5,5 % lors de l'essai) ; **visage masqué** (casquette, main devant) par la part de peau dans le visage. | Recommandé |
+| Empreinte d'image (« MobileNet v3 small ») | 3,9 Mo | Ressemblance fine entre photos : quasi-doublons (selfies n° 30/31), groupes de pose, apprentissage des goûts sur le contenu même de l'image. | Recommandé |
+| Classement de scène (« EfficientNet-Lite0 ») | 5,2 Mo | Environ 1000 types de scènes et d'objets : critères selon le type (nourriture, animaux, ville…), repérage des captures d'écran et photos de documents à mettre de côté. | Recommandé |
+| Gestes (« Gesture Recognizer ») | 8 Mo | V de la victoire, pouce levé… : confirme une pose voulue. Ne voit pas une main coupée (essai : 0 main trouvée). | Plus tard |
+| Objets, version plus fine (« EfficientDet-Lite2 ») | 7,2 Mo | Repère mieux les petites personnes et objets en arrière-plan ; environ 3 fois plus lent. | Facultatif |
+| Corps, version complète (« Pose Landmarker full ») | 9 Mo | Points du corps plus précis. Gain faible pour nos usages. | Non |
 
-Écartés pour l'instant : modèles « esthétiques » généralistes (lourds, et peu utiles pour départager des photos
-quasi identiques d'une rafale), qui demanderaient en plus une autre bibliothèque.
+Écartés : modèles « esthétiques » généralistes (NIMA, prédicteurs fondés sur CLIP) : 15 à plus de 300 Mo, une autre
+bibliothèque à inspecter, et peu utiles pour départager des photos quasi identiques d'une rafale.
 
 ## Ordre de travail et vérifications
 

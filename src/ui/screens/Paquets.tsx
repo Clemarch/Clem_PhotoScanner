@@ -105,7 +105,10 @@ export function Paquets({ session, day, gap, onGap, onJoin, onNewDay, choices, o
             <strong className="rouge">{totals.remove}</strong>
             <span>à supprimer</span>
           </div>
-          <p className="note">Touchez une photo pour la voir en grand, la feuilleter et changer la décision.</p>
+          <p className="note">
+            Étape 1 : touchez une photo pour la voir en grand, la feuilleter et corriger la décision. Étape 2 : onglet
+            « Dans Photos », pour les supprimer vous-même dans l’app Photos.
+          </p>
         </section>
       )}
 

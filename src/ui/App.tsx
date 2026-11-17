@@ -16,6 +16,7 @@ import { createFaceDetector, type FaceDetector } from '../platform/vision/faceDe
 import { createObjectDetector, type ObjectDetector } from '../platform/vision/objectDetector';
 import { findFaces } from '../platform/vision/retry';
 import { createBodyDetector, type BodyDetector } from '../platform/vision/bodyDetector';
+import { findBodies } from '../platform/vision/bodyRetry';
 import { createAnalyzer } from '../platform/worker/analyzer';
 import type { Session } from './session';
 import { Accueil } from './screens/Accueil';
@@ -122,8 +123,10 @@ export function App() {
         if (bodyDetector) {
           try {
             const t = performance.now();
-            result.item.bodies = bodyDetector.detect(frame.bitmap).map(measureBody);
+            const { bodies, retried } = await findBodies(bodyDetector, frame.bitmap, result.item.objects);
+            result.item.bodies = bodies.map(measureBody);
             result.diagnostic.bodyMs = performance.now() - t;
+            result.diagnostic.bodyRetry = retried;
           } catch (e) {
             faceError ??= `corps : ${e instanceof Error ? e.message : String(e)}`;
           }
@@ -228,10 +231,10 @@ export function App() {
       )}
       <nav className="onglets">
         <button className={tab === 'paquets' ? 'actif' : ''} onClick={() => setTab('paquets')}>
-          Tri
+          1. Trier
         </button>
         <button className={tab === 'supprimer' ? 'actif' : ''} onClick={() => setTab('supprimer')}>
-          À supprimer{toRemove > 0 && <span className="pastille">{toRemove}</span>}
+          2. Dans Photos{toRemove > 0 && <span className="pastille">{toRemove}</span>}
         </button>
         <button className={tab === 'diagnostic' ? 'actif' : ''} onClick={() => setTab('diagnostic')}>
           Diagnostic

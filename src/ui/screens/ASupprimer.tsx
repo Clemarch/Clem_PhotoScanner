@@ -53,11 +53,11 @@ export function ASupprimer({ session, day, choices, onChoose }: Props) {
   return (
     <main className="page">
       <header className="entete">
-        <h2>À supprimer</h2>
+        <h2>Dans Photos</h2>
         <p className="doux">
           {totalRemove === 0
             ? 'Rien à supprimer.'
-            : `${plural(totalRemove, 'photo')} dans ${plural(todo.length, 'paquet')}${remaining < totalRemove ? ` · encore ${remaining}` : ''}`}
+            : `${plural(totalRemove, 'photo')} à supprimer vous-même dans l’app Photos, ${plural(todo.length, 'paquet')}${remaining < totalRemove ? ` · encore ${remaining}` : ''}`}
         </p>
       </header>
 
@@ -83,8 +83,8 @@ export function ASupprimer({ session, day, choices, onChoose }: Props) {
                 </li>
               </ol>
               <p className="note">
-                Rien n’est supprimé par cette app. Les photos que vous supprimez dans Photos restent 30 jours dans l’album
-                « Supprimés récemment ».
+                Cette app ne supprime jamais rien : c’est vous qui supprimez, dans Photos. Les photos supprimées restent
+                30 jours dans l’album « Supprimés récemment ».
               </p>
             </>
           )}

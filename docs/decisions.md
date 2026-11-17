@@ -335,6 +335,30 @@ Plan préparé avant le code : `docs/jalon-4.md`.
 Voir le tableau de `docs/jalon-4.md` : reconnaissance de gestes (main devant le visage, gestes voulus), silhouette
 des personnes, empreinte d'image, classement de scène. Rien n'est ajouté sans l'accord de l'utilisateur.
 
+### 25. Premier test du jalon 4 sur iPhone : main coupée, double toucher, modèles candidats
+- **Double toucher** : le zoom s'annulait au bout d'une seconde. Sur iPhone, le système rejoue un double toucher
+  comme un double clic de souris environ une seconde après ; le geste était donc compté deux fois. Les doubles clics
+  qui suivent un toucher de moins de 1,5 s sont ignorés.
+- **« Main coupée » jamais affichée sur les selfies n° 30/31.** Audit :
+  - la règle exigeait le coude dans l'image ; sur une photo très proche, une main au bord apparaît sans son coude.
+    Ajout : une main **en partie visible** (un de ses points dans l'image, un autre au bord ou dehors) compte comme
+    coupée ; même chose pour les pieds (cheville, talon, orteils) ;
+  - si le modèle du corps ne trouve pas une personne vue par le détecteur d'objets, seconde recherche sur un
+    recadrage autour d'elle (comme pour les visages).
+  - Essais en navigateur sur un portrait réel recadré au milieu des mains : le **modèle du corps** place les coudes
+    hors de l'image mais situe mal les mains au bord ; le **modèle des mains** (Hand Landmarker) ne trouve **aucune**
+    main coupée (0 main) : il ne reconnaît que des mains entières ; un indice **« couleur de peau au bord »** a été
+    essayé puis retiré : il se trompait sur un bureau en bois et des rideaux rouges (6,8 % de « peau » au bord de la
+    photo entière, 1,6 % sur la photo coupée).
+  - Le **modèle de silhouette avec peau** (Selfie Multiclass, 15,6 Mo) sépare nettement les deux : 0,00 % de peau du
+    corps sur les bords de la photo entière, 5,49 % sur la photo coupée aux mains. Proposé à l'utilisateur comme
+    vrai détecteur de main ou de bras coupé. Coût mesuré sur ordinateur : environ 0,5 s par photo.
+- **Clarté** : l'utilisateur ne voyait pas la différence entre les onglets et se demandait si l'app supprime des
+  photos. Onglets renommés « 1. Trier » et « 2. Dans Photos » ; boutons « ✓ À garder » / « ✕ À supprimer » avec la
+  mention « Rien n'est supprimé ici ».
+- Les choix de l'utilisateur sont conservés d'une version à l'autre (stockage local de l'iPhone) : voulu, pour
+  l'apprentissage. Effaçables par « Oublier mes choix ».
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

@@ -29,6 +29,8 @@ export interface FileDiagnostic {
   objectMs: number | null;
   /** Durée de l'analyse du corps (null si non faite). */
   bodyMs: number | null;
+  /** Corps retrouvés par la seconde recherche, sur le recadrage d'une personne. */
+  bodyRetry: number;
 }
 
 /** Image réduite gardée juste le temps de chercher les visages, puis libérée. */
