@@ -91,7 +91,7 @@ Les visages d'un selfie à deux occupent peu de pixels à 1024 px, et un flou de
 1536 px coûte environ 9 Mo par photo décodée, une seule à la fois.
 
 ### 12. Note d'une photo : ce qui a été retenu du plan, et ce qui change
-Retenu : note d'un visage = 0,30 yeux + 0,25 regard + 0,20 expression + 0,25 netteté du visage ;
+Retenu : note d'un visage = somme pondérée yeux, regard, expression, netteté du visage (poids : voir point 13) ;
 note « visages » = 0,6 × pire visage + 0,4 × moyenne ; vetos yeux fermés et visage coupé, levés si tout le paquet
 est concerné.
 
@@ -107,11 +107,37 @@ Changé ou ajouté :
   photos de chaque paquet et marque la première ; elle ne décide pas encore lesquelles garder.
 
 Limites connues, à calibrer sur les rapports de l'utilisateur :
-- Le regard additionne l'écart des yeux et la rotation de la tête sans les compenser : une tête tournée avec les yeux
-  vers l'objectif est un peu trop pénalisée.
 - Le modèle est fait pour des visages proches (selfie, portrait). Des personnes petites dans le cadre ne sont pas
   détectées : la photo est alors jugée comme un paysage.
 - « Pas prête » n'est approché que par le regard, l'expression et la netteté du visage.
+
+### 13. Calibrage sur le premier rapport réel (selfie à deux, 8 photos)
+Le premier essai sur iPhone a mal classé le paquet. Le rapport a montré trois défauts de calcul :
+
+- **Regard faux sur les selfies.** Les deux personnes obtenaient 0,15 à 0,25 sur toutes les photos. Au grand-angle,
+  un visage au bord de l'image doit tourner la tête d'environ 20° pour regarder le téléphone ; mesurée par rapport à
+  l'axe de l'appareil, cette rotation passait pour un regard de côté. Correction : on calcule la direction de
+  l'objectif vue depuis le visage, à partir de sa position dans l'image et de la focale réelle lue dans la photo
+  (23 mm pour la caméra selfie). Vérification sur les données : visage à 80 % de la largeur, rotation mesurée de −20°,
+  rotation attendue de −18,7°. Au téléobjectif la correction devient négligeable.
+  Alternative écartée : la position 3D estimée par MediaPipe, qui suppose un angle de champ fixe et se trompe dès
+  que l'objectif change.
+- **Direction des yeux.** Peu fiable seule, elle saturait la pénalité. Elle ne sert plus qu'à reconnaître une tête
+  tournée dont les yeux reviennent vers l'objectif : on retient la lecture la plus favorable des deux. L'inclinaison
+  haut-bas compte moitié moins que la rotation gauche-droite.
+- **Yeux ouverts.** Le détecteur annonce 25 à 30 % de « clignement » pour des yeux ouverts (sourire, lunettes), ce qui
+  départageait les photos sur du bruit. La note est maintenant maximale au-dessus d'un seuil et nulle en dessous
+  d'un autre.
+- **Netteté des visages.** Chaque visage était comparé au plus net du paquet, donc à celui de l'autre personne, et
+  une mesure isolée très haute faisait passer les autres pour flous. Chaque personne est maintenant comparée à
+  elle-même (visages rangés de gauche à droite), avec une référence qui ignore la valeur la plus haute.
+
+Poids d'un visage revus en conséquence : 0,20 yeux + 0,30 regard + 0,30 expression + 0,20 netteté (le plan :
+0,30 / 0,25 / 0,20 / 0,25). Les yeux agissent surtout par le veto ; l'expression est ce qui distinguait le mieux
+les photos ratées de ce paquet.
+
+Le rapport de diagnostic liste maintenant les photos dans l'ordre de la journée, avec la position de chaque visage,
+l'écart à l'objectif et la direction des yeux, pour continuer le calibrage.
 
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 

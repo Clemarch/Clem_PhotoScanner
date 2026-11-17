@@ -4,6 +4,15 @@ import { config } from '../config';
 import { mainFaces } from '../analysis/faces';
 import type { FaceMetrics, MediaItem, PhotoScore, Reason } from '../types';
 
+/** Valeur haute de référence, sans se laisser tromper par une mesure isolée anormalement élevée. */
+function reference(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => b - a);
+  return sorted.length >= 3 ? sorted[1]! : sorted[0]!;
+}
+
+const centerX = (face: FaceMetrics): number => face.box.x + face.box.width / 2;
+
 const soften = (ratio: number): number => Math.pow(Math.min(1, Math.max(0, ratio)), config.scoring.sharpnessExponent);
 
 /** Nombre de visages qu'on s'attend à voir : la médiane (basse) du paquet. */
@@ -15,11 +24,19 @@ function expectedFaceCount(counts: number[]): number {
 
 export function scorePack(items: readonly MediaItem[]): Map<string, PhotoScore> {
   const cfg = config.scoring;
-  const facesOf = new Map<string, FaceMetrics[]>(items.map((item) => [item.id, mainFaces(item.faces)]));
+  // Visages rangés de gauche à droite : d'une photo à l'autre, la même place désigne la même personne.
+  const facesOf = new Map<string, FaceMetrics[]>(
+    items.map((item) => [item.id, mainFaces(item.faces).sort((a, b) => centerX(a) - centerX(b))]),
+  );
   const expected = expectedFaceCount(items.filter((item) => item.faces !== null).map((item) => facesOf.get(item.id)!.length));
 
   const bestSharpness = Math.max(0, ...items.map((item) => item.sharpness ?? 0));
-  const bestFaceSharpness = Math.max(0, ...[...facesOf.values()].flat().map((face) => face.sharpness));
+  // Netteté de référence : chaque personne est comparée à elle-même sur les autres photos du paquet
+  // (un visage plus grand ou plus contrasté donne toujours une mesure plus élevée qu'un autre).
+  const allFaces = [...facesOf.values()];
+  const anyFaceRef = reference(allFaces.flat().map((face) => face.sharpness));
+  const complete = allFaces.filter((faces) => faces.length === expected);
+  const slotRef = Array.from({ length: expected }, (_, slot) => reference(complete.map((faces) => faces[slot]!.sharpness)));
   const sharpest = items.reduce<MediaItem | null>(
     (best, item) => ((item.sharpness ?? -1) > (best?.sharpness ?? -1) ? item : best),
     null,
@@ -38,7 +55,10 @@ export function scorePack(items: readonly MediaItem[]): Map<string, PhotoScore> 
         reasons.push({ code: 'aucun-visage', tone: 'moins' });
       } else {
         const w = cfg.faceWeights;
-        const relSharp = faces.map((face) => (bestFaceSharpness > 0 ? soften(face.sharpness / bestFaceSharpness) : 1));
+        const relSharp = faces.map((face, slot) => {
+          const ref = faces.length === expected ? slotRef[slot]! : anyFaceRef;
+          return ref > 0 ? soften(face.sharpness / ref) : 1;
+        });
         const quality = faces.map(
           (face, i) =>
             w.eyes * face.eyesOpen + w.gaze * face.gaze + w.expression * face.expression + w.sharpness * relSharp[i]!,

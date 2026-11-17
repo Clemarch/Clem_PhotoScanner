@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { boxFromPoints, cropGray, headAngles, mainFaces, measureFace, type FaceMetrics, type FaceObservation } from '../../src/engine';
+import { boxFromPoints, cropGray, headPose, lensDirection, mainFaces, measureFace, type FaceMetrics, type FaceObservation } from '../../src/engine';
 
 const W = 200;
 const H = 200;
@@ -12,13 +12,15 @@ const detailed = (() => {
 })();
 
 const observation = (blendshapes: Record<string, number> = {}, extra: Partial<FaceObservation> = {}): FaceObservation => ({
-  box: { x: 0.3, y: 0.3, width: 0.3, height: 0.3 },
+  box: centered,
   blendshapes,
   matrix: null,
   ...extra,
 });
 
-const measure = (o: FaceObservation, gray = detailed) => measureFace(o, gray, W, H);
+// Visage centré par défaut : l'objectif est droit devant lui.
+const centered = { x: 0.35, y: 0.35, width: 0.3, height: 0.3 };
+const measure = (o: FaceObservation, gray = detailed) => measureFace(o, gray, W, H, 23);
 
 /** Matrice de rotation autour de l'axe vertical (la tête tourne à gauche ou à droite). */
 function yawMatrix(deg: number): number[] {
@@ -38,21 +40,53 @@ describe('mesures d’un visage', () => {
   });
 
   it('repère les yeux fermés, même un seul', () => {
-    expect(measure(observation({ eyeBlinkLeft: 0.9, eyeBlinkRight: 0.9 })).eyesOpen).toBeCloseTo(0.1);
-    expect(measure(observation({ eyeBlinkLeft: 0.05, eyeBlinkRight: 0.8 })).eyesOpen).toBeCloseTo(0.2);
+    expect(measure(observation({ eyeBlinkLeft: 0.9, eyeBlinkRight: 0.9 })).eyesOpen).toBe(0);
+    expect(measure(observation({ eyeBlinkLeft: 0.05, eyeBlinkRight: 0.8 })).eyesOpen).toBe(0);
   });
 
-  it('baisse la note de regard quand les yeux partent sur le côté', () => {
-    const away = measure(observation({ eyeLookOutLeft: 0.7, eyeLookInRight: 0.7 }));
-    expect(away.gaze).toBeLessThan(0.5);
+  it('ne départage pas deux visages aux yeux ouverts sur un simple plissement', () => {
+    // Sourire ou lunettes : le détecteur annonce 25 à 30 % de « clignement » alors que les yeux sont ouverts.
+    expect(measure(observation({ eyeBlinkLeft: 0.28, eyeBlinkRight: 0.25 })).eyesOpen).toBe(1);
+    expect(measure(observation({ eyeBlinkLeft: 0.04, eyeBlinkRight: 0.03 })).eyesOpen).toBe(1);
+    expect(measure(observation({ eyeBlinkLeft: 0.5, eyeBlinkRight: 0.5 })).eyesOpen).toBeCloseTo(0.57, 2);
   });
 
   it('baisse la note de regard quand la tête est tournée', () => {
     const slight = measure(observation({}, { matrix: yawMatrix(8) }));
     const turned = measure(observation({}, { matrix: yawMatrix(45) }));
-    expect(slight.gaze).toBeGreaterThan(0.85);
-    expect(turned.gaze).toBeLessThan(0.5);
+    expect(slight.gaze).toBe(1);
+    expect(turned.gaze).toBe(0);
     expect(Math.abs(turned.yawDeg)).toBeCloseTo(45, 0);
+  });
+
+  it('sur un selfie, accepte un visage au bord de l’image tourné vers l’objectif', () => {
+    // Cas réel : caméra selfie (23 mm), image en hauteur, visage centré à 80 % de la largeur.
+    const atRight = { x: 0.7, y: 0.4, width: 0.2, height: 0.2 };
+    const lens = lensDirection(0.8, 0.5, 3024, 4032, 23);
+    expect(lens.hDeg).toBeCloseTo(-18.7, 0);
+
+    const towardLens = measureFace(observation({}, { box: atRight, matrix: yawMatrix(-20) }), detailed, 150, 200, 23);
+    expect(towardLens.yawDeg).toBeCloseTo(-20, 0);
+    expect(Math.abs(towardLens.offAxisHDeg)).toBeLessThan(3);
+    expect(towardLens.gaze).toBe(1);
+
+    // Même place, tête tournée de l'autre côté : il ne regarde pas l'objectif.
+    const away = measureFace(observation({}, { box: atRight, matrix: yawMatrix(20) }), detailed, 150, 200, 23);
+    expect(away.gaze).toBeLessThan(0.1);
+  });
+
+  it('au téléobjectif, la position dans l’image ne change presque rien', () => {
+    expect(Math.abs(lensDirection(0.8, 0.5, 3024, 4032, 77).hDeg)).toBeLessThan(6.5);
+    expect(lensDirection(0.5, 0.5, 3024, 4032, 23)).toEqual({ hDeg: -0, vDeg: 0 });
+  });
+
+  it('accepte une tête tournée dont les yeux reviennent vers l’objectif', () => {
+    const headTurned = measure(observation({}, { matrix: yawMatrix(24) }));
+    const eyesBack = measure(
+      observation({ eyeLookInLeft: 0.7, eyeLookOutRight: 0.7 }, { matrix: yawMatrix(24) }),
+    );
+    expect(eyesBack.gaze).toBeGreaterThan(headTurned.gaze);
+    expect(eyesBack.gaze).toBe(1);
   });
 
   it('préfère un sourire à une bouche ouverte en pleine parole', () => {
@@ -67,7 +101,7 @@ describe('mesures d’un visage', () => {
   it('mesure la netteté dans la boîte du visage, pas dans le décor', () => {
     // Décor détaillé partout, mais visage uniforme (flou) dans sa boîte.
     const gray = detailed.slice();
-    for (let y = 55; y < 125; y++) for (let x = 55; x < 125; x++) gray[y * W + x] = 128;
+    for (let y = 65; y < 135; y++) for (let x = 65; x < 135; x++) gray[y * W + x] = 128;
     expect(measure(observation(), gray).sharpness).toBe(0);
     expect(measure(observation()).sharpness).toBeGreaterThan(1000);
   });
@@ -92,7 +126,7 @@ describe('outils', () => {
   });
 
   it('donne des angles nuls sans matrice', () => {
-    expect(headAngles(null)).toEqual({ yawDeg: 0, pitchDeg: 0 });
+    expect(headPose(null)).toEqual({ yawDeg: 0, pitchDeg: 0 });
   });
 
   it('ne garde que les visages principaux', () => {

@@ -23,12 +23,38 @@ export function boxFromPoints(points: readonly { x: number; y: number }[]): Box 
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
-/** Angles de la tête (degrés) à partir d'une matrice 4 x 4 rangée par colonnes. */
-export function headAngles(matrix: readonly number[] | null): { yawDeg: number; pitchDeg: number } {
+const horizontal = (x: number, z: number): number => Math.atan2(x, z) * DEG;
+const vertical = (x: number, y: number, z: number): number => Math.atan2(-y, Math.hypot(x, z)) * DEG;
+
+/** Rotation de la tête par rapport à l'axe de l'appareil, à partir d'une matrice 4 x 4 rangée par colonnes. */
+export function headPose(matrix: readonly number[] | null): { yawDeg: number; pitchDeg: number } {
   if (!matrix || matrix.length < 16) return { yawDeg: 0, pitchDeg: 0 };
-  const yaw = Math.atan2(matrix[8]!, matrix[10]!);
-  const pitch = Math.asin(Math.max(-1, Math.min(1, -matrix[9]!)));
-  return { yawDeg: yaw * DEG, pitchDeg: pitch * DEG };
+  // Troisième colonne : la direction vers laquelle pointe le visage.
+  return {
+    yawDeg: horizontal(matrix[8]!, matrix[10]!),
+    pitchDeg: vertical(matrix[8]!, matrix[9]!, matrix[10]!),
+  };
+}
+
+/**
+ * Direction de l'objectif vu depuis un point de l'image, dans les mêmes conventions que `headPose`.
+ * Un visage au bord d'une photo prise au grand-angle (selfie à deux) doit tourner la tête pour regarder
+ * le téléphone : par rapport à l'axe de l'appareil il semble regarder de côté, alors qu'il regarde l'objectif.
+ * La focale réelle donne l'angle exact ; au téléobjectif la correction devient négligeable.
+ */
+export function lensDirection(
+  centerX: number,
+  centerY: number,
+  width: number,
+  height: number,
+  focal35: number | null,
+): { hDeg: number; vDeg: number } {
+  // Un capteur « 35 mm » a une demi-diagonale de 21,63 mm : on en déduit la focale en pixels.
+  const focalPx = ((focal35 ?? config.faces.defaultFocal35) * Math.hypot(width, height)) / 2 / 21.63;
+  return {
+    hDeg: -Math.atan(((centerX - 0.5) * width) / focalPx) * DEG,
+    vDeg: Math.atan(((0.5 - centerY) * height) / focalPx) * DEG,
+  };
 }
 
 /** Découpe un rectangle dans une image en niveaux de gris. */
@@ -54,21 +80,29 @@ export function measureFace(
   gray: Uint8Array | Uint8ClampedArray,
   width: number,
   height: number,
+  focal35: number | null = null,
 ): FaceMetrics {
   const cfg = config.faces;
   const b = (name: string): number => observation.blendshapes[name] ?? 0;
   const { box } = observation;
 
   // Yeux : un seul œil fermé suffit à rater la photo.
-  const eyesOpen = clamp01(1 - Math.max(b('eyeBlinkLeft'), b('eyeBlinkRight')));
+  const eyesRaw = 1 - Math.max(b('eyeBlinkLeft'), b('eyeBlinkRight'));
+  const eyesOpen = clamp01((eyesRaw - cfg.eyesClosedAt) / (cfg.eyesOpenAt - cfg.eyesClosedAt));
 
-  // Regard : direction des yeux dans la tête, et rotation de la tête elle-même.
+  // Regard : la tête pointe-t-elle vers l'objectif ? Si elle est tournée mais que les yeux reviennent
+  // vers l'objectif, on retient la lecture la plus favorable.
   const eyeH = (b('eyeLookOutLeft') + b('eyeLookInRight') - b('eyeLookInLeft') - b('eyeLookOutRight')) / 2;
   const eyeV = (b('eyeLookUpLeft') + b('eyeLookUpRight') - b('eyeLookDownLeft') - b('eyeLookDownRight')) / 2;
-  const eyeDeviation = clamp01(Math.hypot(eyeH, eyeV) / cfg.eyeDeviationMax);
-  const { yawDeg, pitchDeg } = headAngles(observation.matrix);
-  const headDeviation = clamp01(Math.max(Math.abs(yawDeg) / cfg.yawMaxDeg, Math.abs(pitchDeg) / cfg.pitchMaxDeg));
-  const gaze = clamp01(1 - (cfg.eyeDeviationWeight * eyeDeviation + cfg.headDeviationWeight * headDeviation));
+  const pose = headPose(observation.matrix);
+  const lens = lensDirection(box.x + box.width / 2, box.y + box.height / 2, width, height, focal35);
+  const offAxisHDeg = pose.yawDeg - lens.hDeg;
+  const offAxisVDeg = pose.pitchDeg - lens.vDeg;
+  const v = offAxisVDeg * cfg.gazeVerticalWeight;
+  const headOnly = Math.hypot(offAxisHDeg, v);
+  const withEyes = Math.hypot(offAxisHDeg + cfg.eyeRangeDeg * eyeH, v);
+  const deviation = Math.min(headOnly, withEyes);
+  const gaze = clamp01(1 - (deviation - cfg.gazeFullDeg) / (cfg.gazeZeroDeg - cfg.gazeFullDeg));
 
   // Expression : le sourire aide ; une bouche ouverte sans sourire (parole) ou une moue pénalisent.
   const smile = clamp01((b('mouthSmileLeft') + b('mouthSmileRight')) / 2);
@@ -102,8 +136,11 @@ export function measureFace(
     smile,
     sharpness,
     cut,
-    yawDeg,
-    pitchDeg,
+    ...pose,
+    offAxisHDeg,
+    offAxisVDeg,
+    eyeH,
+    eyeV,
   };
 }
 
