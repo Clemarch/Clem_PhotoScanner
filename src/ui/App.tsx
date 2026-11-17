@@ -32,6 +32,8 @@ export function App() {
   const cancelRef = useRef(false);
   const [gap, setGap] = useState<number>(config.grouping.packGapSeconds);
   const [records, setRecords] = useState<ChoiceRecord[]>([]);
+  // Paquets rattachés à la main au paquet précédent (pour cette journée).
+  const [joined, setJoined] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setInterrupted(readInterruptedRun());
@@ -43,9 +45,10 @@ export function App() {
   const choices = useMemo<Choices>(() => ({ byKey: new Map(records.map((r) => [r.key, r])) }), [records]);
   const learned = useMemo(() => learnWeights(records), [records]);
   const items = useMemo(() => session?.results.map((r) => r.item) ?? [], [session]);
-  const day = useMemo(() => analyzeDay(items, gap, learned), [items, gap, learned]);
+  const day = useMemo(() => analyzeDay(items, gap, learned, joined), [items, gap, learned, joined]);
 
   const start = async (files: File[]) => {
+    setJoined(new Set());
     session?.thumbnails.forEach((url) => URL.revokeObjectURL(url));
     session?.previews.forEach((url) => URL.revokeObjectURL(url));
     setSession(null);
@@ -161,6 +164,14 @@ export function App() {
           day={day}
           gap={gap}
           onGap={setGap}
+          onJoin={(key, join) =>
+            setJoined((set) => {
+              const next = new Set(set);
+              if (join) next.add(key);
+              else next.delete(key);
+              return next;
+            })
+          }
           choices={choices}
           onChoose={(item, pack, choice) => {
             const key = photoKey(item);

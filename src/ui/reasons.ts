@@ -54,7 +54,7 @@ export function reasonText(reason: Reason, numberOf: (id: string) => number | nu
   }
 }
 
-const note = (score: number | undefined): string => (score === undefined ? '?' : String(Math.round(score * 100)));
+const note = (score: number | undefined): string => (score === undefined ? '?' : String(Math.min(100, Math.max(0, Math.round(score * 100)))));
 
 /** Liste lisible : « la n° 9 », « les n° 9 et 11 ». */
 function photoList(ids: readonly string[], numberOf: (id: string) => number | null): string {
@@ -79,8 +79,8 @@ export function decisionText(
   switch (decision.code) {
     case 'meilleure':
       return 'La meilleure de sa pose';
-    case 'variete':
-      return 'Presque aussi bonne, et différente de celle déjà gardée';
+    case 'aussi-bonne':
+      return `Presque aussi bien notée que ${n}, la meilleure de sa pose (${mine} contre ${note(decision.refId ? scoreOf(decision.refId) : undefined)} sur 100)`;
     case 'seule':
       return 'Seule photo de son paquet';
     case 'minimum':
@@ -88,13 +88,9 @@ export function decisionText(
     case 'trop-proche':
       return `Presque identique à ${n}, gardée à sa place`;
     case 'moins-bonne':
-      return `Nettement moins bien notée que ${n} (${mine} contre ${note(decision.refId ? scoreOf(decision.refId) : undefined)} sur 100)`;
-    case 'budget': {
-      const verb = kept.length > 1 ? 'sont mieux notées' : 'est mieux notée';
-      return `${photoList(kept, numberOf).replace(/^./, (ch) => ch.toUpperCase())} ${verb} dans cette pose (${keptNotes} contre ${mine} sur 100)`;
-    }
+      return `Moins bien notée que ${n}, la meilleure de sa pose (${mine} contre ${note(decision.refId ? scoreOf(decision.refId) : undefined)} sur 100)`;
     case 'plafond':
-      return `Le paquet a déjà ses meilleures photos (${photoList(kept, numberOf)}, ${keptNotes} contre ${mine} sur 100)`;
+      return `Le paquet garde au plus 25 % de ses photos : ${photoList(kept, numberOf)} ${kept.length > 1 ? 'sont mieux notées' : 'est mieux notée'} (${keptNotes} contre ${mine} sur 100)`;
     case 'veto':
       return 'Écartée : défaut rédhibitoire';
   }

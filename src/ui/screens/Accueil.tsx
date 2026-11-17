@@ -39,7 +39,7 @@ export function Accueil({ onFiles, interrupted }: Props) {
             }}
           />
         </label>
-        <p className="note">Version de test · jalon 3 · réglage 2</p>
+        <p className="note">Version de test · jalon 3 · réglage 3</p>
       </div>
     </main>
   );
