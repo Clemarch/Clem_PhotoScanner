@@ -1,4 +1,4 @@
-import type { Reason } from '../engine';
+import { config, type Reason } from '../engine';
 
 /** Texte affiché pour chaque raison. `numberOf` donne le numéro d'une photo dans la journée. */
 export function reasonText(reason: Reason, numberOf: (id: string) => number | null): string {
@@ -11,22 +11,28 @@ export function reasonText(reason: Reason, numberOf: (id: string) => number | nu
       return `Un visage caché ou absent (${reason.count} visible${(reason.count ?? 0) > 1 ? 's' : ''} sur ${reason.expected})`;
     case 'aucun-visage':
       return 'Aucun visage visible';
-    case 'regard-ailleurs':
-      return 'Ne regarde pas l’objectif';
-    case 'expression':
-      return 'Expression ratée (bouche ouverte ou moue)';
+    case 'visage-masque':
+      return 'Visage en partie masqué (objet, main…)';
+    case 'parle':
+      return 'Bouche ouverte, en train de parler';
+    case 'moue':
+      return 'Moue';
+    case 'arriere-plan':
+      return 'Personnes gênantes en arrière-plan';
+    case 'objet': {
+      const names = (reason.labels ?? []).map((label) => config.content.distractingLabels[label] ?? label);
+      return names.length ? `Objet qui gêne : ${names.join(', ')}` : 'Objet qui gêne';
+    }
+    case 'horizon':
+      return `Photo penchée (${(reason.degrees ?? 0).toFixed(1).replace('.', ',')}°)`;
     case 'visage-flou':
       return 'Visage moins net que sur les autres photos';
     case 'moins-nette': {
       const n = reason.refId ? numberOf(reason.refId) : null;
       return n === null ? 'Moins nette que la meilleure du paquet' : `Moins nette que la n° ${n}`;
     }
-    case 'regarde-objectif':
-      return 'Regarde l’objectif';
     case 'sourire':
-      return 'Sourire';
-    case 'visage-net':
-      return 'Visage net';
+      return 'Beau sourire';
     case 'plus-nette':
       return 'La plus nette du paquet';
   }

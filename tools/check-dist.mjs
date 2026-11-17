@@ -19,6 +19,7 @@ for (const file of [
   'manifest.webmanifest',
   'apple-touch-icon.png',
   'models/face_landmarker.task',
+  'models/efficientdet_lite0.tflite',
   'models/wasm/vision_wasm_internal.wasm',
 ])
   if (!existsSync(`dist/${file}`)) problems.push(`dist/${file} est absent`);

@@ -23,12 +23,16 @@ export interface FileDiagnostic {
   /** Durée de la recherche de visages, et nombre de visages trouvés (null si non cherchés). */
   faceMs: number | null;
   faceCount: number | null;
+  /** Durée de la détection d'objets (null si non faite). */
+  objectMs: number | null;
 }
 
 /** Image réduite gardée juste le temps de chercher les visages, puis libérée. */
 export interface AnalysisFrame {
   bitmap: ImageBitmap;
   gray: Uint8Array;
+  /** Pixels en couleur (rouge, vert, bleu, opacité), pour mesurer la couleur des visages. */
+  rgba: Uint8ClampedArray;
   width: number;
   height: number;
 }
