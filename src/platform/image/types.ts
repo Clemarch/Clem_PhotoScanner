@@ -23,6 +23,8 @@ export interface FileDiagnostic {
   /** Durée de la recherche de visages, et nombre de visages trouvés (null si non cherchés). */
   faceMs: number | null;
   faceCount: number | null;
+  /** Visages retrouvés par la seconde recherche, sur le recadrage d'une personne. */
+  faceRetry: number;
   /** Durée de la détection d'objets (null si non faite). */
   objectMs: number | null;
 }
@@ -40,6 +42,8 @@ export interface AnalysisFrame {
 export interface AnalyzeResult {
   item: MediaItem;
   thumbnail: Blob | null;
+  /** Image moyenne (1080 px) pour la visionneuse. */
+  preview: Blob | null;
   diagnostic: FileDiagnostic;
   frame: AnalysisFrame | null;
 }

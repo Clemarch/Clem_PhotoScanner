@@ -1,12 +1,15 @@
 // Note chaque photo par rapport aux autres de son paquet, et explique pourquoi.
-// Principe : le contenu (expression, visage masqué, arrière-plan, objets, cadrage) classe les photos ;
+// Principe : le contenu (expression, visage masqué, arrière-plan, objets, couleurs, cadrage) classe les photos ;
 // la technique (netteté, yeux) ne sert qu'à repérer un défaut, jamais à préférer une photo « plus nette ».
+// Ce qui est recherché dépend du type de photo (selfie, portrait, groupe, paysage, coucher de soleil).
 
 import { config } from '../config';
-import { analyzeContent, compareFaces, subjectPersons } from '../analysis/content';
+import { analyzeContent, compareFaces, countSubjects, subjectPersons } from '../analysis/content';
 import { mainFaces } from '../analysis/faces';
 import { tiltDefect } from '../analysis/framing';
-import type { FaceMetrics, MediaItem, PhotoScore, Reason } from '../types';
+import { classifyPack, exposureBalance } from '../analysis/scene';
+import { learnedAdjustment } from '../learning/preferences';
+import type { FaceMetrics, Features, LearnedWeights, MediaItem, PhotoScore, Reason, SceneType } from '../types';
 
 /** Valeur haute de référence, sans se laisser tromper par une mesure isolée anormalement élevée. */
 function reference(values: number[]): number {
@@ -17,6 +20,7 @@ function reference(values: number[]): number {
 
 const centerX = (face: FaceMetrics): number => face.box.x + face.box.width / 2;
 const clamp01 = (value: number): number => Math.min(1, Math.max(0, value));
+const ratioTo = (value: number, best: number): number => (best > 0 ? clamp01(value / best) : 1);
 
 /** Netteté rapportée à la référence du paquet, transformée en « absence de défaut » : 1 dès qu'elle est suffisante. */
 function sharpEnough(ratio: number): number {
@@ -31,9 +35,19 @@ function expectedFaceCount(counts: number[]): number {
   return sorted[Math.floor((sorted.length - 1) / 2)]!;
 }
 
-export function scorePack(items: readonly MediaItem[]): Map<string, PhotoScore> {
+export interface PackScoring {
+  scene: SceneType;
+  scores: Map<string, PhotoScore>;
+}
+
+export function scorePack(items: readonly MediaItem[], learned: LearnedWeights = {}): Map<string, PhotoScore> {
+  return scorePackDetailed(items, learned).scores;
+}
+
+export function scorePackDetailed(items: readonly MediaItem[], learned: LearnedWeights = {}): PackScoring {
   const cfg = config.scoring;
   const r = cfg.reasons;
+  const c = config.content;
 
   // Visages rangés de gauche à droite : d'une photo à l'autre, la même place désigne la même personne.
   const facesOf = new Map<string, FaceMetrics[]>(
@@ -44,6 +58,7 @@ export function scorePack(items: readonly MediaItem[]): Map<string, PhotoScore> 
     return (item.faces ?? []).filter((face) => !main.has(face) && face.areaRatio >= config.faces.minAreaRatio);
   };
   const expected = expectedFaceCount(items.filter((item) => item.faces !== null).map((item) => facesOf.get(item.id)!.length));
+  const scene = classifyPack(items, expected, (item) => facesOf.get(item.id)!);
 
   // Netteté de référence : globale pour l'image, et par personne pour les visages.
   const techRef = reference(items.map((item) => item.sharpness ?? 0));
@@ -53,6 +68,13 @@ export function scorePack(items: readonly MediaItem[]): Map<string, PhotoScore> 
   const slotRef = Array.from({ length: expected }, (_, slot) =>
     reference(completeItems.map((item) => facesOf.get(item.id)![slot]!.sharpness)),
   );
+  // Place habituelle de chaque personne : quand un visage manque, on retrouve qui est qui par la position.
+  const slotX = Array.from({ length: expected }, (_, slot) => {
+    const xs = completeItems.map((item) => centerX(facesOf.get(item.id)![slot]!)).sort((a, b) => a - b);
+    return xs.length ? xs[Math.floor(xs.length / 2)]! : (slot + 0.5) / Math.max(1, expected);
+  });
+  const nearestSlot = (face: FaceMetrics): number =>
+    slotX.reduce((best, x, k) => (Math.abs(x - centerX(face)) < Math.abs(slotX[best]! - centerX(face)) ? k : best), 0);
 
   // Masquage, objet devant, luminosité : chaque personne comparée à elle-même sur les photos où tout le monde est visible.
   const changes = compareFaces(completeItems.map((item) => facesOf.get(item.id)!));
@@ -72,38 +94,74 @@ export function scorePack(items: readonly MediaItem[]): Map<string, PhotoScore> 
     items.map((item) => [item.id, analyzeContent(facesOf.get(item.id)!, otherFacesOf(item), item.objects, knownSubjects)]),
   );
   const contents = [...contentOf.values()];
-  const minBackground = Math.min(...contents.map((c) => c.background));
-  const minDistractions = Math.min(...contents.map((c) => c.distractions.length));
+  const minBackground = Math.min(...contents.map((x) => x.background));
+  const minDistractions = Math.min(...contents.map((x) => x.distractions.length));
   const exposed = items.filter((item) => item.exposure !== null);
   const minHighlights = Math.min(...exposed.map((item) => item.exposure!.highlights));
   const minShadows = Math.min(...exposed.map((item) => item.exposure!.shadows));
 
+  // Esthétique : chaque mesure rapportée à la meilleure du paquet.
+  const colored = items.filter((item) => item.color !== null);
+  const bestWarm = Math.max(0, ...colored.map((item) => item.color!.warmFraction * item.color!.warmStrength));
+  const bestContrast = Math.max(0, ...colored.map((item) => item.color!.contrast));
+  const bestColorful = Math.max(0, ...colored.map((item) => item.color!.colorfulness));
+  const bestBalance = Math.max(0, ...items.map((item) => exposureBalance(item) ?? 0));
+  const aestheticWeights =
+    scene === 'coucher' ? config.scene.aesthetic.coucher : scene === 'paysage' ? config.scene.aesthetic.paysage : config.scene.aesthetic.personnes;
+  const aestheticParts = (item: MediaItem) => {
+    if (!item.color) return null;
+    const balance = exposureBalance(item) ?? 0;
+    return {
+      warm: ratioTo(item.color.warmFraction * item.color.warmStrength, bestWarm),
+      contrast: ratioTo(item.color.contrast, bestContrast),
+      colorful: ratioTo(item.color.colorfulness, bestColorful),
+      balance: clamp01(1 - (bestBalance - balance)),
+    };
+  };
+  const aestheticOf = (item: MediaItem): number => {
+    const parts = aestheticParts(item);
+    if (!parts) return 1;
+    const w = aestheticWeights;
+    const total = w.warm + w.contrast + w.colorful + w.balance;
+    return (w.warm * parts.warm + w.contrast * parts.contrast + w.colorful * parts.colorful + w.balance * parts.balance) / total;
+  };
+  const bestAesthetic = Math.max(0, ...items.map(aestheticOf));
+
+  const rawRatioOf = (item: MediaItem): number => (techRef > 0 ? Math.min(1, (item.sharpness ?? 0) / techRef) : 1);
   const sharpest = items.reduce<MediaItem | null>(
     (best, item) => ((item.sharpness ?? -1) > (best?.sharpness ?? -1) ? item : best),
     null,
   );
-  const rawRatioOf = (item: MediaItem): number => (techRef > 0 ? Math.min(1, (item.sharpness ?? 0) / techRef) : 1);
 
   const scores: PhotoScore[] = items.map((item) => {
     const faces = facesOf.get(item.id)!;
     const reasons: Reason[] = [];
     const rawRatio = rawRatioOf(item);
+    const aesthetic = aestheticOf(item);
+    const parts = aestheticParts(item);
     let technique: number;
     let faceScore: number | null = null;
     let vetoed = false;
     let occlusion = 0;
     let front = 0;
     let faceBrightness = 1;
+    let expressionF = 1;
+    let smileF = 0;
+    let poseF = 0;
+    let gazeF = 1;
+    let faceSharpF = 1;
 
     if (expected > 0) {
       technique = sharpEnough(rawRatio);
+      const present = countSubjects(faces, item.objects, knownSubjects);
       if (faces.length === 0) {
-        faceScore = 0;
-        reasons.push({ code: 'aucun-visage', tone: 'moins' });
+        faceScore = present >= expected ? 1 - cfg.unanalyzedFacePenalty : 0;
+        reasons.push(present >= expected ? { code: 'visage-non-analyse', tone: 'moins' } : { code: 'aucun-visage', tone: 'moins' });
       } else {
         const w = cfg.faceWeights;
         const ratios = faces.map((face, slot) => {
-          const ref = faces.length === expected ? slotRef[slot]! : anyFaceRef;
+          const ref =
+            faces.length === expected ? slotRef[slot]! : completeItems.length > 0 ? slotRef[nearestSlot(face)]! : anyFaceRef;
           return ref > 0 ? face.sharpness / ref : 1;
         });
         const change = changesOf.get(item.id);
@@ -114,16 +172,25 @@ export function scorePack(items: readonly MediaItem[]): Map<string, PhotoScore> 
         const quality = faces.map(
           (face, i) =>
             (w.eyes * face.eyesOpen + w.gaze * face.gaze + w.expression * face.expression + w.sharpness * sharpEnough(ratios[i]!)) *
-            (1 - config.content.occlusionPenalty * occl[i]!),
+            (1 - c.occlusionPenalty * occl[i]!),
         );
         const worst = Math.min(...quality);
         const mean = quality.reduce((a, b) => a + b, 0) / quality.length;
         faceScore = cfg.worstFaceWeight * worst + cfg.meanFaceWeight * mean;
+        expressionF = Math.min(...faces.map((f) => f.expression));
+        smileF = Math.min(...faces.map((f) => f.smile));
+        poseF = Math.max(...faces.map((f) => f.pout));
+        gazeF = Math.min(...faces.map((f) => f.gaze));
+        faceSharpF = Math.min(...ratios.map(sharpEnough));
 
+        // Visages manquants : caché, ou simplement non analysé si la personne est bien là (tête tournée…).
         const missing = Math.max(0, expected - faces.length);
         if (missing > 0) {
-          faceScore *= 1 - cfg.missingFacePenalty * (missing / expected);
-          reasons.push({ code: 'visage-cache', tone: 'moins', count: faces.length, expected });
+          const unanalyzed = Math.min(missing, Math.max(0, present - faces.length));
+          const hidden = missing - unanalyzed;
+          faceScore *= 1 - (cfg.missingFacePenalty * hidden + cfg.unanalyzedFacePenalty * unanalyzed) / expected;
+          if (hidden > 0) reasons.push({ code: 'visage-cache', tone: 'moins', count: faces.length, expected });
+          if (unanalyzed > 0) reasons.push({ code: 'visage-non-analyse', tone: 'moins' });
         }
         if (faces.some((face) => face.eyesOpen < cfg.eyesClosedBelow)) {
           vetoed = true;
@@ -135,29 +202,36 @@ export function scorePack(items: readonly MediaItem[]): Map<string, PhotoScore> 
         }
         if (occlusion >= r.occlusionFrom) reasons.push({ code: 'visage-masque', tone: 'moins' });
         if (front >= r.frontFrom) reasons.push({ code: 'devant', tone: 'moins' });
-        if (faceBrightness < config.content.darkFaceBelow) reasons.push({ code: 'visage-sombre', tone: 'moins' });
+        if (faceBrightness < c.darkFaceBelow) reasons.push({ code: 'visage-sombre', tone: 'moins' });
         const talking = faces.some((face) => face.talking >= r.talkingFrom);
         if (talking) reasons.push({ code: 'parle', tone: 'moins' });
-        if (faces.some((face) => face.pout >= r.poutFrom)) reasons.push({ code: 'moue', tone: 'moins' });
+        if (!talking && faces.some((face) => face.pout >= r.poseFrom)) reasons.push({ code: 'pose', tone: 'plus' });
         if (!talking && faces.every((face) => face.smile >= r.smileFrom)) reasons.push({ code: 'sourire', tone: 'plus' });
         if (ratios.some((ratio) => ratio < r.faceBlurBelow)) reasons.push({ code: 'visage-flou', tone: 'moins' });
       }
     } else {
-      // Paquet sans visage (paysage) : la netteté départage, en douceur.
+      // Paquet sans visage (paysage, coucher de soleil) : la netteté départage en douceur, l'esthétique compte d'abord.
       technique = Math.sqrt(rawRatio);
-      if (items.length > 1 && sharpest) {
-        if (sharpest.id === item.id) reasons.push({ code: 'plus-nette', tone: 'plus' });
-        else if (rawRatio < r.lessSharpBelow) reasons.push({ code: 'moins-nette', tone: 'moins', refId: sharpest.id });
-      }
+      if (items.length > 1 && sharpest && sharpest.id !== item.id && rawRatio < r.lessSharpBelow)
+        reasons.push({ code: 'moins-nette', tone: 'moins', refId: sharpest.id });
     }
 
-    const pw = cfg.photoWeights;
+    // Couleurs et exposition : raisons comparées à la meilleure du paquet.
+    if (items.length > 1 && parts) {
+      if (bestAesthetic > 0 && aesthetic >= bestAesthetic - 1e-9 && expected === 0) reasons.push({ code: 'couleurs-vives', tone: 'plus' });
+      else if (aesthetic < config.scene.dullBelow * bestAesthetic) reasons.push({ code: 'couleurs-ternes', tone: 'moins' });
+    }
+
     const base =
-      faceScore === null ? technique : (pw.faces * faceScore + pw.technique * technique) / (pw.faces + pw.technique);
+      faceScore === null
+        ? config.scoring.landscapeWeights.technique * technique + config.scoring.landscapeWeights.aesthetic * aesthetic
+        : (() => {
+            const pw = cfg.photoWeights;
+            return (pw.faces * faceScore + pw.technique * technique + pw.aesthetic * aesthetic) / (pw.faces + pw.technique + pw.aesthetic);
+          })();
 
     // Pénalités de contenu et de cadrage.
     const content = contentOf.get(item.id)!;
-    const c = config.content;
     const extraBackground = content.background - minBackground;
     const backgroundPenalty = Math.min(c.backgroundPenaltyMax, c.backgroundPenalty * extraBackground);
     if (extraBackground >= r.backgroundFrom) reasons.push({ code: 'arriere-plan', tone: 'moins' });
@@ -178,7 +252,7 @@ export function scorePack(items: readonly MediaItem[]): Map<string, PhotoScore> 
     if (under > 0) reasons.push({ code: 'sous-exposee', tone: 'moins' });
 
     const dark = clamp01((c.darkFaceBelow - faceBrightness) / (c.darkFaceBelow - c.darkFaceFull));
-    const score =
+    const baseScore =
       base *
       (1 - backgroundPenalty) *
       (1 - objectPenalty) *
@@ -187,9 +261,28 @@ export function scorePack(items: readonly MediaItem[]): Map<string, PhotoScore> 
       (1 - c.darkFacePenalty * dark) *
       (1 - e.penalty * Math.max(over, under));
 
+    const features: Features = {
+      expression: expressionF,
+      sourire: smileF,
+      pose: poseF,
+      regard: gazeF,
+      netteteVisage: faceSharpF,
+      masquage: occlusion,
+      devant: front,
+      arrierePlan: clamp01(extraBackground),
+      objets: clamp01(extraObjects / 2),
+      penchee: tilt,
+      couleurs: parts?.colorful ?? 1,
+      chaud: parts?.warm ?? 1,
+      contraste: parts?.contrast ?? 1,
+      equilibre: parts?.balance ?? 1,
+      nettete: rawRatio,
+    };
+    const learnedBonus = learnedAdjustment(features, learned);
+
     return {
       id: item.id,
-      score,
+      score: baseScore + learnedBonus,
       rank: 0,
       vetoed,
       reasons,
@@ -202,6 +295,9 @@ export function scorePack(items: readonly MediaItem[]): Map<string, PhotoScore> 
       occlusion,
       front,
       faceBrightness,
+      baseScore,
+      learned: learnedBonus,
+      features,
     };
   });
 
@@ -221,5 +317,5 @@ export function scorePack(items: readonly MediaItem[]): Map<string, PhotoScore> 
       score.rank = i + 1;
     });
 
-  return new Map(scores.map((score) => [score.id, score]));
+  return { scene, scores: new Map(scores.map((score) => [score.id, score])) };
 }

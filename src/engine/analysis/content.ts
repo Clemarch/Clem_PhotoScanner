@@ -46,6 +46,21 @@ export function subjectPersons(mainFaces: readonly FaceMetrics[], objects: reado
     .map((o) => o.box);
 }
 
+/** Nombre de personnes présentes à la place d'un sujet (visage trouvé ou non). */
+export function countSubjects(
+  mainFaces: readonly FaceMetrics[],
+  objects: readonly DetectedObject[] | null,
+  knownSubjects: readonly Box[],
+): number {
+  const people = (objects ?? []).filter((o) => o.label === 'person' && o.score >= config.content.minObjectScore);
+  const seen = people.filter(
+    (o) =>
+      mainFaces.some((f) => contains(o.box, f.box.x + f.box.width / 2, f.box.y + f.box.height / 2)) ||
+      knownSubjects.some((s) => iou(s, o.box) >= config.content.subjectOverlap),
+  ).length;
+  return Math.max(seen, mainFaces.length);
+}
+
 /**
  * `mainFaces` : les personnes photographiées. `otherFaces` : visages plus petits, donc en arrière-plan.
  * `objects` : détections du modèle d'objets (personnes comprises), ou null s'il n'a pas tourné.
@@ -169,9 +184,10 @@ export function compareFaces(slots: readonly (readonly FaceMetrics[])[]): FaceCh
     };
     const bodyT = { chromaFrom: cfg.frontChromaFrom, chromaFull: cfg.frontChromaFull, lumaFrom: cfg.frontLumaFrom, lumaFull: cfg.frontLumaFull };
     slots.forEach((_, p) => {
-      for (const data of [upper, lower]) {
-        if (data) result.occlusion[p]![k] = Math.max(result.occlusion[p]![k]!, deviation(data, faceT, p, faceRatio[p]!));
-      }
+      // Haut du visage : seule la couleur compte. L'ombre d'une casquette ou d'un chapeau assombrit les yeux
+      // sans rien masquer.
+      if (upper) result.occlusion[p]![k] = Math.max(result.occlusion[p]![k]!, deviation(upper, { ...faceT, lumaFrom: 99, lumaFull: 100 }, p, faceRatio[p]!));
+      if (lower) result.occlusion[p]![k] = Math.max(result.occlusion[p]![k]!, deviation(lower, faceT, p, faceRatio[p]!));
       if (body) result.front[p]![k] = deviation(body, bodyT, p, faceRatio[p]!);
     });
   }

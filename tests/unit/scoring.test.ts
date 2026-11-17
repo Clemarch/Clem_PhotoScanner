@@ -31,7 +31,7 @@ const left = (extra: Partial<FaceMetrics> = {}) => face({ box: { x: 0.15, y: 0.3
 const right = (extra: Partial<FaceMetrics> = {}) => face({ box: { x: 0.6, y: 0.3, width: 0.2, height: 0.25 }, ...extra });
 
 const photo = (id: string, faces: FaceMetrics[] | null, sharpness = 300, extra: Partial<MediaItem> = {}): MediaItem =>
-  ({ id, kind: 'photo', isRaw: false, sharpness, faces, objects: null, tiltDeg: null, tiltStrength: null, exposure: null, ...extra }) as MediaItem;
+  ({ id, kind: 'photo', isRaw: false, sharpness, faces, objects: null, tiltDeg: null, tiltStrength: null, exposure: null, color: null, signature: null, ...extra }) as MediaItem;
 
 const obj = (label: string, x: number, y: number, width: number, height: number): DetectedObject => ({
   label,
@@ -141,7 +141,8 @@ describe('éléments qui gâchent la photo', () => {
       photo('b', [left(), right()], 300, { objects: [leftPerson, rightPerson] }),
       photo('tete-tournee', [right()], 300, { objects: [obj('person', 0.07, 0.27, 0.38, 0.73), rightPerson] }),
     ]);
-    expect(codes(scores.get('tete-tournee'))).toContain('visage-cache');
+    expect(codes(scores.get('tete-tournee'))).toContain('visage-non-analyse');
+    expect(codes(scores.get('tete-tournee'))).not.toContain('visage-cache');
     expect(codes(scores.get('tete-tournee'))).not.toContain('arriere-plan');
     expect(scores.get('tete-tournee')!.background).toBe(0);
   });
@@ -236,11 +237,10 @@ describe('règles conservées', () => {
     expect(scores.get('a')!.vetoed).toBe(false);
   });
 
-  it('classe un paysage par netteté', () => {
+  it('sans mesure de couleur, classe un paysage par netteté', () => {
     const scores = scorePack([photo('a', [], 100), photo('b', [], 400), photo('c', [], 380)]);
     expect(scores.get('b')!.rank).toBe(1);
     expect(scores.get('b')!.faceScore).toBeNull();
-    expect(codes(scores.get('b'))).toContain('plus-nette');
     expect(scores.get('a')!.reasons[0]).toMatchObject({ code: 'moins-nette', refId: 'b' });
   });
 

@@ -1,11 +1,25 @@
 import { useMemo, useState } from 'react';
+import { FEATURE_NAMES, preferencePairs, type ChoiceRecord, type DayAnalysis, type LearnedWeights } from '../../engine';
 import type { Session } from '../session';
+import { featureLabel } from '../reasons';
 import { buildReport, copyText, summarize } from '../report';
 import { formatDateTime, formatMs, formatOrientation, formatSize } from '../format';
 
-export function Diagnostic({ session }: { session: Session }) {
+interface Props {
+  session: Session;
+  day: DayAnalysis;
+  records: ChoiceRecord[];
+  learned: LearnedWeights;
+  onForget: () => void;
+}
+
+export function Diagnostic({ session, day, records, learned, onForget }: Props) {
   const summary = useMemo(() => summarize(session), [session]);
-  const report = useMemo(() => buildReport(session), [session]);
+  const report = useMemo(() => buildReport(session, day, records, learned), [session, day, records, learned]);
+  const pairs = useMemo(() => preferencePairs(records).length, [records]);
+  const learnedList = FEATURE_NAMES.filter((name) => learned[name] !== undefined).sort(
+    (a, b) => Math.abs(learned[b]!) - Math.abs(learned[a]!),
+  );
   const [copied, setCopied] = useState<'non' | 'oui' | 'echec'>('non');
   const dateOk = summary.withoutDate === 0 && summary.withDate > 0;
 
@@ -22,6 +36,36 @@ export function Diagnostic({ session }: { session: Session }) {
           {summary.withDate} avec date · {summary.withoutDate} sans date · {summary.errors} erreur
           {summary.errors > 1 ? 's' : ''} de décodage
         </p>
+      </section>
+
+      <section className="carte apprentissage">
+        <h3>Vos goûts</h3>
+        <p className="doux">
+          {records.length === 0
+            ? 'Aucun choix enregistré. Dans la visionneuse, touchez « Garder » ou « Supprimer » pour apprendre à l’app ce que vous préférez.'
+            : `${records.length} choix enregistrés sur cet iPhone, ${pairs} comparaison${pairs > 1 ? 's' : ''} utilisable${pairs > 1 ? 's' : ''} (une photo gardée contre une supprimée, dans le même paquet).`}
+        </p>
+        {learnedList.length > 0 && (
+          <ul className="gouts">
+            {learnedList.map((name) => (
+              <li key={name} className={learned[name]! > 0 ? 'plus' : 'moins'}>
+                {learned[name]! > 0 ? 'Compte plus pour vous : ' : 'Compte moins pour vous : '}
+                {featureLabel[name]}
+              </li>
+            ))}
+          </ul>
+        )}
+        {records.length > 0 && (
+          <button
+            className="bouton discret"
+            onClick={() => {
+              if (window.confirm('Oublier tous vos choix ? L’app reviendra à ses réglages de départ.')) onForget();
+            }}
+          >
+            Oublier mes choix
+          </button>
+        )}
+        <p className="note">Vos choix restent sur cet iPhone. Seules des mesures sont enregistrées, jamais les photos.</p>
       </section>
 
       <section className="carte chiffres">

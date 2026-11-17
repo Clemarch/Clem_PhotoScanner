@@ -1,4 +1,4 @@
-import { config, type Reason } from '../engine';
+import { config, type Decision, type FeatureName, type Reason, type SceneType } from '../engine';
 
 /** Texte affiché pour chaque raison. `numberOf` donne le numéro d'une photo dans la journée. */
 export function reasonText(reason: Reason, numberOf: (id: string) => number | null): string {
@@ -23,8 +23,16 @@ export function reasonText(reason: Reason, numberOf: (id: string) => number | nu
       return 'Zones trop sombres (détails perdus)';
     case 'parle':
       return 'Bouche ouverte, en train de parler';
-    case 'moue':
-      return 'Moue';
+    case 'pose':
+      return 'Pose voulue (moue, bisou…)';
+    case 'visage-non-analyse':
+      return 'Un visage n’a pas pu être analysé (tête tournée ?)';
+    case 'couleurs-vives':
+      return 'Les plus belles couleurs du paquet';
+    case 'couleurs-ternes':
+      return 'Couleurs plus ternes ou exposition moins équilibrée';
+    case 'equilibree':
+      return 'Exposition équilibrée';
     case 'arriere-plan':
       return 'Personnes gênantes en arrière-plan';
     case 'objet': {
@@ -45,3 +53,64 @@ export function reasonText(reason: Reason, numberOf: (id: string) => number | nu
       return 'La plus nette du paquet';
   }
 }
+
+/** Raison de la décision « garder » / « supprimer » de l'app. */
+export function decisionText(decision: Decision, numberOf: (id: string) => number | null): string {
+  const ref = decision.refId ? numberOf(decision.refId) : null;
+  const n = ref === null ? 'la meilleure' : `la n° ${ref}`;
+  switch (decision.code) {
+    case 'meilleure':
+      return 'La meilleure de sa pose';
+    case 'variete':
+      return 'Presque aussi bonne, et différente de celle déjà gardée';
+    case 'seule':
+      return 'Seule photo de son paquet';
+    case 'minimum':
+      return 'Gardée pour qu’il reste au moins une photo du paquet';
+    case 'trop-proche':
+      return `Presque identique à ${n}, gardée à sa place`;
+    case 'moins-bonne':
+      return `Nettement moins bonne que ${n}`;
+    case 'budget':
+      return `Assez de photos gardées pour cette pose (dont ${n})`;
+    case 'plafond':
+      return 'Au-delà du maximum de photos gardées pour ce paquet';
+    case 'veto':
+      return 'Écartée : défaut rédhibitoire';
+  }
+}
+
+export const sceneLabel: Record<SceneType, string> = {
+  selfie: 'Selfie',
+  portrait: 'Portrait',
+  groupe: 'Groupe',
+  coucher: 'Coucher de soleil',
+  paysage: 'Paysage',
+};
+
+/** Ce que l'app cherche pour chaque type de photo. */
+export const sceneGoal: Record<SceneType, string> = {
+  selfie: 'les expressions, personne qui parle, rien devant les visages',
+  portrait: 'l’expression, un visage net, rien qui gêne',
+  groupe: 'tout le monde visible et réussi : le visage le plus raté décide',
+  coucher: 'les couleurs chaudes les plus intenses, du contraste, une exposition équilibrée',
+  paysage: 'du contraste, des couleurs vives, une exposition équilibrée, un horizon droit',
+};
+
+export const featureLabel: Record<FeatureName, string> = {
+  expression: 'expression',
+  sourire: 'sourire',
+  pose: 'pose (moue, bisou)',
+  regard: 'regard vers l’objectif',
+  netteteVisage: 'netteté des visages',
+  masquage: 'visage masqué',
+  devant: 'objet devant la personne',
+  arrierePlan: 'personnes en arrière-plan',
+  objets: 'objets gênants',
+  penchee: 'photo penchée',
+  couleurs: 'couleurs vives',
+  chaud: 'couleurs chaudes',
+  contraste: 'contraste',
+  equilibre: 'exposition équilibrée',
+  nettete: 'netteté de l’image',
+};

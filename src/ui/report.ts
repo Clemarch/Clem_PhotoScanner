@@ -1,5 +1,5 @@
 import type { Session } from './session';
-import { config, groupIntoPacks, mainFaces, scorePack, type PhotoScore } from '../engine';
+import { mainFaces, photoKey, signatureDistance, type ChoiceRecord, type DayAnalysis, type Decision, type LearnedWeights, type PhotoScore, type SceneType } from '../engine';
 import { formatDateTime, formatMs, formatOrientation, formatSize } from './format';
 
 const color = (c: readonly number[] | null): string => (c ? c.map((v) => Math.round(v)).join(',') : '?');
@@ -73,7 +73,7 @@ const counts = (record: Record<string, number>): string =>
     .join(', ') || '—';
 
 /** Rapport en texte, à copier puis coller dans la conversation avec Claude. Ne contient aucune image. */
-export function buildReport(session: Session): string {
+export function buildReport(session: Session, day: DayAnalysis, records: readonly ChoiceRecord[], learned: LearnedWeights): string {
   const s = summarize(session);
   const d = session.device;
   const lines = [
@@ -95,12 +95,32 @@ export function buildReport(session: Session): string {
     'n° | nom | type (type déclaré) | taille | date de prise de vue | date du fichier | orientation | dimensions | décodage | netteté | erreur',
     '    puis : note, rang dans le paquet, raisons, et les mesures de chaque visage principal (de gauche à droite)',
   ];
-  const day = groupIntoPacks(
-    session.results.map((r) => r.item),
-    config.grouping.packGapSeconds,
+  const scores = new Map<string, PhotoScore & { pack: string; scene: SceneType; decision: Decision | undefined; similarPrev: number }>();
+  day.packs.forEach((pack, i) => {
+    pack.pack.items.forEach((it, k) => {
+      const score = pack.scores.get(it.id)!;
+      const prev = pack.pack.items[k - 1];
+      scores.set(it.id, {
+        ...score,
+        pack: `P${i + 1}`,
+        scene: pack.scene,
+        decision: pack.decisions.get(it.id),
+        similarPrev: prev ? signatureDistance(prev.signature, it.signature) : NaN,
+      });
+    });
+  });
+  const choiceOf = new Map(records.map((r) => [r.key, r.choice]));
+  lines.splice(
+    lines.length - 2,
+    0,
+    `Paquets : ${day.packs.map((p, i) => `P${i + 1} ${p.scene} (${p.pack.items.length} photos, ${p.poses.length} pose${p.poses.length > 1 ? 's' : ''}, ${[...p.decisions.values()].filter((d) => d.keep).length} gardées par l'app)`).join(' · ') || '—'}`,
+    `Vos choix enregistrés : ${records.length} · goûts appris : ${
+      Object.entries(learned)
+        .map(([k, v]) => `${k} ${v >= 0 ? '+' : ''}${v.toFixed(2)}`)
+        .join(', ') || 'aucun'
+    }`,
+    '',
   );
-  const scores = new Map<string, PhotoScore & { pack: string }>();
-  day.packs.forEach((pack, i) => scorePack(pack.items).forEach((score, id) => scores.set(id, { ...score, pack: `P${i + 1}` })));
   session.results.forEach(({ item, diagnostic: g }, i) => {
     lines.push(
       [
@@ -128,7 +148,10 @@ export function buildReport(session: Session): string {
         .join(' ');
       const objects = (item.objects ?? []).map((o) => `${o.label} ${o.score.toFixed(2)}`).join(', ') || 'aucun';
       lines.push(
-        `    ${score.pack} note ${score.score.toFixed(2)} rang ${score.rank}${score.vetoed ? ' VETO' : ''} · visages ${score.faceCount}/${score.expectedFaces} (${g.faceCount ?? '?'} détectés, ${formatMs(g.faceMs)}) · ${score.reasons.map((r) => r.code).join(', ') || '—'} · masquage ${score.occlusion.toFixed(2)} devant ${score.front.toFixed(2)} lum-visage ${score.faceBrightness.toFixed(2)} arrière-plan ${score.background.toFixed(2)} gêne ${score.distraction} · penché ${item.tiltDeg?.toFixed(1) ?? '?'}° (force ${item.tiltStrength?.toFixed(2) ?? '?'}) · expo brûlé ${pct(item.exposure?.highlights)} bouché ${pct(item.exposure?.shadows)} moy ${item.exposure?.mean.toFixed(0) ?? '?'} · objets : ${objects} ${faces}`,
+        `    ${score.pack} ${score.scene} pose ${score.decision?.pose ?? '?'} · app : ${score.decision ? `${score.decision.keep ? 'GARDER' : 'supprimer'} (${score.decision.code})` : '?'} · vous : ${choiceOf.get(photoKey(item)) ?? '—'} · écart photo précédente ${Number.isFinite(score.similarPrev) ? score.similarPrev.toFixed(3) : '—'}`,
+      );
+      lines.push(
+        `    note ${score.score.toFixed(2)} (base ${score.baseScore.toFixed(2)} appris ${score.learned >= 0 ? '+' : ''}${score.learned.toFixed(2)}) rang ${score.rank}${score.vetoed ? ' VETO' : ''} · couleurs ${item.color ? `vivacité ${item.color.colorfulness.toFixed(2)} chaud ${(item.color.warmFraction * 100).toFixed(0)}%×${item.color.warmStrength.toFixed(2)} contraste ${item.color.contrast.toFixed(2)} lum ${item.color.mean.toFixed(2)}` : '?'} · visages ${score.faceCount}/${score.expectedFaces} (2e recherche +${g.faceRetry}) · visages ${score.faceCount}/${score.expectedFaces} (${g.faceCount ?? '?'} détectés, ${formatMs(g.faceMs)}) · ${score.reasons.map((r) => r.code).join(', ') || '—'} · masquage ${score.occlusion.toFixed(2)} devant ${score.front.toFixed(2)} lum-visage ${score.faceBrightness.toFixed(2)} arrière-plan ${score.background.toFixed(2)} gêne ${score.distraction} · penché ${item.tiltDeg?.toFixed(1) ?? '?'}° (force ${item.tiltStrength?.toFixed(2) ?? '?'}) · expo brûlé ${pct(item.exposure?.highlights)} bouché ${pct(item.exposure?.shadows)} moy ${item.exposure?.mean.toFixed(0) ?? '?'} · objets : ${objects} ${faces}`,
       );
     }
   });

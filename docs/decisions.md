@@ -204,6 +204,56 @@ pénalisée pour « moue »). Le rapport a montré :
 - Observé, non modifié : le détecteur voit un sac à dos sur toutes les photos du paquet ; présent partout, il ne
   pénalise pas. Durée totale : 2,9 s pour 14 photos, soit environ 20 s pour une journée de 100 photos.
 
+## Jalon 3 : sélection, visionneuse, choix et apprentissage
+
+Plan préparé avant le code : `docs/jalon-3.md`. Écarts et choix faits en cours de route :
+
+### 16. Retours de l'utilisateur sur le réglage 3 (il garde les n° 1, 3 et 7 du paquet de selfies)
+- **La moue est une pose voulue** (geste de la main pour la photo) : plus aucune pénalité ; une moue, comme un
+  sourire, améliore l'expression ; raison positive « pose voulue ». Une expression calme vaut 0,7 (au lieu de 0,55) :
+  seule la parole reste un défaut.
+- **Photo 7 : visage non trouvé, mais présent.** Seconde recherche de visage sur le recadrage de chaque personne
+  détectée sans visage. Si elle échoue encore et qu'une personne se tient à la place d'un sujet, raison « visage non
+  analysé » et pénalité légère (6 % par visage), au lieu de « visage caché » (50 %).
+- **Netteté d'un visage quand un autre manque** : chaque visage est rattaché à la bonne personne par sa position
+  habituelle, au lieu d'être comparé au visage le plus net du paquet (qui pouvait être celui de l'autre personne).
+- **Casquette portée** : pour le haut du visage, seule la couleur compte ; l'ombre d'une visière n'est plus un masquage.
+- Le paquet est reconstitué dans `tests/unit/feedback.test.ts` à partir du rapport : les n° 1, 3 et 7 y sont dans la
+  moitié haute du classement. L'ordre exact entre photos presque équivalentes (notes à 0,02 près) relève du goût :
+  c'est le rôle de l'apprentissage.
+
+### 17. Type de photo et esthétique
+- Type décidé par paquet : selfie (caméra avant ≤ 23 mm), portrait, groupe (3 visages et plus), coucher de soleil
+  (au moins 10 % de pixels orange ou jaune saturés, intensité ≥ 0,25), paysage. Affiché avec « On cherche : … ».
+- Esthétique relative au paquet : couleurs chaudes, contraste, vivacité (mesure de Hasler et Süsstrunk), équilibre
+  de l'exposition (luminosité proche d'un niveau moyen, peu de zones brûlées ou bouchées). Poids selon le type
+  (`config.scene.aesthetic`). Sans visage : 70 % esthétique, 30 % netteté ; avec visages : 10 % esthétique.
+- Seuil « coucher de soleil » abaissé de 0,30 à 0,25 après un essai : un ciel du soir un peu terne doit compter.
+  À calibrer sur les photos de l'utilisateur (le rapport donne les mesures).
+
+### 18. Groupes de pose et sélection
+- Empreinte : vignette de 8 × 8 pixels en couleur. Une photo rejoint le groupe courant si elle diffère de moins de
+  0,10 de la précédente et de 0,14 du premier du groupe, sans pause de plus de 20 s ni visage déplacé. Seuils à
+  calibrer : le rapport donne l'écart avec la photo précédente.
+- Sélection du plan d'origine (budget de 20 % par pose, plafond de 25 % par paquet, au moins une photo, variété) ;
+  le seuil absolu de 0,45 est abandonné (notes relatives au paquet).
+- Quasi-doublons : écart d'empreinte inférieur à 0,015 seulement (très proche de l'identique), pour ne pas écarter
+  des variantes d'une même pose que l'utilisateur aime garder.
+
+### 19. Choix et apprentissage, sur l'iPhone
+- Boutons Garder / Supprimer dans la visionneuse ; choix enregistrés dans IndexedDB (mesures seulement, jamais
+  d'image), clés « nom de fichier | date de prise de vue », donc retrouvés si on réanalyse les mêmes photos.
+- Apprentissage : régression logistique sur les paires « gardée contre supprimée » d'un même paquet ; un poids par
+  critère, rappelé vers zéro, plafonné à ±0,4 ; ajustement de la note plafonné à ±0,2. Recalculé entièrement à chaque
+  choix. Bouton « Oublier mes choix ».
+- Écarté pour l'instant : un modèle d'IA esthétique (lourd, et peu discriminant entre photos quasi identiques).
+
+### 20. Accès complet à la photothèque
+Impossible depuis Safari : une page web ne voit que les photos choisies dans le sélecteur. Il faudrait une app
+native (Expo), donc un compte Apple Developer (99 €/an) et une installation par TestFlight, possible sans Mac grâce
+aux compilations dans le nuage d'Expo (EAS). Gains : choisir « hier » automatiquement, et supprimer les photos
+écartées d'une seule confirmation d'iOS. Proposé pour après le jalon 4, à la décision de l'utilisateur.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

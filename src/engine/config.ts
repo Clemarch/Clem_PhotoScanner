@@ -12,9 +12,11 @@ export const config = {
   image: {
     /** Plus grand côté (pixels) de l'image réduite utilisée pour l'analyse. */
     analysisMaxSide: 1536,
-    /** Plus grand côté (pixels) des miniatures affichées. */
-    thumbnailMaxSide: 512,
+    /** Plus grand côté (pixels) des vignettes de la grille, et des images de la visionneuse. */
+    thumbnailMaxSide: 320,
     thumbnailQuality: 0.72,
+    previewMaxSide: 1080,
+    previewQuality: 0.8,
   },
   sharpness: {
     /** L'image est découpée en grille de N x N cases, mesurées séparément. */
@@ -53,12 +55,13 @@ export const config = {
      *  une tête tournée dont les yeux reviennent vers l'objectif. */
     eyeRangeDeg: 30,
     /** Expression : note neutre, bonus du sourire, pénalités bouche ouverte (parole) et moue. */
-    expressionNeutral: 0.55,
-    smileBonus: 0.45,
+    /** Expression : un visage calme vaut déjà bien ; un sourire ou une pose voulue (moue, bisou) l'améliore ;
+     *  seule une bouche ouverte sans sourire (parole) est un défaut. */
+    expressionNeutral: 0.7,
+    smileBonus: 0.3,
     jawOpenFrom: 0.3,
     talkingPenalty: 0.9,
     poutFrom: 0.3,
-    poutPenalty: 0.5,
   },
   content: {
     /** Catégories du détecteur d'objets considérées comme gênantes quand elles touchent les personnes
@@ -156,6 +159,60 @@ export const config = {
     tiltFullDeg: 6,
     tiltPenalty: 0.2,
   },
+  scene: {
+    /** Coucher de soleil : part minimale de pixels orange ou jaune saturés, et intensité minimale. */
+    sunsetWarmFraction: 0.1,
+    sunsetWarmStrength: 0.25,
+    /** Selfie : focale de la caméra avant (équivalent 35 mm) au plus égale à celle-ci, et visage assez grand. */
+    selfieMaxFocal: 23,
+    selfieMinFaceArea: 0.01,
+    /** Groupe : à partir de ce nombre de visages. */
+    groupFrom: 3,
+    /** Poids de l'esthétique selon le type : couleurs chaudes, contraste, vivacité, équilibre de l'exposition. */
+    aesthetic: {
+      coucher: { warm: 0.45, contrast: 0.2, colorful: 0.15, balance: 0.2 },
+      paysage: { warm: 0, contrast: 0.3, colorful: 0.3, balance: 0.4 },
+      personnes: { warm: 0, contrast: 0.25, colorful: 0.25, balance: 0.5 },
+    },
+    /** Luminosité moyenne visée pour une exposition équilibrée (0 à 1). */
+    balanceTarget: 0.45,
+    /** Raisons : esthétique sous cette part de la meilleure du paquet = « couleurs plus ternes ». */
+    dullBelow: 0.85,
+  },
+  poses: {
+    /** Une photo rejoint le groupe de pose courant si son empreinte diffère de moins de ceci de la précédente,
+     *  et de moins de `fromFirst` du premier du groupe (0 = identiques, 1 = opposées). */
+    fromPrevious: 0.1,
+    fromFirst: 0.14,
+    /** Au-delà de cet écart de temps (secondes) entre deux photos, nouveau groupe. */
+    gapSeconds: 20,
+    /** Un visage qui se déplace de plus de cette part de l'image change la pose. */
+    faceMove: 0.15,
+  },
+  selection: {
+    /** Dans un groupe de pose de n photos, on garde au plus max(1, ceil(poseShare × n)). */
+    poseShare: 0.2,
+    /** Plafond du paquet de N photos : ceil(packShare × N). Le quota est un plafond, jamais un objectif. */
+    packShare: 0.25,
+    /** Une photo n'est gardée en plus de la meilleure que si sa note est à moins de ceci de la meilleure. */
+    scoreMargin: 0.1,
+    /** Choix successifs pour varier : part de la note, et part de la différence avec les photos déjà gardées. */
+    diversityScore: 0.7,
+    diversityWeight: 0.3,
+    /** Deux photos dont l'empreinte diffère de moins de ceci sont des quasi-doublons : on n'en garde qu'une. */
+    nearDuplicate: 0.015,
+  },
+  learning: {
+    /** Ajustement maximal de la note apporté par l'apprentissage, et poids maximal d'un critère. */
+    maxAdjustment: 0.2,
+    maxWeight: 0.4,
+    /** Vitesse d'apprentissage, rappel vers zéro (évite de sur-apprendre sur peu de choix), passes sur les données. */
+    rate: 0.5,
+    regularization: 0.05,
+    epochs: 40,
+    /** Échelle des différences de note dans la fonction logistique. */
+    scale: 8,
+  },
   scoring: {
     /** Note d'un visage. Le contenu d'abord : l'expression domine. Le regard compte peu,
      *  car regarder au loin peut faire une très belle photo. */
@@ -163,20 +220,24 @@ export const config = {
     /** Note « visages » d'une photo : le visage le plus raté pèse le plus. */
     worstFaceWeight: 0.6,
     meanFaceWeight: 0.4,
-    /** Note d'une photo : visages, puis technique (netteté globale). */
-    photoWeights: { faces: 0.85, technique: 0.15 },
+    /** Note d'une photo avec des personnes : visages, technique (netteté globale), esthétique (couleurs, exposition). */
+    photoWeights: { faces: 0.8, technique: 0.1, aesthetic: 0.1 },
+    /** Note d'une photo sans personne : technique, puis esthétique. */
+    landscapeWeights: { technique: 0.3, aesthetic: 0.7 },
     /** La netteté ne sert qu'à repérer un défaut : au-dessus de `sharpEnough` fois la référence du paquet,
      *  elle vaut le maximum (une photo plus nette n'est pas une meilleure photo) ; sous `sharpFloor`, zéro. */
     sharpEnough: 0.6,
     sharpFloor: 0.2,
     /** Part de la note « visages » perdue quand tous les visages attendus manquent. */
     missingFacePenalty: 0.5,
+    /** Même chose quand la personne est bien là (détectée à sa place) mais que son visage n'a pas pu être analysé. */
+    unanalyzedFacePenalty: 0.06,
     /** Veto : yeux considérés fermés sous cette note d'ouverture. */
     eyesClosedBelow: 0.3,
     /** Seuils des raisons affichées. */
     reasons: {
       talkingFrom: 0.15,
-      poutFrom: 0.15,
+      poseFrom: 0.15,
       smileFrom: 0.5,
       faceBlurBelow: 0.5,
       lessSharpBelow: 0.7,
