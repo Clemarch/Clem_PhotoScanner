@@ -148,13 +148,12 @@ export function measureFace(
   const deviation = Math.min(headOnly, withEyes);
   const gaze = clamp01(1 - (deviation - cfg.gazeFullDeg) / (cfg.gazeZeroDeg - cfg.gazeFullDeg));
 
-  // Expression : le sourire aide ; une bouche ouverte sans sourire (parole) ou une moue pénalisent.
+  // Expression : un visage calme vaut déjà bien. Un sourire, ou une pose voulue (moue, bisou), l'améliore.
+  // Seule une bouche ouverte sans sourire (en train de parler) est un défaut.
   const smile = clamp01((b('mouthSmileLeft') + b('mouthSmileRight')) / 2);
   const talking = Math.max(0, b('jawOpen') - cfg.jawOpenFrom) * (1 - smile);
-  const pout = Math.max(0, Math.max(b('mouthFunnel'), b('mouthPucker')) - cfg.poutFrom);
-  const expression = clamp01(
-    cfg.expressionNeutral + cfg.smileBonus * smile - cfg.talkingPenalty * talking - cfg.poutPenalty * pout,
-  );
+  const pout = clamp01(Math.max(0, Math.max(b('mouthFunnel'), b('mouthPucker')) - cfg.poutFrom) / (1 - cfg.poutFrom));
+  const expression = clamp01(cfg.expressionNeutral + cfg.smileBonus * Math.max(smile, pout) - cfg.talkingPenalty * talking);
 
   const crop = cropGray(gray, width, height, box);
   const sharpness = sharpnessFromGray(
@@ -186,7 +185,7 @@ export function measureFace(
     eyeH,
     eyeV,
     talking: clamp01(talking / (1 - cfg.jawOpenFrom)),
-    pout: clamp01(pout / (1 - cfg.poutFrom)),
+    pout,
     upperColor: rgba ? regionColor(rgba, width, height, within(box, UPPER)) : null,
     lowerColor: rgba ? regionColor(rgba, width, height, within(box, LOWER)) : null,
     bodyColor: rgba ? regionColor(rgba, width, height, bodyZone(box)) : null,

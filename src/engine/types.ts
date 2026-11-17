@@ -76,6 +76,21 @@ export interface Exposure {
   mean: number;
 }
 
+/** Couleurs et contraste d'une image (mesurés sur l'image réduite). */
+export interface ColorStats {
+  /** Saturation moyenne, entre 0 et 1. */
+  saturation: number;
+  /** Vivacité des couleurs (mesure de Hasler et Süsstrunk), environ 0 (gris) à 1 (très vives). */
+  colorfulness: number;
+  /** Part des pixels orange ou jaune saturés, entre 0 et 1, et leur intensité moyenne (saturation × luminosité). */
+  warmFraction: number;
+  warmStrength: number;
+  /** Contraste : écart type de la luminosité, ramené entre 0 et 1. */
+  contrast: number;
+  /** Luminosité moyenne, entre 0 et 1. */
+  mean: number;
+}
+
 export interface MediaItem {
   id: string;
   kind: MediaKind;
@@ -106,6 +121,74 @@ export interface MediaItem {
   tiltStrength: number | null;
   /** Exposition mesurée sur l'image réduite ; null si non mesurée. */
   exposure: Exposure | null;
+  /** Couleurs et contraste ; null si non mesurés. */
+  color: ColorStats | null;
+  /** Empreinte de l'image : vignette de 8 x 8 pixels en couleur (192 nombres de 0 à 255), pour comparer les poses. */
+  signature: number[] | null;
+}
+
+/** Type de photo, décidé pour un paquet entier. */
+export type SceneType = 'selfie' | 'portrait' | 'groupe' | 'coucher' | 'paysage';
+
+export interface PoseGroup {
+  id: string;
+  /** Lettre affichée (A, B, C…). */
+  label: string;
+  items: MediaItem[];
+}
+
+export type DecisionCode =
+  | 'meilleure'
+  | 'variete'
+  | 'seule'
+  | 'minimum'
+  | 'trop-proche'
+  | 'moins-bonne'
+  | 'budget'
+  | 'plafond'
+  | 'veto';
+
+export interface Decision {
+  keep: boolean;
+  code: DecisionCode;
+  /** Photo de référence (« trop proche de la n° 4 », « moins bonne que la n° 3 »). */
+  refId?: string;
+  /** Groupe de pose de la photo. */
+  pose: string;
+}
+
+/** Critères dont l'importance s'ajuste aux choix de l'utilisateur. Valeurs entre 0 et 1, relatives au paquet. */
+export const FEATURE_NAMES = [
+  'expression',
+  'sourire',
+  'pose',
+  'regard',
+  'netteteVisage',
+  'masquage',
+  'devant',
+  'arrierePlan',
+  'objets',
+  'penchee',
+  'couleurs',
+  'chaud',
+  'contraste',
+  'equilibre',
+  'nettete',
+] as const;
+export type FeatureName = (typeof FEATURE_NAMES)[number];
+export type Features = Record<FeatureName, number>;
+export type LearnedWeights = Partial<Record<FeatureName, number>>;
+
+/** Choix de l'utilisateur sur une photo, tel qu'il est enregistré sur l'appareil (jamais l'image). */
+export interface ChoiceRecord {
+  /** Identifiant stable de la photo : nom de fichier et date de prise de vue. */
+  key: string;
+  /** Paquet dans lequel le choix a été fait (date de début du paquet). */
+  packKey: string;
+  choice: 'garder' | 'supprimer';
+  features: Features;
+  baseScore: number;
+  at: number;
 }
 
 export interface Pack {
@@ -136,8 +219,12 @@ export type ReasonCode =
   | 'surexposee'
   | 'sous-exposee'
   | 'aucun-visage'
+  | 'visage-non-analyse'
   | 'parle'
-  | 'moue'
+  | 'pose'
+  | 'couleurs-vives'
+  | 'couleurs-ternes'
+  | 'equilibree'
   | 'arriere-plan'
   | 'objet'
   | 'horizon'
@@ -183,4 +270,10 @@ export interface PhotoScore {
   front: number;
   /** Luminosité du visage le plus sombre, rapportée à la même personne sur les autres photos (1 = habituelle). */
   faceBrightness: number;
+  /** Note avant l'ajustement appris des choix de l'utilisateur. */
+  baseScore: number;
+  /** Ajustement appris (positif : la photo ressemble à celles que l'utilisateur garde). */
+  learned: number;
+  /** Mesures relatives au paquet, utilisées pour l'apprentissage. */
+  features: Features;
 }

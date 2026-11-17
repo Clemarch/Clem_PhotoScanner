@@ -23,6 +23,8 @@ function photo(id: string, secondsAfterStart: number | null, extra: Partial<Medi
     tiltDeg: null,
     tiltStrength: null,
     exposure: null,
+    color: null,
+    signature: null,
     ...extra,
   };
 }
