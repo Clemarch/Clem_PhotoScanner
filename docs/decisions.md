@@ -303,6 +303,38 @@ n° 37/38, n° 21 et 28 en plus dans une série de 9 paysages). Corrections :
 - Les paquets d'une seule photo sont toujours gardés (règle « au moins une photo par paquet ») ; l'utilisateur en a
   supprimé trois. Question posée.
 
+## Jalon 4 : passer à l'action, cadrage du corps, zoom
+
+Plan préparé avant le code : `docs/jalon-4.md`.
+
+### 23. Réponses de l'utilisateur (17/11) et ce qu'elles ont changé
+- **Suppression dans Photos** : il coche plusieurs photos avec « Sélectionner », ou trie photo par photo. Écran
+  « À supprimer » : chaque paquet dans l'ordre exact de Photos (ordre de prise de vue), photos à supprimer marquées,
+  heures de début et de fin, marche à suivre, case « Fait dans Photos » mémorisée (stockage local du navigateur).
+- **Paquet entièrement supprimable** si toutes ses photos sont ratées. Le veto n'est plus levé quand tout le paquet
+  est concerné (règle du plan d'origine, abandonnée à la demande de l'utilisateur). Photo ratée : défaut
+  rédhibitoire, ou très floue sans personne (netteté < 15, seuil de départ : les photos de ciel par le hublot du
+  17/11 mesuraient 12 à 43 ; l'utilisateur a supprimé celles à 12 et 27, gardé celle à 43).
+- **Photos penchées par le hublot** : confirmées penchées par l'utilisateur (mesures 5,5° à 11°, force 0,04 à 0,05).
+  Seuil de fiabilité abaissé de 0,10 à 0,04, et inclinaison jugée **par rapport à la photo la plus droite du paquet**
+  (par le hublot, tout est penché : on préfère la moins penchée).
+- **Bords du hublot** : part de l'image envahie depuis un bord par une zone sombre et uniforme (grille de 24 × 18
+  cases, propagation depuis les bords), comparée à la photo la plus dégagée du paquet. Seulement sans personne au
+  premier plan : sur un portrait, des vêtements sombres touchent souvent le bord (vérifié en test : 7 à 12 %).
+- **Modèle du corps ajouté** (MediaPipe Pose Landmarker lite, 5,8 Mo, même bibliothèque 0.10.34). Main coupée :
+  coude dans l'image et poignet ou index à moins de 2 % du bord (le modèle place une main coupée tout contre le bord,
+  0,99, plutôt qu'en dehors : constaté en test). Pieds coupés : genou dedans, cheville ou orteils au bord. Comparé à
+  la photo la mieux cadrée du même groupe de pose (le bras qui tient le téléphone d'un selfie est coupé partout).
+  Couper au-dessus du genou n'est pas compté (cadrage classique « à mi-cuisse »). Coût mesuré : environ 85 ms par
+  photo sur ordinateur.
+- **Zoom** dans la visionneuse : pincer, double toucher, déplacer ; la photo d'origine (référence au fichier choisi,
+  rien n'est copié) remplace l'image réduite pendant le zoom, une seule à la fois en mémoire.
+- Le rapport donne les positions des coudes, poignets et index, pour calibrer sur les photos de l'utilisateur.
+
+### 24. Autres modèles proposés, en attente de validation
+Voir le tableau de `docs/jalon-4.md` : reconnaissance de gestes (main devant le visage, gestes voulus), silhouette
+des personnes, empreinte d'image, classement de scène. Rien n'est ajouté sans l'accord de l'utilisateur.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.
