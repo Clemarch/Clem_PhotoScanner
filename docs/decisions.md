@@ -278,6 +278,31 @@ aux compilations dans le nuage d'Expo (EAS). Gains : choisir « hier » automati
   vrai coucher de soleil sera testé.
 - Protocole de test pour l'utilisateur : `docs/protocole-test.md`.
 
+### 22. Deuxième test du jalon 3 (43 photos, 41 choix de l'utilisateur)
+Mesure de l'accord app / utilisateur sur ses 41 choix : 29 identiques (71 %). Sur les 12 photos qu'il garde, l'app en
+gardait 7 ; les 5 autres étaient presque toutes des quasi-jumelles d'une photo gardée (selfies n° 30/31, n° 35/36,
+n° 37/38, n° 21 et 28 en plus dans une série de 9 paysages). Corrections :
+
+- **« Seules les notes comptent »** (demande de l'utilisateur) : plus de nombre maximal de photos par pose.
+  Toute photo à moins de 0,04 de la meilleure de sa pose est gardée (sauf quasi-doublon). Seul le plafond de 25 %
+  par paquet reste, et son refus cite les photos mieux notées.
+- **Apprentissage : ajustement centré sur le paquet.** Avec 41 choix, l'ajustement valait +0,20 sur presque toutes
+  les photos (critères peu discriminants, comme « exposition équilibrée », au poids maximal) : il relevait tout sans
+  rien départager, et des notes affichaient plus de 100. Il est maintenant calculé par rapport à la moyenne du paquet
+  (somme nulle), avec un rappel vers zéro quatre fois plus fort et des plafonds plus bas (poids ±0,3,
+  ajustement ±0,15).
+- **Couleurs** : avec des personnes au premier plan, elles ne servent plus qu'à départager (3 % de la note au lieu
+  de 10 %). Demande de l'utilisateur.
+- **Personnes vues de dos** : dans un groupe sans visage, une personne présente au même endroit sur au moins 60 %
+  des photos est un sujet (ex. un couple de dos face à la mer), plus un passant d'arrière-plan.
+- **Paquets réunis à la main** : bouton « Même série que le paquet N : les réunir » (et « Séparer à nouveau »), pour
+  une série prise sur plusieurs minutes (photos par le hublot). Pas de réunion automatique : les photos d'une même
+  série par le hublot diffèrent autant que deux scènes différentes (écart d'empreinte 0,20).
+- Observé, non traité : sur les selfies n° 30/31, l'utilisateur garde celle où **la main n'est pas coupée** en bas.
+  Demande un modèle de pose du corps (poignets, coudes) : proposé pour le jalon suivant.
+- Les paquets d'une seule photo sont toujours gardés (règle « au moins une photo par paquet ») ; l'utilisateur en a
+  supprimé trois. Question posée.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

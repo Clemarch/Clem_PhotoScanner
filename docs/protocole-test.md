@@ -19,6 +19,7 @@ Claude complète la partie « Ce test-ci » à chaque mise à jour.
 Quelques lignes suffisent, avec les numéros affichés sur les photos :
 
 - **Paquets mal découpés** : « les n° 12 à 15 devraient être un paquet à part », ou « bien découpés ».
+  Pour réunir deux paquets d'une même série, utilisez le lien « les réunir » sous le titre du paquet.
 - **Erreurs graves** : une photo que vous gardez absolument et que l'app voulait supprimer (numéro, et pourquoi
   vous la gardez en quelques mots).
 - **Raisons fausses** : une raison affichée qui ne correspond pas à la photo (numéro + raison).
