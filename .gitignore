@@ -1,0 +1,12 @@
+node_modules/
+dist/
+dev-dist/
+*.log
+.DS_Store
+# Jamais de photos dans le dépôt
+tests/fixtures/*
+!tests/fixtures/.gitkeep
+*.heic
+*.HEIC
+*.dng
+*.DNG
