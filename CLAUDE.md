@@ -29,8 +29,11 @@ Ne pas entamer un nouveau jalon sans son accord.
 - `src/platform` : tout ce qui dépend de Safari (décodage, Worker, MediaPipe, appareil). Importe `engine`.
 - `src/ui` : React. Importe `engine` et `platform`.
 - Mémoire iOS : une photo décodée à la fois, réduite à 1536 px, `close()` et canvas remis à zéro après usage.
-- Notation : le contenu (expression, masquage, arrière-plan, objets, cadrage) classe ; la technique (netteté, yeux)
-  ne sert qu'à repérer des défauts. Voir `docs/decisions.md`, point 14.
+- Notation : le contenu (expression, masquage, arrière-plan, objets, cadrage, couleurs selon le type de photo) classe ;
+  la technique (netteté, yeux) ne sert qu'à repérer des défauts. Voir `docs/decisions.md`, points 14 à 17.
+- Enchaînement d'une journée : `src/engine/pipeline.ts` (paquets → notes → poses → sélection).
+- Choix de l'utilisateur : IndexedDB (`src/platform/storage/choices.ts`), mesures seulement, jamais d'image.
+  Apprentissage : `src/engine/learning/preferences.ts`.
 
 ## MediaPipe : ne pas mettre à jour sans inspection
 
@@ -51,5 +54,6 @@ GitHub Actions (`.github/workflows/deploy.yml`) publie sur GitHub Pages à chaqu
 
 ## État
 
-Jalons 0 (diagnostic), 1 (paquets par temps + netteté globale) et 2 (visages, note par photo, raisons) faits.
-Suite : jalon 3 (groupes de pose, sélection avec quota). Voir `docs/decisions.md`.
+Jalons 0 (diagnostic), 1 (paquets), 2 (visages, note, raisons) et 3 (type de photo, groupes de pose, sélection,
+visionneuse, choix et apprentissage locaux) faits. Plan du jalon 3 : `docs/jalon-3.md`.
+Suite : jalon 4 (écran « À supprimer », aide à la suppression dans Photos, finitions). Voir `docs/decisions.md`.
