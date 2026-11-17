@@ -21,6 +21,14 @@ export function reasonText(reason: Reason, numberOf: (id: string) => number | nu
       return 'Zones trop claires (détails perdus)';
     case 'sous-exposee':
       return 'Zones trop sombres (détails perdus)';
+    case 'main-coupee':
+      return 'Main coupée par le bord (plus que sur les autres photos)';
+    case 'pieds-coupes':
+      return 'Pieds coupés par le bord (plus que sur les autres photos)';
+    case 'bords-masques':
+      return 'Bords masqués (hublot, doigt, ombre…)';
+    case 'tres-floue':
+      return 'Très floue';
     case 'parle':
       return 'Bouche ouverte, en train de parler';
     case 'pose':
@@ -93,6 +101,8 @@ export function decisionText(
       return `Le paquet garde au plus 25 % de ses photos : ${photoList(kept, numberOf)} ${kept.length > 1 ? 'sont mieux notées' : 'est mieux notée'} (${keptNotes} contre ${mine} sur 100)`;
     case 'veto':
       return 'Écartée : défaut rédhibitoire';
+    case 'ratee':
+      return 'Toutes les photos de ce paquet sont ratées : il peut être entièrement supprimé';
   }
 }
 
@@ -124,6 +134,8 @@ export const featureLabel: Record<FeatureName, string> = {
   arrierePlan: 'personnes en arrière-plan',
   objets: 'objets gênants',
   penchee: 'photo penchée',
+  membres: 'mains ou pieds coupés',
+  bords: 'bords masqués',
   couleurs: 'couleurs vives',
   chaud: 'couleurs chaudes',
   contraste: 'contraste',

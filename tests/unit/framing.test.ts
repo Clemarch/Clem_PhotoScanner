@@ -72,7 +72,7 @@ describe('inclinaison de la photo', () => {
     expect(tiltDefect(1, 0.5)).toBe(0);
     expect(tiltDefect(-6, 0.5)).toBe(1);
     expect(tiltDefect(3.75, 0.5)).toBeCloseTo(0.5);
-    expect(tiltDefect(8, 0.05)).toBe(0);
+    expect(tiltDefect(8, 0.02)).toBe(0);
     expect(tiltDefect(null, null)).toBe(0);
   });
 });

@@ -8,6 +8,8 @@ export interface Session {
   thumbnails: Map<string, string>;
   /** Images moyennes pour la visionneuse. */
   previews: Map<string, string>;
+  /** Fichiers d'origine (références, rien n'est copié), pour zoomer en pleine définition. */
+  originals: Map<string, File>;
   totalMs: number;
   cancelled: boolean;
   wakeLock: boolean;

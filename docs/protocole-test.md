@@ -12,7 +12,8 @@ Claude complète la partie « Ce test-ci » à chaque mise à jour.
    - Quand l'app se trompe, toucher **Garder** ou **Supprimer**.
    - Faire au moins **un « Garder » et un « Supprimer » dans un même paquet** : c'est cette paire qui permet à
      l'app d'apprendre.
-5. Onglet **Diagnostic** → **Copier le rapport** (après les choix, pour qu'il les contienne), et le coller à Claude.
+5. Onglet **À supprimer** : reproduire la suppression dans Photos pour au moins un paquet, et dire si c'était simple.
+6. Onglet **Diagnostic** → **Copier le rapport** (après les choix, pour qu'il les contienne), et le coller à Claude.
 
 ## Ce qu'il faut écrire à Claude avec le rapport
 

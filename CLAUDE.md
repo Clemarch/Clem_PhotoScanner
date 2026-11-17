@@ -40,7 +40,8 @@ propre à ce test.
 
 ## MediaPipe : ne pas mettre à jour sans inspection
 
-Modèles embarqués dans `public/models/` : `face_landmarker.task` (visages) et `efficientdet_lite0.tflite` (objets).
+Modèles embarqués dans `public/models/` : `face_landmarker.task` (visages), `efficientdet_lite0.tflite` (objets)
+et `pose_landmarker_lite.task` (corps). Tout nouveau modèle se propose d'abord à l'utilisateur.
 `@mediapipe/tasks-vision` est figé en 0.10.34. Les versions 1.x envoient des statistiques d'usage à Google
 (voir `docs/decisions.md`, point 8). Un test et `tools/check-dist.mjs` bloquent toute régression.
 
@@ -57,6 +58,6 @@ GitHub Actions (`.github/workflows/deploy.yml`) publie sur GitHub Pages à chaqu
 
 ## État
 
-Jalons 0 (diagnostic), 1 (paquets), 2 (visages, note, raisons) et 3 (type de photo, groupes de pose, sélection,
-visionneuse, choix et apprentissage locaux) faits. Plan du jalon 3 : `docs/jalon-3.md`.
-Suite : jalon 4 (écran « À supprimer », aide à la suppression dans Photos, finitions). Voir `docs/decisions.md`.
+Jalons 0 à 3 faits (diagnostic, paquets, visages, type de photo, poses, sélection, visionneuse, apprentissage).
+Jalon 4 en cours (plan : `docs/jalon-4.md`) : écran « À supprimer », cadrage du corps, zoom, paquets ratés, hublot.
+Modèles supplémentaires proposés, en attente de validation (`docs/decisions.md`, point 24).

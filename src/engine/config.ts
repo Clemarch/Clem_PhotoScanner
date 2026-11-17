@@ -152,13 +152,38 @@ export const config = {
     clippedFull: 0.15,
     penalty: 0.25,
   },
+  body: {
+    /** Un point du corps compte comme visible au-dessus de cette visibilité. */
+    visibleFrom: 0.5,
+    /** Une extrémité (poignet, doigt, cheville, orteils) est coupée si elle est à moins de cette marge du bord, ou
+     *  au-delà : le modèle place souvent une main coupée tout contre le bord (0,99) plutôt qu'en dehors. */
+    edgeMargin: 0.02,
+    /** Pénalité par main ou pied coupé en plus de la photo la mieux cadrée du groupe, et pénalité maximale. */
+    cutPenalty: 0.12,
+    cutPenaltyMax: 0.3,
+    /** Sans visage dans le groupe, un corps compte comme sujet s'il occupe au moins cette part de l'image. */
+    subjectMinArea: 0.05,
+  },
+  obstruction: {
+    /** L'image est découpée en cases ; une case est « masquée » si elle est sombre et uniforme. */
+    gridX: 24,
+    gridY: 18,
+    darkBelow: 55,
+    flatBelow: 12,
+    /** Part de l'image masquée en plus de la photo la plus dégagée du paquet : début et pleine pénalité. */
+    from: 0.03,
+    full: 0.2,
+    penalty: 0.25,
+  },
   framing: {
     /** Lignes considérées : celles à moins de ce nombre de degrés de l'horizontale ou de la verticale. */
     tiltSearchDeg: 15,
     /** Contraste minimal d'un contour pour qu'il compte. */
     tiltEdgeMin: 40,
-    /** La mesure n'est retenue que si cette part des contours s'aligne sur une même direction. */
-    tiltStrengthMin: 0.1,
+    /** La mesure n'est retenue que si cette part des contours s'aligne sur une même direction.
+     *  Abaissé après confirmation de l'utilisateur : les photos mesurées à 5–11° (force 0,04–0,05) étaient bien
+     *  penchées. L'inclinaison est jugée par rapport à la photo la plus droite du paquet. */
+    tiltStrengthMin: 0.04,
     /** Sous cette inclinaison, la photo est considérée droite ; à `tiltFullDeg` la pénalité est pleine. */
     tiltToleranceDeg: 1.5,
     tiltFullDeg: 6,
@@ -236,6 +261,8 @@ export const config = {
     unanalyzedFacePenalty: 0.06,
     /** Veto : yeux considérés fermés sous cette note d'ouverture. */
     eyesClosedBelow: 0.3,
+    /** Photo sans personne très floue : netteté globale mesurée sous ce seuil absolu (valeur de départ, à calibrer). */
+    absoluteBlurBelow: 15,
     /** Seuils des raisons affichées. */
     reasons: {
       talkingFrom: 0.15,

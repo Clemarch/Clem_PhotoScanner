@@ -61,6 +61,8 @@ const photo = (id: string, faces: FaceMetrics[], objects: DetectedObject[]): Med
     exposure: null,
     color: null,
     signature: null,
+    bodies: null,
+    obstruction: null,
   }) as MediaItem;
 
 // Mesures du rapport (position du visage, yeux, sourire, moue, netteté, couleurs haut et bas du visage).

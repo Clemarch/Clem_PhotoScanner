@@ -40,6 +40,8 @@ const item = (id: string, seconds: number, extra: Partial<MediaItem> = {}): Medi
     exposure: null,
     color: null,
     signature: sig(120, 120, 120),
+    bodies: null,
+    obstruction: null,
     ...extra,
   }) as MediaItem;
 
@@ -47,7 +49,10 @@ const scoresOf = (values: Record<string, number>, vetoed: string[] = []): Map<st
   new Map(
     Object.entries(values)
       .sort((a, b) => b[1] - a[1])
-      .map(([id, score], i) => [id, { id, score, rank: i + 1, vetoed: vetoed.includes(id) } as PhotoScore]),
+      .map(([id, score], i) => [
+        id,
+        { id, score, rank: i + 1, vetoed: vetoed.includes(id), failed: vetoed.includes(id) } as PhotoScore,
+      ]),
   );
 
 describe('groupes de pose', () => {
@@ -135,12 +140,24 @@ describe('sélection', () => {
     expect(d.get('1')!.refId).toBe('0');
   });
 
-  it('écarte les photos sous veto et garde quand même au moins une photo', () => {
+  it('paquet entièrement raté : toutes les photos peuvent être supprimées', () => {
     const items = [item('a', 0), item('b', 1)];
     const d = selectPack(items, scoresOf({ a: 0.9, b: 0.8 }, ['a', 'b']), pose(items));
-    expect([...d.values()].filter((x) => x.keep)).toHaveLength(1);
-    expect(d.get('a')!.keep).toBe(true);
-    expect(d.get('a')!.code).toBe('minimum');
+    expect([...d.values()].filter((x) => x.keep)).toHaveLength(0);
+    expect(d.get('a')!.code).toBe('ratee');
+  });
+
+  it('photo seule ratée : supprimable ; photo seule correcte : gardée', () => {
+    const one = [item('a', 0)];
+    expect(selectPack(one, scoresOf({ a: 0.3 }, ['a']), pose(one)).get('a')).toMatchObject({ keep: false, code: 'ratee' });
+    expect(selectPack(one, scoresOf({ a: 0.3 }), pose(one)).get('a')).toMatchObject({ keep: true, code: 'seule' });
+  });
+
+  it('garde au moins une photo si une seule n’est pas ratée', () => {
+    const items = [item('a', 0), item('b', 1)];
+    const d = selectPack(items, scoresOf({ a: 0.9, b: 0.5 }, ['a']), pose(items));
+    expect(d.get('b')!.keep).toBe(true);
+    expect(d.get('a')!.code).toBe('veto');
   });
 
   it('respecte le plafond du paquet (25 %) même avec plusieurs poses', () => {
