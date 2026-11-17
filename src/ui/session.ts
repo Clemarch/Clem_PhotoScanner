@@ -12,4 +12,6 @@ export interface Session {
   heapBeforeMB: number | null;
   heapAfterMB: number | null;
   device: DeviceReport;
+  /** Message d'erreur si la recherche de visages n'a pas pu démarrer (l'app continue alors sans). */
+  faceError: string | null;
 }
