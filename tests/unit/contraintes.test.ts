@@ -42,6 +42,16 @@ describe('contraintes non négociables', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('la bibliothèque de visages (MediaPipe) est figée sur une version sans envoi de statistiques', () => {
+    // À partir de la version 1.0, MediaPipe envoie des statistiques d'usage à Google.
+    // On reste sur une version exacte qui ne contient aucune adresse externe.
+    const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as { dependencies: Record<string, string> };
+    expect(pkg.dependencies['@mediapipe/tasks-vision']).toMatch(/^0\.10\.\d+$/);
+    const bundle = readFileSync('node_modules/@mediapipe/tasks-vision/vision_bundle.mjs', 'utf8');
+    expect(bundle.match(/https?:\/\/[^"'\s)]+/g) ?? []).toEqual([]);
+    expect(/XMLHttpRequest|WebSocket|sendBeacon/.test(bundle)).toBe(false);
+  });
+
   it('le moteur n’importe ni platform, ni ui, ni bibliothèque externe', () => {
     const offenders = sources
       .filter(({ path }) => path.startsWith(join('src', 'engine')))

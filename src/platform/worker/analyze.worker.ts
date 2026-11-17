@@ -9,10 +9,14 @@ const scope = self as unknown as DedicatedWorkerGlobalScope;
 scope.onmessage = async (event: MessageEvent<AnalyzeRequest>) => {
   const { id, file } = event.data;
   let response: AnalyzeResponse;
+  const transfer: Transferable[] = [];
   try {
-    response = { id, ok: true, result: await analyzeFile(id, file, 'worker') };
+    const result = await analyzeFile(id, file, 'worker');
+    // L'image et ses pixels sont donnés à la page sans copie.
+    if (result.frame) transfer.push(result.frame.bitmap, result.frame.gray.buffer);
+    response = { id, ok: true, result };
   } catch (e) {
     response = { id, ok: false, error: e instanceof Error ? e.message : String(e) };
   }
-  scope.postMessage(response);
+  scope.postMessage(response, transfer);
 };
