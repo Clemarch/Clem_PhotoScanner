@@ -40,7 +40,9 @@ const item = (id: string, seconds: number, extra: Partial<MediaItem> = {}): Medi
     exposure: null,
     color: null,
     signature: sig(120, 120, 120),
-    bodies: null,
+    segmentation: null,
+    embedding: null,
+    labels: null,
     obstruction: null,
     ...extra,
   }) as MediaItem;
@@ -56,6 +58,23 @@ const scoresOf = (values: Record<string, number>, vetoed: string[] = []): Map<st
   );
 
 describe('groupes de pose', () => {
+  it('rafale avec zoom (plage du 17/11) : une seule pose malgré une empreinte qui change', () => {
+    // Empreintes fines assez différentes (zoom 33 → 58 mm) mais prises à 1 ou 2 s d'écart, même nombre de visages.
+    const e = (a: number) => [Math.cos(a), Math.sin(a), 0];
+    const items = [0, 0.5, 0.9, 1.1].map((a, i) => item(String(i), i * 1.5, { embedding: e(a), signature: sig(40 + i * 60, 120, 120) }));
+    expect(groupPoses(items)).toHaveLength(1);
+  });
+
+  it('nouvelle pose si la scène change vraiment, même en rafale', () => {
+    const items = [item('a', 0, { embedding: [1, 0, 0] }), item('b', 1, { embedding: [0, 1, 0] })];
+    expect(groupPoses(items)).toHaveLength(2);
+  });
+
+  it('hors rafale, l’empreinte fine décide', () => {
+    const items = [item('a', 0, { embedding: [1, 0, 0] }), item('b', 10, { embedding: [0.95, 0.31, 0] }), item('c', 20, { embedding: [0.5, 0.86, 0] })];
+    expect(groupPoses(items).map((g) => g.items.map((i) => i.id))).toEqual([['a', 'b'], ['c']]);
+  });
+
   it('garde ensemble des photos semblables prises à la suite', () => {
     const groups = groupPoses([item('a', 0), item('b', 2, { signature: sig(124, 120, 118) }), item('c', 4)]);
     expect(groups.map((g) => g.items.map((i) => i.id))).toEqual([['a', 'b', 'c']]);
@@ -103,12 +122,10 @@ describe('sélection', () => {
       scoresOf({ '9': 0.87, '10': 0.84, '11': 0.869, '12': 0.868, '13': 0.83, '14': 0.78, '15': 0.8, '16': 0.82, '17': 0.83 }),
       pose(items),
     );
-    expect(d.get('9')!.keep).toBe(true);
-    expect(d.get('11')!.keep).toBe(true);
-    expect(d.get('17')!.keep).toBe(false);
-    // Seul le plafond de 25 % du paquet limite le nombre ; le refus cite les photos mieux notées.
-    expect(d.get('17')).toMatchObject({ code: 'plafond', keptIds: ['9', '11', '12'] });
-    expect([...d.values()].some((x) => (x.code as string) === 'budget')).toBe(false);
+    // Seules les notes comptent : toutes les photos à moins de 0,04 de la meilleure sont gardées, les autres non.
+    for (const id of ['9', '11', '12', '10', '13', '17']) expect(d.get(id)!.keep).toBe(true);
+    for (const id of ['14', '15', '16']) expect(d.get(id)).toMatchObject({ keep: false, code: 'moins-bonne', refId: '9' });
+    expect([...d.values()].some((x) => (x.code as string) === 'budget' || (x.code as string) === 'plafond')).toBe(false);
   });
 
   it('seules les notes comptent : pas de nombre maximal de photos par pose', () => {
@@ -160,12 +177,18 @@ describe('sélection', () => {
     expect(d.get('a')!.code).toBe('veto');
   });
 
-  it('respecte le plafond du paquet (25 %) même avec plusieurs poses', () => {
-    const colors = [10, 60, 110, 160, 210];
-    const items = colors.map((c, i) => item(String(i), i * 2, { signature: sig(c, 255 - c, 120) }));
-    const d = selectPack(items, scoresOf(Object.fromEntries(items.map((it, i) => [it.id, 0.9 - i * 0.01]))), pose(items));
+  it('sans quota : un paquet de 2 bonnes photos peut garder les 2 (demande de l’utilisateur, 17/11)', () => {
+    const items = [item('a', 0, { signature: sig(60, 120, 120) }), item('b', 2, { signature: sig(80, 120, 120) })];
+    const d = selectPack(items, scoresOf({ a: 0.9, b: 0.88 }), pose(items));
     expect([...d.values()].filter((x) => x.keep)).toHaveLength(2);
-    expect([...d.values()].filter((x) => x.code === 'plafond')).toHaveLength(3);
+  });
+
+  it('écarte un quasi-doublon d’après l’empreinte fine', () => {
+    const v = (x: number) => [x, 1 - x, 0.3];
+    const items = [item('a', 0, { embedding: v(0.6) }), item('b', 1, { embedding: v(0.6001) }), item('c', 2, { embedding: v(0.2) })];
+    const d = selectPack(items, scoresOf({ a: 0.9, b: 0.89, c: 0.89 }), [{ id: 'p', label: 'A', items }]);
+    expect(d.get('b')).toMatchObject({ keep: false, code: 'trop-proche', refId: 'a' });
+    expect(d.get('c')!.keep).toBe(true);
   });
 
   it('garde la photo seule d’un paquet', () => {
@@ -212,6 +235,16 @@ describe('couleurs et type de photo', () => {
     contrast: 0.4,
     mean: 0.45,
     ...extra,
+  });
+
+  it('reconnaît les documents, la nourriture et les animaux grâce au classement de scène', () => {
+    const lab = (index: number) => [{ index, name: 'x', score: 0.6 }];
+    expect(classifyPack([item('a', 0, { labels: lab(916) })], 0, () => [])).toBe('document');
+    expect(classifyPack([item('a', 0, { labels: lab(963) })], 0, () => [])).toBe('nourriture');
+    expect(classifyPack([item('a', 0, { labels: lab(207) })], 0, () => [])).toBe('animal');
+    // Avec des personnes, le type reste celui des personnes.
+    const f = { areaRatio: 0.04 } as FaceMetrics;
+    expect(classifyPack([item('a', 0, { labels: lab(207), focal35: 26 })], 1, () => [f])).toBe('portrait');
   });
 
   it('devine le type de paquet', () => {

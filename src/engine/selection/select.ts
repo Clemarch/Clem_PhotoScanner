@@ -1,9 +1,17 @@
 // Sélection : quelles photos garder dans un paquet.
-// Seules les notes décident. Le quota (25 % par paquet) est un plafond, jamais un objectif ;
-// on garde toujours au moins une photo par paquet.
+// Seules les notes décident : pas de quota (retiré à la demande de l'utilisateur, 17/11 : un paquet de 2 photos peut
+// garder les 2). On garde au moins une photo par paquet, sauf si toutes sont ratées.
+
+/** Quasi-doublons : même photo à peu de chose près. */
+function nearDuplicate(a: MediaItem, b: MediaItem): boolean {
+  const similar = embeddingSimilarity(a.embedding, b.embedding);
+  if (similar !== null) return similar >= config.selection.nearDuplicateSimilar;
+  return signatureDistance(a.signature, b.signature) < config.selection.nearDuplicate;
+}
 
 import { config } from '../config';
 import { signatureDistance } from '../analysis/color';
+import { embeddingSimilarity } from '../analysis/embedding';
 import type { Decision, MediaItem, PhotoScore, PoseGroup } from '../types';
 
 export function selectPack(
@@ -31,7 +39,6 @@ export function selectPack(
     return decisions;
   }
 
-  const kept: MediaItem[] = [];
   for (const group of poses) {
     const candidates = group.items.filter((item) => !vetoed(item)).sort((a, b) => scoreOf(b) - scoreOf(a));
     for (const item of group.items.filter(vetoed)) set(item, { keep: false, code: 'veto' });
@@ -44,25 +51,14 @@ export function selectPack(
     // Seules les notes comptent : toute photo dont la note est proche de la meilleure de sa pose est gardée.
     // On saute seulement les quasi-doublons (deux fois la même photo).
     for (const pick of candidates.slice(1)) {
-      const nearest = groupKept
-        .map((k) => ({ k, d: signatureDistance(pick.signature, k.signature) }))
-        .sort((x, y) => x.d - y.d)[0]!;
+      const twin = groupKept.find((k) => nearDuplicate(pick, k));
       if (scoreOf(pick) < scoreOf(best) - cfg.scoreMargin) set(pick, { keep: false, code: 'moins-bonne', refId: best.id });
-      else if (nearest.d < cfg.nearDuplicate) set(pick, { keep: false, code: 'trop-proche', refId: nearest.k.id });
+      else if (twin) set(pick, { keep: false, code: 'trop-proche', refId: twin.id });
       else {
         groupKept.push(pick);
         set(pick, { keep: true, code: 'aussi-bonne', refId: best.id });
       }
     }
-    kept.push(...groupKept);
-  }
-
-  // Plafond du paquet : au-delà, on retire les moins bien notées.
-  const cap = Math.max(1, Math.ceil(cfg.packShare * items.length));
-  if (kept.length > cap) {
-    const ordered = [...kept].sort((a, b) => scoreOf(b) - scoreOf(a));
-    const keptIds = ordered.slice(0, cap).map((item) => item.id);
-    for (const item of ordered.slice(cap)) set(item, { keep: false, code: 'plafond', keptIds });
   }
 
   // Au moins une photo par paquet.

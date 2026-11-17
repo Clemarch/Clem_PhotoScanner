@@ -2,6 +2,7 @@
 
 import { config } from '../config';
 import { signatureDistance } from '../analysis/color';
+import { embeddingSimilarity } from '../analysis/embedding';
 import { mainFaces } from '../analysis/faces';
 import type { MediaItem, PoseGroup } from '../types';
 
@@ -24,6 +25,9 @@ function layoutChanged(a: MediaItem, b: MediaItem): boolean {
   return fa.some((p, i) => Math.hypot(p.x - fb[i]!.x, p.y - fb[i]!.y) > config.poses.faceMove);
 }
 
+const sameFaceCount = (a: MediaItem, b: MediaItem): boolean =>
+  a.faces === null || b.faces === null || mainFaces(a.faces).length === mainFaces(b.faces).length;
+
 /** Les photos doivent être dans l'ordre chronologique (celui d'un paquet). */
 export function groupPoses(items: readonly MediaItem[]): PoseGroup[] {
   const cfg = config.poses;
@@ -32,13 +36,22 @@ export function groupPoses(items: readonly MediaItem[]): PoseGroup[] {
     const current = groups[groups.length - 1];
     const previous = current?.[current.length - 1];
     const first = current?.[0];
-    const sameTime =
-      previous?.capturedAt == null || item.capturedAt === null || item.capturedAt - previous.capturedAt <= cfg.gapSeconds * 1000;
-    const fromPrevious = signatureDistance(previous?.signature ?? null, item.signature);
-    const fromFirst = signatureDistance(first?.signature ?? null, item.signature);
-    // Sans empreinte (mesure impossible), on ne coupe pas : le paquet reste un seul groupe.
-    const similar =
-      (fromPrevious === Infinity || fromPrevious <= cfg.fromPrevious) && (fromFirst === Infinity || fromFirst <= cfg.fromFirst);
+    const gapMs = previous?.capturedAt == null || item.capturedAt === null ? 0 : item.capturedAt - previous.capturedAt;
+    const sameTime = gapMs <= cfg.gapSeconds * 1000;
+    let similar: boolean;
+    const simPrevious = embeddingSimilarity(previous?.embedding ?? null, item.embedding);
+    const simFirst = embeddingSimilarity(first?.embedding ?? null, item.embedding);
+    if (simPrevious !== null && simFirst !== null) {
+      // Rafale : même pose malgré un zoom ou un léger recadrage, sauf scène vraiment différente.
+      const burst = gapMs <= cfg.burstSeconds * 1000 && sameFaceCount(previous!, item);
+      similar = burst ? simPrevious >= cfg.burstMinSimilar : simPrevious >= cfg.similarPrevious && simFirst >= cfg.similarFirst;
+    } else {
+      const fromPrevious = signatureDistance(previous?.signature ?? null, item.signature);
+      const fromFirst = signatureDistance(first?.signature ?? null, item.signature);
+      // Sans empreinte (mesure impossible), on ne coupe pas : le paquet reste un seul groupe.
+      similar =
+        (fromPrevious === Infinity || fromPrevious <= cfg.fromPrevious) && (fromFirst === Infinity || fromFirst <= cfg.fromFirst);
+    }
     if (current && previous && sameTime && similar && !layoutChanged(previous, item)) current.push(item);
     else groups.push([item]);
   }

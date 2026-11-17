@@ -1,52 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   learnWeights,
-  measureBody,
   measureObstruction,
+  measureSegmentation,
   scorePack,
   tiltDefect,
-  type BodyPoint,
   type ChoiceRecord,
   type FaceMetrics,
   type MediaItem,
 } from '../../src/engine';
-
-/** Corps de 33 points, tous visibles au milieu de l'image ; on déplace ensuite poignets, doigts, chevilles. */
-function body(over: Record<number, Partial<BodyPoint>> = {}): BodyPoint[] {
-  const points = Array.from({ length: 33 }, () => ({ x: 0.5, y: 0.5, visibility: 0.9 }));
-  points[0] = { x: 0.5, y: 0.3, visibility: 0.95 }; // nez
-  for (const [k, v] of Object.entries(over)) points[Number(k)] = { ...points[Number(k)]!, ...v };
-  return points;
-}
-
-describe('corps : mains et pieds coupés', () => {
-  it('ne signale rien pour un corps entièrement dans l’image', () => {
-    expect(measureBody(body())).toMatchObject({ cutHands: 0, cutFeet: 0 });
-  });
-
-  it('repère une main coupée par le bas de l’image (coude dedans, poignet dehors)', () => {
-    const b = measureBody(body({ 13: { x: 0.4, y: 0.85 }, 15: { x: 0.4, y: 1.08, visibility: 0.2 } }));
-    expect(b.cutHands).toBe(1);
-  });
-
-  it('repère des doigts coupés même si le poignet est juste dans l’image', () => {
-    expect(measureBody(body({ 14: { y: 0.8 }, 16: { y: 0.98 }, 20: { y: 1.02 } })).cutHands).toBe(1);
-  });
-
-  it('repère une main en partie visible au bord, même si le coude est hors champ (selfie très proche)', () => {
-    // Coude hors champ ; poignet bien dans l'image, doigts sous le bord.
-    const b = measureBody(body({ 13: { x: 0.4, y: 1.15, visibility: 0.2 }, 15: { x: 0.42, y: 0.93 }, 19: { x: 0.43, y: 1.01, visibility: 0.4 } }));
-    expect(b.cutHands).toBe(1);
-  });
-
-  it('ne compte pas une main hors champ si le coude l’est aussi (bras entier hors cadre)', () => {
-    expect(measureBody(body({ 13: { y: 1.2 }, 15: { y: 1.4 }, 17: { y: 1.42 }, 19: { y: 1.45 }, 21: { y: 1.41 } })).cutHands).toBe(0);
-  });
-
-  it('repère des pieds coupés (genou dedans, cheville dehors)', () => {
-    expect(measureBody(body({ 25: { y: 0.9 }, 27: { y: 1.1 }, 26: { y: 0.9 }, 28: { y: 1.1 } })).cutFeet).toBe(2);
-  });
-});
 
 const face = (x: number): FaceMetrics =>
   ({
@@ -85,35 +47,64 @@ const photo = (id: string, extra: Partial<MediaItem>): MediaItem =>
     exposure: null,
     color: null,
     signature: null,
-    bodies: null,
+    segmentation: null,
+    embedding: null,
+    labels: null,
     obstruction: null,
     ...extra,
   }) as MediaItem;
 
-describe('retours du 17/11 : selfies n° 30 et 31 (la main en bas est coupée sur la 30)', () => {
-  // Les deux selfies : le bras qui tient le téléphone est coupé sur les deux ; sur la n° 30, l'autre main aussi.
-  const selfieArm = { 13: { x: 0.85, y: 0.8 }, 15: { x: 1.1, y: 0.9, visibility: 0.1 } };
-  const withNose = (x: number, over: Record<number, Partial<BodyPoint>>) => body({ 0: { x, y: 0.4 }, ...over });
-  const items = [
-    photo('30', {
-      faces: [face(0.55), face(0.72)],
-      bodies: [
-        measureBody(withNose(0.55, { 14: { x: 0.5, y: 0.85 }, 16: { x: 0.5, y: 1.05, visibility: 0.2 } })),
-        measureBody(withNose(0.72, selfieArm)),
-      ],
-    }),
-    photo('31', {
-      faces: [face(0.58), face(0.74)],
-      bodies: [measureBody(withNose(0.58, {})), measureBody(withNose(0.74, selfieArm))],
-    }),
-  ];
+describe('silhouette : mesures', () => {
+  // Masque 20 x 20 : 0 fond, 2 peau du corps, 3 peau du visage.
+  const mask = (fill: (x: number, y: number) => number) => Uint8Array.from({ length: 400 }, (_, i) => fill(i % 20, Math.floor(i / 20)));
 
-  it('seule la coupure en plus du bras du selfie compte', () => {
+  it('mesure la peau du corps qui touche les bords bas, gauche et droit', () => {
+    expect(measureSegmentation(mask(() => 0), 20, 20, []).edgeBodySkin).toBe(0);
+    // Une main coupée en bas : 4 pixels de peau sur la dernière ligne.
+    const cut = measureSegmentation(mask((x, y) => (y === 19 && x >= 8 && x < 12 ? 2 : 0)), 20, 20, []);
+    expect(cut.edgeBodySkin).toBeCloseTo(4 / 58, 3);
+    // De la peau au milieu de l'image ne compte pas.
+    expect(measureSegmentation(mask((x, y) => (x > 5 && x < 15 && y > 5 && y < 15 ? 2 : 0)), 20, 20, []).edgeBodySkin).toBe(0);
+  });
+
+  it('mesure la part de peau dans la boîte de chaque visage', () => {
+    const m = mask((x, y) => (x >= 5 && x < 10 && y >= 5 && y < 10 ? (y < 8 ? 3 : 0) : 0));
+    const r = measureSegmentation(m, 20, 20, [{ x: 0.25, y: 0.25, width: 0.25, height: 0.25 }]);
+    expect(r.faceSkin[0]).toBeCloseTo(0.6, 5);
+  });
+});
+
+describe('retours du 17/11 (deuxième journée)', () => {
+  const seg = (edgeBodySkin: number, faceSkin: (number | null)[] = []) => ({ edgeBodySkin, faceSkin });
+
+  it('selfies n° 15/16 : la main coupée est repérée sur la bonne photo (la plus coupée)', () => {
+    const scores = scorePack([
+      photo('15', { faces: [face(0.55), face(0.72)], segmentation: seg(0.06) }),
+      photo('16', { faces: [face(0.58), face(0.74)], segmentation: seg(0.01) }),
+    ]);
+    expect(scores.get('15')!.reasons.map((r) => r.code)).toContain('membre-coupe');
+    expect(scores.get('16')!.reasons.map((r) => r.code)).not.toContain('membre-coupe');
+    expect(scores.get('16')!.rank).toBe(1);
+  });
+
+  it('moto (n° 28 à 30) : des pieds cachés ne sont plus un argument', () => {
+    // Même peau au bord sur les trois photos (aucune jambe nue coupée) : aucune raison « membre coupé ».
+    const scores = scorePack(['28', '29', '30'].map((id) => photo(id, { faces: [face(0.4), face(0.75)], segmentation: seg(0.004) })));
+    for (const s of scores.values()) expect(s.reasons.map((r) => r.code)).not.toContain('membre-coupe');
+  });
+
+  it('ruelle (n° 27) : des murs sombres ne sont pas des bords masqués hors d’un avion', () => {
+    const scores = scorePack([photo('25', { obstruction: 0.01 }), photo('27', { obstruction: 0.3 })]);
+    expect(scores.get('27')!.reasons.map((r) => r.code)).not.toContain('bords-masques');
+  });
+
+  it('visage masqué repéré par la silhouette (moins de peau de visage que d’habitude)', () => {
+    const items = ['a', 'b', 'c', 'd'].map((id) =>
+      photo(id, { faces: [face(0.5)], segmentation: seg(0, [id === 'd' ? 0.35 : 0.7]) }),
+    );
     const scores = scorePack(items);
-    expect(scores.get('30')!.extraCutLimbs).toBe(1);
-    expect(scores.get('31')!.extraCutLimbs).toBe(0);
-    expect(scores.get('30')!.reasons.map((r) => r.code)).toContain('main-coupee');
-    expect(scores.get('31')!.rank).toBe(1);
+    expect(scores.get('d')!.reasons.map((r) => r.code)).toContain('visage-masque');
+    expect(scores.get('a')!.reasons.map((r) => r.code)).not.toContain('visage-masque');
   });
 });
 
@@ -153,8 +144,12 @@ describe('photos par le hublot', () => {
     expect(scores.get('b')!.reasons.map((r) => r.code)).not.toContain('bords-masques');
   });
 
-  it('pénalise la photo dont le hublot cache plus de paysage', () => {
-    const scores = scorePack([photo('degagee', { obstruction: 0.02 }), photo('masquee', { obstruction: 0.25 })]);
+  it('pénalise la photo dont le hublot cache plus de paysage (photos reconnues comme prises d’un avion)', () => {
+    const wing = [{ index: 908, name: 'wing', score: 0.6 }];
+    const scores = scorePack([
+      photo('degagee', { obstruction: 0.02, labels: wing }),
+      photo('masquee', { obstruction: 0.35, labels: wing }),
+    ]);
     expect(scores.get('masquee')!.reasons.map((r) => r.code)).toContain('bords-masques');
     expect(scores.get('degagee')!.rank).toBe(1);
   });

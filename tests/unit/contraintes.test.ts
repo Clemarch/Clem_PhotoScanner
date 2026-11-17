@@ -65,7 +65,10 @@ describe('contraintes non négociables', () => {
   });
 
   it('le moteur ne touche pas au navigateur', () => {
-    const browser = /\b(window|document|navigator|localStorage|indexedDB|createImageBitmap|OffscreenCanvas)\b/;
+    // Utilisation réelle des objets du navigateur (accès à une propriété, appel), pas un simple mot : le type de
+    // photo « document » est légitime dans le moteur.
+    // (?<![.\w]) : ignore un réglage du même nom (« c.document »).
+    const browser = /(?<![.\w])(window|document|navigator|localStorage|indexedDB)\s*[.[]|\bcreateImageBitmap\s*\(|\bnew\s+OffscreenCanvas\b/;
     const offenders = sources
       .filter(({ path }) => path.startsWith(join('src', 'engine')))
       .filter(({ code }) => browser.test(code))

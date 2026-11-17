@@ -31,7 +31,7 @@ const left = (extra: Partial<FaceMetrics> = {}) => face({ box: { x: 0.15, y: 0.3
 const right = (extra: Partial<FaceMetrics> = {}) => face({ box: { x: 0.6, y: 0.3, width: 0.2, height: 0.25 }, ...extra });
 
 const photo = (id: string, faces: FaceMetrics[] | null, sharpness = 300, extra: Partial<MediaItem> = {}): MediaItem =>
-  ({ id, kind: 'photo', isRaw: false, sharpness, faces, objects: null, tiltDeg: null, tiltStrength: null, exposure: null, color: null, signature: null, bodies: null, obstruction: null, ...extra }) as MediaItem;
+  ({ id, kind: 'photo', isRaw: false, sharpness, faces, objects: null, tiltDeg: null, tiltStrength: null, exposure: null, color: null, signature: null, segmentation: null, embedding: null, labels: null, obstruction: null, ...extra }) as MediaItem;
 
 const obj = (label: string, x: number, y: number, width: number, height: number): DetectedObject => ({
   label,
