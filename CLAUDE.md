@@ -28,10 +28,13 @@ Ne pas entamer un nouveau jalon sans son accord.
   Tous les seuils et poids dans `src/engine/config.ts`.
 - `src/platform` : tout ce qui dépend de Safari (décodage, Worker, MediaPipe, appareil). Importe `engine`.
 - `src/ui` : React. Importe `engine` et `platform`.
-- Mémoire iOS : une photo décodée à la fois, réduite à 1024 px, `close()` et canvas remis à zéro après usage.
+- Mémoire iOS : une photo décodée à la fois, réduite à 1536 px, `close()` et canvas remis à zéro après usage.
+- Notation : le contenu (expression, masquage, arrière-plan, objets, cadrage) classe ; la technique (netteté, yeux)
+  ne sert qu'à repérer des défauts. Voir `docs/decisions.md`, point 14.
 
 ## MediaPipe : ne pas mettre à jour sans inspection
 
+Modèles embarqués dans `public/models/` : `face_landmarker.task` (visages) et `efficientdet_lite0.tflite` (objets).
 `@mediapipe/tasks-vision` est figé en 0.10.34. Les versions 1.x envoient des statistiques d'usage à Google
 (voir `docs/decisions.md`, point 8). Un test et `tools/check-dist.mjs` bloquent toute régression.
 

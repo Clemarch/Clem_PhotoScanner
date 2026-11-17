@@ -139,6 +139,49 @@ les photos ratées de ce paquet.
 Le rapport de diagnostic liste maintenant les photos dans l'ordre de la journée, avec la position de chaque visage,
 l'écart à l'objectif et la direction des yeux, pour continuer le calibrage.
 
+### 14. Le contenu d'abord : refonte de la note après les remarques de l'utilisateur
+Retour de l'utilisateur sur le paquet de selfies : l'app choisissait encore une photo techniquement bonne mais ratée
+(casquette tenue devant le visage). Ses critères, dans ses mots : regarder l'objectif n'est pas obligatoire (regarder
+au loin peut donner une superbe photo) ; les personnes en arrière-plan gênent ; le cadrage et un plan bien droit
+comptent ; un beau sourire, pas quelqu'un qui parle ; aucun élément qui perturbe (casquette, bouteille en main…).
+
+Remarque : le rapport envoyé à ce moment-là venait encore de l'ancienne version (le réglage 2 n'était pas chargé sur
+l'iPhone). Cette refonte part des critères de l'utilisateur, pas d'une évaluation du réglage 2.
+
+Changements :
+- **La technique devient un filtre de défauts.** Une netteté d'au moins 60 % de la référence du paquet vaut la note
+  maximale : une photo plus nette n'est plus une meilleure photo. Seul un vrai flou pénalise. Les yeux agissent par le
+  veto et une note saturée.
+- **Poids d'un visage** : 0,55 expression, 0,20 netteté (défaut), 0,15 yeux, 0,10 regard. Le regard ne génère plus
+  aucune raison affichée.
+- **Expression détaillée** : « en train de parler » (bouche ouverte sans sourire) et « moue » deviennent des raisons
+  distinctes ; « beau sourire » est affiché seulement si personne ne parle.
+- **Visage en partie masqué** : couleur moyenne du haut (yeux) et du bas (bouche, menton) de chaque visage, comparée
+  à la même personne sur les autres photos du paquet (au moins 3 photos complètes). Un objet devant le visage change
+  la couleur de la zone. Ne repère pas une main (même couleur que la peau).
+- **Objets gênants** : nouveau modèle MediaPipe ObjectDetector (EfficientDet-Lite0, 80 catégories COCO, 4,6 Mo,
+  même bibliothèque 0.10.34 déjà inspectée). Un objet de la liste `content.distractingLabels` (bouteille, verre,
+  téléphone, sac…) compte s'il touche la zone des personnes ou s'il est grand. Limite : COCO ne connaît pas
+  « casquette » ni « chapeau », d'où la mesure de masquage ci-dessus.
+- **Personnes en arrière-plan** : personnes détectées qui ne contiennent aucun visage principal, plus les petits
+  visages non rattachés, pondérés par leur taille et leur position (au centre, elles gênent plus).
+- **Cadrage, photo penchée** : direction dominante des grandes lignes (horizon, bâtiments), mesurée sur l'image
+  moyennée par blocs de 2 × 2 pixels. Pénalité au-delà de 1,5°, pleine à 6°, seulement si assez de contours sont
+  alignés pour que la mesure soit fiable.
+- **Jugement relatif** : arrière-plan et objets sont comptés par rapport à la photo la plus dégagée du paquet. Ce qui
+  est présent partout (la plage derrière, un sac porté tout du long) ne départage rien.
+- À note égale, la photo la plus nette passe devant.
+
+Vérifié en navigateur sur un portrait réel décliné : version propre en tête, puis personne en arrière-plan, photo
+penchée de 4° (mesurée 3,1°), objet tenu (détecté comme « sandwich »), visage masqué en dernier.
+Coût : environ 110 ms de plus par photo pour la détection d'objets (mesuré sur ordinateur, à confirmer sur iPhone).
+
+Alternatives écartées pour l'instant :
+- **Modèle esthétique** (type NIMA ou CLIP + tête « esthétique ») : 15 à 90 Mo, et ces modèles notent presque
+  pareil des photos quasi identiques d'une rafale, qui est justement le cas à départager.
+- **Apprentissage des goûts de l'utilisateur** (jalon 5 du plan) : seule façon de couvrir les critères qu'on ne peut
+  pas tous énumérer. Proposé à l'utilisateur pour être avancé ; nécessite ses choix sur des paquets réels.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.
