@@ -1,66 +1,94 @@
 import { useMemo, useState } from 'react';
-import { config, groupIntoPacks, scorePack, type MediaItem, type PhotoScore } from '../../engine';
+import { config, type DayAnalysis, type MediaItem, type PackAnalysis } from '../../engine';
 import type { Session } from '../session';
-import { formatGap, formatShortTime, formatSize, formatTime, plural } from '../format';
-import { reasonText } from '../reasons';
+import { finalKeep, type Choice, type Choices } from '../choices';
+import { formatGap, formatShortTime, formatSize, plural } from '../format';
+import { sceneGoal, sceneLabel } from '../reasons';
+import { Visionneuse, type ViewerEntry } from './Visionneuse';
 
-interface Selected {
-  item: MediaItem;
-  number: number | null;
-  score: PhotoScore | null;
-  packSize: number;
+interface Props {
+  session: Session;
+  day: DayAnalysis;
+  gap: number;
+  onGap: (seconds: number) => void;
+  choices: Choices;
+  onChoose: (item: MediaItem, pack: PackAnalysis, choice: Choice | null) => void;
 }
 
-export function Paquets({ session }: { session: Session }) {
-  const [gap, setGap] = useState<number>(config.grouping.packGapSeconds);
-  const [selected, setSelected] = useState<Selected | null>(null);
-
-  const items = useMemo(() => session.results.map((r) => r.item), [session]);
-  const day = useMemo(() => groupIntoPacks(items, gap), [items, gap]);
+export function Paquets({ session, day, gap, onGap, choices, onChoose }: Props) {
+  const [viewing, setViewing] = useState<number | null>(null);
   const numberOf = (id: string) => day.dayIndex.get(id) ?? null;
 
-  const renderGrid = (list: MediaItem[], ranked: boolean) => {
-    const scores = ranked ? scorePack(list) : null;
+  // Toutes les photos de la journée dans l'ordre, pour feuilleter d'un paquet à l'autre.
+  const entries = useMemo<ViewerEntry[]>(
+    () => [
+      ...day.packs.flatMap((pack, i) => pack.pack.items.map((item) => ({ item, pack, packNumber: i + 1 }))),
+      ...day.undated.map((item) => ({ item, pack: null, packNumber: null })),
+    ],
+    [day],
+  );
+  const positionOf = useMemo(() => new Map(entries.map((e, i) => [e.item.id, i])), [entries]);
+
+  const totals = useMemo(() => {
+    let keep = 0;
+    let total = 0;
+    for (const pack of day.packs)
+      for (const item of pack.pack.items) {
+        total++;
+        if (finalKeep(item, pack, choices).keep) keep++;
+      }
+    return { keep, total, remove: total - keep };
+  }, [day, choices]);
+
+  const tile = (item: MediaItem, pack: PackAnalysis | null) => {
+    const number = numberOf(item.id);
+    const url = session.thumbnails.get(item.id);
+    const state = pack ? finalKeep(item, pack, choices) : null;
+    const best = pack?.decisions.get(item.id)?.code === 'meilleure' && pack.pack.items.length > 1;
+    const classes = ['vignette', state ? (state.keep ? 'garder' : 'supprimer') : '', best && state?.keep ? 'meilleure' : '']
+      .filter(Boolean)
+      .join(' ');
     return (
-      <div className="grille">
-        {list.map((item) => {
-          const score = scores?.get(item.id) ?? null;
-          const number = numberOf(item.id);
-          const url = session.thumbnails.get(item.id);
-          const best = score?.rank === 1 && list.length > 1;
-          const flag = score?.reasons.find((r) => r.tone === 'veto') ?? score?.reasons.find((r) => r.tone === 'moins');
-          return (
-            <button
-              key={item.id}
-              className={`vignette${best ? ' meilleure' : ''}${score?.vetoed ? ' ecartee' : ''}`}
-              onClick={() => setSelected({ item, number, score, packSize: list.length })}
-            >
-              {url ? <img src={url} alt="" loading="lazy" decoding="async" /> : <span className="vide">{item.format}</span>}
-              {number !== null && <span className="numero">{number}</span>}
-              {best && <span className="badge">meilleure</span>}
-              {!best && flag && <span className={`drapeau ${flag.tone}`} />}
-              {score && <span className="jauge" style={{ width: `${Math.round(score.score * 100)}%` }} />}
-            </button>
-          );
-        })}
-      </div>
+      <button key={item.id} className={classes} onClick={() => setViewing(positionOf.get(item.id) ?? 0)}>
+        {url ? <img src={url} alt="" loading="lazy" decoding="async" /> : <span className="vide">{item.format}</span>}
+        {number !== null && <span className="numero">{number}</span>}
+        {state && (
+          <span className={`etat ${state.keep ? 'garder' : 'supprimer'}${state.byUser ? ' vous' : ''}`} aria-label={state.keep ? 'à garder' : 'à supprimer'}>
+            {state.keep ? '✓' : '✕'}
+          </span>
+        )}
+      </button>
     );
   };
 
   return (
     <main className="page">
       <header className="entete">
-        <h2>Paquets</h2>
+        <h2>Tri du jour</h2>
         <p className="doux">
-          {plural(day.packs.length, 'paquet')} · {plural(items.length - day.setAside.length, 'photo')}
+          {plural(day.packs.length, 'paquet')} · {plural(totals.total, 'photo')}
         </p>
       </header>
 
       {session.faceError && (
         <p className="alerte">
-          La recherche de visages n’a pas pu démarrer : les photos sont classées par netteté seulement. Copiez le
-          rapport de l’onglet Diagnostic pour qu’on comprenne pourquoi.
+          La recherche de visages ou d’objets n’a pas pu démarrer : le classement est moins fiable. Copiez le rapport de
+          l’onglet Diagnostic pour qu’on comprenne pourquoi.
         </p>
+      )}
+
+      {totals.total > 0 && (
+        <section className="carte bilan">
+          <div>
+            <strong className="vert">{totals.keep}</strong>
+            <span>à garder ({Math.round((totals.keep / totals.total) * 100)} %)</span>
+          </div>
+          <div>
+            <strong className="rouge">{totals.remove}</strong>
+            <span>à supprimer</span>
+          </div>
+          <p className="note">Touchez une photo pour la voir en grand, la feuilleter et changer la décision.</p>
+        </section>
       )}
 
       <section className="carte reglage">
@@ -74,23 +102,32 @@ export function Paquets({ session }: { session: Session }) {
           max={config.grouping.packGapMaxSeconds}
           step={10}
           value={gap}
-          onChange={(event) => setGap(Number(event.target.value))}
+          onChange={(event) => onGap(Number(event.target.value))}
         />
       </section>
 
-      {day.packs.map((pack, i) => (
-        <section className="carte" key={pack.id}>
-          <div className="titre-paquet">
-            <h3>Paquet {i + 1}</h3>
-            <span>
-              {formatShortTime(pack.startAt)}
-              {formatShortTime(pack.endAt) !== formatShortTime(pack.startAt) && ` → ${formatShortTime(pack.endAt)}`} ·{' '}
-              {plural(pack.items.length, 'photo')}
-            </span>
-          </div>
-          {renderGrid(pack.items, true)}
-        </section>
-      ))}
+      {day.packs.map((pack, i) => {
+        const keep = pack.pack.items.filter((item) => finalKeep(item, pack, choices).keep).length;
+        return (
+          <section className="carte" key={pack.key}>
+            <div className="titre-paquet">
+              <h3>
+                Paquet {i + 1} <span className="type">{sceneLabel[pack.scene]}</span>
+              </h3>
+              <span>
+                {formatShortTime(pack.pack.startAt)} · {keep} / {pack.pack.items.length} gardée{keep > 1 ? 's' : ''}
+              </span>
+            </div>
+            <p className="cherche">On cherche : {sceneGoal[pack.scene]}.</p>
+            {pack.poses.map((pose) => (
+              <div className="pose" key={pose.id}>
+                {pack.poses.length > 1 && <span className="pose-lettre">Pose {pose.label}</span>}
+                <div className="grille">{pose.items.map((item) => tile(item, pack))}</div>
+              </div>
+            ))}
+          </section>
+        );
+      })}
 
       {day.undated.length > 0 && (
         <section className="carte">
@@ -99,7 +136,7 @@ export function Paquets({ session }: { session: Session }) {
             <span>{plural(day.undated.length, 'photo')}</span>
           </div>
           <p className="alerte">La date de prise de vue est absente : impossible de ranger ces photos dans un paquet.</p>
-          {renderGrid(day.undated, false)}
+          <div className="grille">{day.undated.map((item) => tile(item, null))}</div>
         </section>
       )}
 
@@ -120,42 +157,17 @@ export function Paquets({ session }: { session: Session }) {
         </section>
       )}
 
-      {selected && (
-        <div className="voile" onClick={() => setSelected(null)}>
-          <div className="feuille" onClick={(event) => event.stopPropagation()}>
-            {session.thumbnails.get(selected.item.id) && (
-              <img src={session.thumbnails.get(selected.item.id)} alt="" />
-            )}
-            <h3>
-              {selected.number !== null ? `Photo n° ${selected.number}` : 'Photo'} · {formatTime(selected.item.capturedAt)}
-            </h3>
-            {selected.score && (
-              <>
-                <p className="classement">
-                  {selected.packSize > 1
-                    ? `${selected.score.rank === 1 ? 'Meilleure' : `${selected.score.rank}ᵉ`} sur ${selected.packSize} dans son paquet`
-                    : 'Seule photo de son paquet'}
-                  {selected.score.vetoed && ' · écartée'}
-                  <span> · note {Math.round(selected.score.score * 100)} / 100</span>
-                </p>
-                <ul className="raisons">
-                  {selected.score.reasons.map((reason) => (
-                    <li key={reason.code} className={reason.tone}>
-                      {reasonText(reason, numberOf)}
-                    </li>
-                  ))}
-                  {selected.score.reasons.length === 0 && <li className="neutre">Rien de particulier à signaler</li>}
-                </ul>
-              </>
-            )}
-            <p className="note">
-              {selected.item.fileName} · {selected.item.format} · {formatSize(selected.item.sizeBytes)}
-            </p>
-            <button className="bouton" onClick={() => setSelected(null)}>
-              Fermer
-            </button>
-          </div>
-        </div>
+      {viewing !== null && entries[viewing] && (
+        <Visionneuse
+          entries={entries}
+          start={viewing}
+          previews={session.previews}
+          thumbnails={session.thumbnails}
+          choices={choices}
+          numberOf={numberOf}
+          onChoose={(entry, choice) => entry.pack && onChoose(entry.item, entry.pack, choice)}
+          onClose={() => setViewing(null)}
+        />
       )}
     </main>
   );
