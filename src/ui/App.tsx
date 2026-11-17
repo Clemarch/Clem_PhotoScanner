@@ -9,14 +9,20 @@ import {
   type InterruptedRun,
 } from '../platform/device';
 import type { AnalyzeResult } from '../platform/image/types';
-import { analyzeDay, config, learnWeights, measureBody, measureFace, photoKey, sortChronologically, type ChoiceRecord, type MediaItem, type PackAnalysis } from '../engine';
+import { analyzeDay, config, learnWeights, measureFace, measureSegmentation, photoKey, sortChronologically, type ChoiceRecord, type MediaItem, type PackAnalysis } from '../engine';
 import { clearChoices, loadChoices, removeChoice, saveChoice } from '../platform/storage/choices';
 import { makeRecord, type Choice, type Choices } from './choices';
 import { createFaceDetector, type FaceDetector } from '../platform/vision/faceDetector';
 import { createObjectDetector, type ObjectDetector } from '../platform/vision/objectDetector';
 import { findFaces } from '../platform/vision/retry';
-import { createBodyDetector, type BodyDetector } from '../platform/vision/bodyDetector';
-import { findBodies } from '../platform/vision/bodyRetry';
+import {
+  createClassifier,
+  createEmbedder,
+  createSegmenter,
+  type Classifier,
+  type Embedder,
+  type Segmenter,
+} from '../platform/vision/sceneModels';
 import { createAnalyzer } from '../platform/worker/analyzer';
 import type { Session } from './session';
 import { Accueil } from './screens/Accueil';
@@ -76,12 +82,18 @@ export function App() {
     } catch (e) {
       faceError ??= `objets : ${e instanceof Error ? e.message : String(e)}`;
     }
-    let bodyDetector: BodyDetector | null = null;
-    try {
-      bodyDetector = await createBodyDetector();
-    } catch (e) {
-      faceError ??= `corps : ${e instanceof Error ? e.message : String(e)}`;
-    }
+    // Trois modèles complémentaires ; si l'un ne démarre pas, l'analyse continue sans lui.
+    const start3 = async <T,>(name: string, create: () => Promise<T>): Promise<T | null> => {
+      try {
+        return await create();
+      } catch (e) {
+        faceError ??= `${name} : ${e instanceof Error ? e.message : String(e)}`;
+        return null;
+      }
+    };
+    const segmenter: Segmenter | null = await start3('silhouette', createSegmenter);
+    const embedder: Embedder | null = await start3('empreinte', createEmbedder);
+    const classifier: Classifier | null = await start3('scène', createClassifier);
     const results: AnalyzeResult[] = [];
     const originals = new Map<string, File>();
     const thumbnails = new Map<string, string>();
@@ -120,16 +132,30 @@ export function App() {
             faceError ??= e instanceof Error ? e.message : String(e);
           }
         }
-        if (bodyDetector) {
+        {
+          const t = performance.now();
           try {
-            const t = performance.now();
-            const { bodies, retried } = await findBodies(bodyDetector, frame.bitmap, result.item.objects);
-            result.item.bodies = bodies.map(measureBody);
-            result.diagnostic.bodyMs = performance.now() - t;
-            result.diagnostic.bodyRetry = retried;
+            if (segmenter) {
+              // Image réduite : le masque est à la taille de l'image donnée, inutile qu'il soit grand.
+              const side = config.segmentation.inputMaxSide;
+              const scale = Math.min(1, side / Math.max(frame.width, frame.height));
+              const small = await createImageBitmap(frame.bitmap, {
+                resizeWidth: Math.max(1, Math.round(frame.width * scale)),
+                resizeHeight: Math.max(1, Math.round(frame.height * scale)),
+              });
+              try {
+                const seg = segmenter.segment(small);
+                if (seg) result.item.segmentation = measureSegmentation(seg.mask, seg.width, seg.height, (result.item.faces ?? []).map((f) => f.box));
+              } finally {
+                small.close();
+              }
+            }
+            if (embedder) result.item.embedding = embedder.embed(frame.bitmap);
+            if (classifier) result.item.labels = classifier.classify(frame.bitmap);
           } catch (e) {
-            faceError ??= `corps : ${e instanceof Error ? e.message : String(e)}`;
+            faceError ??= `modèles : ${e instanceof Error ? e.message : String(e)}`;
           }
+          if (segmenter || embedder || classifier) result.diagnostic.modelsMs = performance.now() - t;
         }
         frame.bitmap.close();
       }
@@ -143,7 +169,9 @@ export function App() {
     analyzer.dispose();
     detector?.close();
     objectDetector?.close();
-    bodyDetector?.close();
+    segmenter?.close();
+    embedder?.close();
+    classifier?.close();
     wake.release();
     clearProgress();
     const device = await readDeviceReport();
@@ -177,6 +205,14 @@ export function App() {
       setRecords((list) => [...list.filter((r) => r.key !== key), record]);
       void saveChoice(record);
     }
+  };
+  const comment = (item: MediaItem, text: string) => {
+    const key = photoKey(item);
+    const record = records.find((r) => r.key === key);
+    if (!record || (record.comment ?? '') === text) return;
+    const updated = { ...record, comment: text || undefined };
+    setRecords((list) => list.map((r) => (r.key === key ? updated : r)));
+    void saveChoice(updated);
   };
   const toRemove = day.packs.reduce((n, pack) => n + pack.pack.items.filter((it) => !finalKeep(it, pack, choices).keep).length, 0);
 
@@ -214,9 +250,10 @@ export function App() {
           choices={choices}
           onNewDay={(files) => void start(files)}
           onChoose={choose}
+          onComment={comment}
         />
       ) : tab === 'supprimer' ? (
-        <ASupprimer session={session} day={day} choices={choices} onChoose={choose} />
+        <ASupprimer session={session} day={day} choices={choices} onChoose={choose} onComment={comment} />
       ) : (
         <Diagnostic
           session={session}

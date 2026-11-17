@@ -21,10 +21,8 @@ export function reasonText(reason: Reason, numberOf: (id: string) => number | nu
       return 'Zones trop claires (détails perdus)';
     case 'sous-exposee':
       return 'Zones trop sombres (détails perdus)';
-    case 'main-coupee':
-      return 'Main coupée par le bord (plus que sur les autres photos)';
-    case 'pieds-coupes':
-      return 'Pieds coupés par le bord (plus que sur les autres photos)';
+    case 'membre-coupe':
+      return 'Main, bras ou jambe coupé par le bord (plus que sur les autres photos)';
     case 'bords-masques':
       return 'Bords masqués (hublot, doigt, ombre…)';
     case 'tres-floue':
@@ -112,6 +110,9 @@ export const sceneLabel: Record<SceneType, string> = {
   groupe: 'Groupe',
   coucher: 'Coucher de soleil',
   paysage: 'Paysage',
+  nourriture: 'Nourriture',
+  animal: 'Animal',
+  document: 'Document ou capture',
 };
 
 /** Ce que l'app cherche pour chaque type de photo. */
@@ -121,6 +122,9 @@ export const sceneGoal: Record<SceneType, string> = {
   groupe: 'tout le monde visible et réussi : le visage le plus raté décide',
   coucher: 'les couleurs chaudes les plus intenses, du contraste, une exposition équilibrée',
   paysage: 'du contraste, des couleurs vives, une exposition équilibrée, un horizon droit',
+  nourriture: 'des couleurs vives et appétissantes, une photo nette et bien exposée',
+  animal: 'une photo nette, bien exposée, avec du contraste',
+  document: 'la plus nette et la plus lisible',
 };
 
 export const featureLabel: Record<FeatureName, string> = {
@@ -134,7 +138,7 @@ export const featureLabel: Record<FeatureName, string> = {
   arrierePlan: 'personnes en arrière-plan',
   objets: 'objets gênants',
   penchee: 'photo penchée',
-  membres: 'mains ou pieds coupés',
+  membres: 'mains, bras ou jambes coupés',
   bords: 'bords masqués',
   couleurs: 'couleurs vives',
   chaud: 'couleurs chaudes',
