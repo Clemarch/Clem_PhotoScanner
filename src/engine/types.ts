@@ -69,26 +69,21 @@ export interface FaceMetrics {
   bodyColor: Rgb | null;
 }
 
-/** Point du corps fourni par le modèle de pose : position (en proportions de l'image, peut sortir de 0..1
- *  quand le point est hors champ) et visibilité entre 0 et 1. */
-export interface BodyPoint {
-  x: number;
-  y: number;
-  visibility: number;
+/** Mesures tirées de la silhouette des personnes (modèle de segmentation : fond, cheveux, peau du corps,
+ *  peau du visage, vêtements, accessoires). */
+export interface SegmentationMetrics {
+  /** Part des bandes de bord (bas, gauche, droite) couverte par de la peau du corps : main, bras ou jambe coupés. */
+  edgeBodySkin: number;
+  /** Pour chaque visage de `faces` (même ordre) : part de sa boîte couverte par de la peau du visage
+   *  (baisse quand un objet ou une main passe devant). */
+  faceSkin: (number | null)[];
 }
 
-/** Mesures du corps d'une personne. */
-export interface BodyMetrics {
-  /** Rectangle des points visibles. */
-  box: Box;
-  /** Nez (pour rattacher le corps à un visage). */
-  nose: { x: number; y: number } | null;
-  /** Mains coupées par le bord (coude dans l'image, poignet ou doigts dehors), et pieds coupés (genou dedans,
-   *  cheville ou orteils dehors). */
-  cutHands: number;
-  cutFeet: number;
-  /** Coudes, poignets et index (gauche puis droite) : x, y, visibilité. Pour le rapport de diagnostic. */
-  arms?: [number, number, number][];
+/** Catégorie de scène ou d'objet reconnue par le modèle de classement (catégories ImageNet). */
+export interface SceneLabel {
+  index: number;
+  name: string;
+  score: number;
 }
 
 /** Exposition d'une image : parts de pixels brûlés (blanc pur) et bouchés (noir pur), luminosité moyenne (0 à 255). */
@@ -147,14 +142,18 @@ export interface MediaItem {
   color: ColorStats | null;
   /** Empreinte de l'image : vignette de 8 x 8 pixels en couleur (192 nombres de 0 à 255), pour comparer les poses. */
   signature: number[] | null;
-  /** Corps des personnes (modèle de pose) ; null si non analysés. */
-  bodies: BodyMetrics[] | null;
+  /** Silhouette des personnes ; null si non analysée. */
+  segmentation: SegmentationMetrics | null;
+  /** Empreinte fine de l'image (modèle d'empreinte, vecteur normalisé) ; null si non calculée. */
+  embedding: number[] | null;
+  /** Catégories de scène les plus probables ; null si non classée. */
+  labels: SceneLabel[] | null;
   /** Part de l'image envahie depuis les bords par une zone sombre et uniforme (hublot, doigt), entre 0 et 1. */
   obstruction: number | null;
 }
 
 /** Type de photo, décidé pour un paquet entier. */
-export type SceneType = 'selfie' | 'portrait' | 'groupe' | 'coucher' | 'paysage';
+export type SceneType = 'selfie' | 'portrait' | 'groupe' | 'coucher' | 'paysage' | 'nourriture' | 'animal' | 'document';
 
 export interface PoseGroup {
   id: string;
@@ -219,6 +218,8 @@ export interface ChoiceRecord {
   features: Features;
   baseScore: number;
   at: number;
+  /** Commentaire de l'utilisateur sur ce choix (facultatif), repris dans le rapport de diagnostic. */
+  comment?: string;
 }
 
 export interface Pack {
@@ -244,8 +245,7 @@ export type ReasonCode =
   | 'visage-coupe'
   | 'visage-cache'
   | 'visage-masque'
-  | 'main-coupee'
-  | 'pieds-coupes'
+  | 'membre-coupe'
   | 'bords-masques'
   | 'tres-floue'
   | 'devant'
@@ -312,7 +312,7 @@ export interface PhotoScore {
   features: Features;
   /** Photo ratée en elle-même (défaut rédhibitoire ou très floue) : elle peut être supprimée même si c'est la seule. */
   failed: boolean;
-  /** Mains et pieds coupés en plus de la photo la mieux cadrée du groupe, et bords masqués en plus de la plus dégagée. */
-  extraCutLimbs: number;
+  /** Peau du corps au bord en plus de la photo du groupe qui en a le moins, et bords masqués en plus de la plus dégagée. */
+  extraEdgeSkin: number;
   extraObstruction: number;
 }

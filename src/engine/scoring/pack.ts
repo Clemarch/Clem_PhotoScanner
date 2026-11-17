@@ -7,9 +7,9 @@ import { config } from '../config';
 import { analyzeContent, compareFaces, countSubjects, recurringPersons, subjectPersons } from '../analysis/content';
 import { mainFaces } from '../analysis/faces';
 import { tiltDefect, tiltReliable } from '../analysis/framing';
-import { classifyPack, exposureBalance } from '../analysis/scene';
+import { classifyPack, exposureBalance, seenFromPlane } from '../analysis/scene';
 import { learnedAdjustment, meanFeatures } from '../learning/preferences';
-import type { BodyMetrics, FaceMetrics, Features, LearnedWeights, MediaItem, PhotoScore, Reason, SceneType } from '../types';
+import type { FaceMetrics, Features, LearnedWeights, MediaItem, PhotoScore, Reason, SceneType } from '../types';
 
 /** Valeur haute de référence, sans se laisser tromper par une mesure isolée anormalement élevée. */
 function reference(values: number[]): number {
@@ -157,28 +157,32 @@ export function scorePackDetailed(
     return value;
   };
 
-  // Corps des sujets : ceux dont le nez est dans un visage principal ; sans visage dans le groupe, les grands corps.
-  const subjectBodies = (item: MediaItem, ctx: GroupContext): BodyMetrics[] => {
-    const faces = facesOf.get(item.id)!;
-    return (item.bodies ?? []).filter((body) =>
-      ctx.expected > 0
-        ? body.nose !== null &&
-          faces.some(
-            (f) =>
-              body.nose!.x >= f.box.x - f.box.width * 0.5 &&
-              body.nose!.x <= f.box.x + f.box.width * 1.5 &&
-              body.nose!.y >= f.box.y - f.box.height * 0.5 &&
-              body.nose!.y <= f.box.y + f.box.height * 1.5,
-          )
-        : body.box.width * body.box.height >= config.body.subjectMinArea,
-    );
+  // Peau de visage (silhouette) : chaque personne comparée à elle-même sur les photos où tout le monde est visible.
+  // Un objet ou une main devant le visage en fait baisser la part.
+  const faceSkinOf = (item: MediaItem, face: FaceMetrics): number | null => {
+    const index = item.faces?.indexOf(face) ?? -1;
+    return index >= 0 ? (item.segmentation?.faceSkin[index] ?? null) : null;
   };
-  const cutsOf = (item: MediaItem, ctx: GroupContext) => {
-    const bodies = subjectBodies(item, ctx);
-    return {
-      hands: bodies.reduce((n, b) => n + b.cutHands, 0),
-      feet: bodies.reduce((n, b) => n + b.cutFeet, 0),
-    };
+  const skinRef = new Map<GroupContext, (number | null)[]>();
+  const faceSkinDrop = (item: MediaItem, ctx: GroupContext, slot: number, face: FaceMetrics): number | null => {
+    if (!skinRef.has(ctx)) {
+      const complete = ctx.items.filter((it) => ctx.expected > 0 && facesOf.get(it.id)!.length === ctx.expected);
+      skinRef.set(
+        ctx,
+        Array.from({ length: ctx.expected }, (_, k) => {
+          const values = complete
+            .map((it) => faceSkinOf(it, facesOf.get(it.id)![k]!))
+            .filter((v): v is number => v !== null)
+            .sort((x, y) => x - y);
+          return values.length >= config.content.occlusionMinPhotos ? values[Math.floor(values.length / 2)]! : null;
+        }),
+      );
+    }
+    const ref = skinRef.get(ctx)![slot];
+    const value = faceSkinOf(item, face);
+    if (ref == null || value === null || ref <= 0) return null;
+    const sg = config.segmentation;
+    return clamp01(((ref - value) / ref - sg.faceSkinDropFrom) / (sg.faceSkinDropFull - sg.faceSkinDropFrom));
   };
 
   // Une photo absente des groupes fournis forme son propre groupe (sécurité).
@@ -205,8 +209,13 @@ export function scorePackDetailed(
   const bestContrast = Math.max(0, ...colored.map((item) => item.color!.contrast));
   const bestColorful = Math.max(0, ...colored.map((item) => item.color!.colorfulness));
   const bestBalance = Math.max(0, ...items.map((item) => exposureBalance(item) ?? 0));
-  const aestheticWeightsOf = (scene: SceneType) =>
-    scene === 'coucher' ? config.scene.aesthetic.coucher : scene === 'paysage' ? config.scene.aesthetic.paysage : config.scene.aesthetic.personnes;
+  const aestheticWeightsOf = (scene: SceneType) => {
+    const a = config.scene.aesthetic;
+    if (scene === 'coucher') return a.coucher;
+    if (scene === 'nourriture') return a.nourriture;
+    if (scene === 'paysage' || scene === 'animal' || scene === 'document') return a.paysage;
+    return a.personnes;
+  };
   const aestheticParts = (item: MediaItem) => {
     if (!item.color) return null;
     const balance = exposureBalance(item) ?? 0;
@@ -228,16 +237,15 @@ export function scorePackDetailed(
 
   const rawRatioOf = (item: MediaItem): number => (techRef > 0 ? Math.min(1, (item.sharpness ?? 0) / techRef) : 1);
 
-  // Mains et pieds coupés : comparés à la photo la mieux cadrée du même groupe de pose
-  // (sur un selfie, le bras qui tient le téléphone est coupé partout ; seule une coupure en plus compte).
-  const minCuts = new Map<GroupContext, { hands: number; feet: number }>();
+  // Main, bras ou jambe coupés : peau du corps qui touche le bord, comparée à la photo du même groupe de pose qui en
+  // a le moins (sur un selfie, le bras qui tient le téléphone touche le bord sur toutes les photos).
+  const minEdgeSkin = new Map<GroupContext, number>();
   for (const ctx of contexts) {
-    const measured = ctx.items.filter((item) => item.bodies !== null).map((item) => cutsOf(item, ctx));
-    minCuts.set(ctx, {
-      hands: Math.min(...measured.map((x) => x.hands), Infinity),
-      feet: Math.min(...measured.map((x) => x.feet), Infinity),
-    });
+    const values = ctx.items.filter((item) => item.segmentation !== null).map((item) => item.segmentation!.edgeBodySkin);
+    minEdgeSkin.set(ctx, values.length ? Math.min(...values) : Infinity);
   }
+  // Photos prises d'un avion : seule situation où des bords sombres et uniformes signalent un hublot qui gêne.
+  const fromPlane = items.some(seenFromPlane);
   // Bords masqués : comparés à la photo la plus dégagée du paquet.
   const obstructed = items.filter((item) => item.obstruction !== null);
   const minObstruction = Math.min(...obstructed.map((item) => item.obstruction!), Infinity);
@@ -279,7 +287,12 @@ export function scorePackDetailed(
           return ref > 0 ? face.sharpness / ref : 1;
         });
         const change = ctx.changesOf.get(item.id);
-        const occl = change?.occlusion ?? faces.map(() => 0);
+        // Masquage : d'après la silhouette (peau du visage) quand elle est disponible, sinon d'après les couleurs.
+        const colorOccl = change?.occlusion ?? faces.map(() => 0);
+        const occl = faces.map((face, slot) => {
+          const seg = faces.length === expected ? faceSkinDrop(item, ctx, slot, face) : null;
+          return seg ?? colorOccl[slot] ?? 0;
+        });
         occlusion = Math.max(0, ...occl);
         front = Math.max(0, ...(change?.front ?? [0]));
         faceBrightness = Math.min(1, ...(change?.brightness ?? [1]));
@@ -347,8 +360,13 @@ export function scorePackDetailed(
     // Pénalités de contenu et de cadrage.
     const content = contentOf.get(item.id)!;
     const extraBackground = content.background - minBackground;
-    const backgroundPenalty = Math.min(c.backgroundPenaltyMax, c.backgroundPenalty * extraBackground);
-    if (extraBackground >= r.backgroundFrom) reasons.push({ code: 'arriere-plan', tone: 'moins' });
+    const landscape = expected === 0;
+    const backgroundPenalty = Math.min(
+      c.backgroundPenaltyMax,
+      c.backgroundPenalty * extraBackground * (landscape ? c.backgroundLandscapeFactor : 1),
+    );
+    if (extraBackground >= (landscape ? c.backgroundLandscapeFrom : r.backgroundFrom))
+      reasons.push({ code: 'arriere-plan', tone: 'moins' });
 
     const extraObjects = content.distractions.length - minDistractions;
     const objectPenalty = Math.min(c.objectPenaltyMax, c.objectPenalty * extraObjects);
@@ -357,18 +375,18 @@ export function scorePackDetailed(
     const tilt = tiltDefect(item.tiltDeg, item.tiltStrength, straightest);
     if (tilt > 0) reasons.push({ code: 'horizon', tone: 'moins', degrees: Math.abs(item.tiltDeg ?? 0) });
 
-    // Membres coupés et bords masqués.
-    const mins = minCuts.get(ctx)!;
-    const cuts = item.bodies !== null ? cutsOf(item, ctx) : null;
-    const extraHands = cuts && Number.isFinite(mins.hands) ? Math.max(0, cuts.hands - mins.hands) : 0;
-    const extraFeet = cuts && Number.isFinite(mins.feet) ? Math.max(0, cuts.feet - mins.feet) : 0;
-    if (extraHands > 0) reasons.push({ code: 'main-coupee', tone: 'moins' });
-    if (extraFeet > 0) reasons.push({ code: 'pieds-coupes', tone: 'moins' });
-    const limbPenalty = Math.min(config.body.cutPenaltyMax, config.body.cutPenalty * (extraHands + extraFeet));
+    // Membres coupés (silhouette) et bords masqués (hublot).
+    const sg = config.segmentation;
+    const edgeRef = minEdgeSkin.get(ctx)!;
+    const extraEdgeSkin =
+      item.segmentation !== null && Number.isFinite(edgeRef) ? Math.max(0, item.segmentation.edgeBodySkin - edgeRef) : 0;
+    const limbDefect = clamp01((extraEdgeSkin - sg.edgeSkinFrom) / (sg.edgeSkinFull - sg.edgeSkinFrom));
+    if (limbDefect > 0) reasons.push({ code: 'membre-coupe', tone: 'moins' });
     const o = config.obstruction;
-    // Seulement sans personne au premier plan : avec des personnes, des vêtements sombres touchent souvent le bord.
     const extraObstruction =
-      expected === 0 && item.obstruction !== null && Number.isFinite(minObstruction) ? Math.max(0, item.obstruction - minObstruction) : 0;
+      fromPlane && expected === 0 && item.obstruction !== null && Number.isFinite(minObstruction)
+        ? Math.max(0, item.obstruction - minObstruction)
+        : 0;
     const obstructionDefect = clamp01((extraObstruction - o.from) / (o.full - o.from));
     if (obstructionDefect > 0) reasons.push({ code: 'bords-masques', tone: 'moins' });
 
@@ -393,7 +411,7 @@ export function scorePackDetailed(
       (1 - c.frontPenalty * front) *
       (1 - c.darkFacePenalty * dark) *
       (1 - e.penalty * Math.max(over, under)) *
-      (1 - limbPenalty) *
+      (1 - sg.edgePenalty * limbDefect) *
       (1 - o.penalty * obstructionDefect);
 
     const features: Features = {
@@ -407,7 +425,7 @@ export function scorePackDetailed(
       arrierePlan: clamp01(extraBackground),
       objets: clamp01(extraObjects / 2),
       penchee: tilt,
-      membres: clamp01((extraHands + extraFeet) / 2),
+      membres: limbDefect,
       bords: obstructionDefect,
       couleurs: parts?.colorful ?? 1,
       chaud: parts?.warm ?? 1,
@@ -435,7 +453,7 @@ export function scorePackDetailed(
       learned: 0,
       features,
       failed: vetoed || veryBlurry,
-      extraCutLimbs: extraHands + extraFeet,
+      extraEdgeSkin,
       extraObstruction,
     };
   });

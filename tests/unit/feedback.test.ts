@@ -61,7 +61,9 @@ const photo = (id: string, faces: FaceMetrics[], objects: DetectedObject[]): Med
     exposure: null,
     color: null,
     signature: null,
-    bodies: null,
+    segmentation: null,
+    embedding: null,
+    labels: null,
     obstruction: null,
   }) as MediaItem;
 

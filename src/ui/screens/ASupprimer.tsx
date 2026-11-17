@@ -11,6 +11,7 @@ interface Props {
   day: DayAnalysis;
   choices: Choices;
   onChoose: (item: MediaItem, pack: PackAnalysis, choice: Choice | null) => void;
+  onComment: (item: MediaItem, comment: string) => void;
 }
 
 const DONE_KEY = 'photo-triage.faits';
@@ -32,7 +33,7 @@ function saveDone(done: Set<string>): void {
 }
 
 /** Écran « À supprimer » : une carte de chaque paquet, dans l'ordre de l'app Photos, à reproduire avec « Sélectionner ». */
-export function ASupprimer({ session, day, choices, onChoose }: Props) {
+export function ASupprimer({ session, day, choices, onChoose, onComment }: Props) {
   const [done, setDone] = useState<Set<string>>(() => loadDone());
   const [viewing, setViewing] = useState<number | null>(null);
   const [help, setHelp] = useState(true);
@@ -154,6 +155,7 @@ export function ASupprimer({ session, day, choices, onChoose }: Props) {
           choices={choices}
           numberOf={numberOf}
           onChoose={(entry, choice) => entry.pack && onChoose(entry.item, entry.pack, choice)}
+          onComment={(entry, comment) => onComment(entry.item, comment)}
           onClose={() => setViewing(null)}
         />
       )}

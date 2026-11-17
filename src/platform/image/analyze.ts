@@ -184,7 +184,9 @@ export async function analyzeFile(
     exposure: null,
     color: null,
     signature: null,
-    bodies: null,
+    segmentation: null,
+    embedding: null,
+    labels: null,
     obstruction: null,
   };
 
@@ -206,8 +208,7 @@ export async function analyzeFile(
     faceCount: null,
     faceRetry: 0,
     objectMs: null,
-    bodyMs: null,
-    bodyRetry: 0,
+    modelsMs: null,
   };
 
   // RAW et vidéos : repérés, mis de côté, jamais décodés.

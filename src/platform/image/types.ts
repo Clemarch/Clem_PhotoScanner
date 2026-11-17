@@ -27,10 +27,8 @@ export interface FileDiagnostic {
   faceRetry: number;
   /** Durée de la détection d'objets (null si non faite). */
   objectMs: number | null;
-  /** Durée de l'analyse du corps (null si non faite). */
-  bodyMs: number | null;
-  /** Corps retrouvés par la seconde recherche, sur le recadrage d'une personne. */
-  bodyRetry: number;
+  /** Durée cumulée des modèles de silhouette, d'empreinte et de scène (null si non faits). */
+  modelsMs: number | null;
 }
 
 /** Image réduite gardée juste le temps de chercher les visages, puis libérée. */

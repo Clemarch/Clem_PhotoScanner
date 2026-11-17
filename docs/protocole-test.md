@@ -12,6 +12,8 @@ Claude complète la partie « Ce test-ci » à chaque mise à jour.
    - Quand l'app se trompe, toucher **✓ À garder** ou **✕ À supprimer** (ces boutons marquent la photo, ils ne suppriment rien).
    - Faire au moins **un « À garder » et un « À supprimer » dans un même paquet** : c'est cette paire qui permet à
      l'app d'apprendre.
+   - Après un choix, écrire en quelques mots **pourquoi** dans la zone « Pourquoi ? » : le commentaire arrive dans
+     le rapport.
 5. Onglet **2. Dans Photos** : reproduire la suppression dans Photos pour au moins un paquet, et dire si c'était simple.
 6. Onglet **Diagnostic** → **Copier le rapport** (après les choix, pour qu'il les contienne), et le coller à Claude.
 

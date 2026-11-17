@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { MediaItem, PackAnalysis } from '../../engine';
+import { photoKey, type MediaItem, type PackAnalysis } from '../../engine';
 import { finalKeep, type Choice, type Choices } from '../choices';
 import { formatTime } from '../format';
 import { decisionText, reasonText, sceneLabel } from '../reasons';
@@ -20,11 +20,13 @@ interface Props {
   choices: Choices;
   numberOf: (id: string) => number | null;
   onChoose: (entry: ViewerEntry, choice: Choice | null) => void;
+  /** Commentaire sur le choix de l'utilisateur (pourquoi il garde ou supprime). */
+  onComment: (entry: ViewerEntry, comment: string) => void;
   onClose: () => void;
 }
 
 /** Visionneuse plein écran : glisser à gauche ou à droite pour changer de photo. */
-export function Visionneuse({ entries, start, previews, originals, thumbnails, choices, numberOf, onChoose, onClose }: Props) {
+export function Visionneuse({ entries, start, previews, originals, thumbnails, choices, numberOf, onChoose, onComment, onClose }: Props) {
   const [index, setIndex] = useState(start);
   const [dx, setDx] = useState(0);
   // Zoom : échelle et décalage (en pixels) de la photo affichée.
@@ -289,6 +291,16 @@ export function Visionneuse({ entries, start, previews, originals, thumbnails, c
         )}
         {pack && state && (
           <p className="note centre">Ces boutons marquent la photo. Rien n’est supprimé ici : vous le faites dans Photos.</p>
+        )}
+        {state?.byUser && (
+          <textarea
+            key={item.id}
+            className="commentaire"
+            rows={2}
+            placeholder="Pourquoi ? (facultatif) Ex. : la main est coupée en bas"
+            defaultValue={choices.byKey.get(photoKey(item))?.comment ?? ''}
+            onBlur={(e) => onComment(entry, e.target.value.trim())}
+          />
         )}
         {state?.byUser && (
           <button className="lien" onClick={() => onChoose(entry, null)}>

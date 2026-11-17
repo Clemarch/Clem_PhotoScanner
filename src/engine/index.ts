@@ -7,11 +7,12 @@ export { boxFromPoints, cropGray, headPose, lensDirection, mainFaces, measureFac
 export { analyzeContent, compareFaces, countSubjects, recurringPersons, subjectPersons, subjectZone } from './analysis/content';
 export { measureExposure } from './analysis/exposure';
 export { measureTilt, tiltDefect } from './analysis/framing';
-export { measureBody } from './analysis/body';
 export { measureObstruction } from './analysis/obstruction';
 export { scorePack, scorePackDetailed, type PackScoring } from './scoring/pack';
 export { measureColor, imageSignature, signatureDistance } from './analysis/color';
-export { classifyPack, exposureBalance } from './analysis/scene';
+export { classifyPack, exposureBalance, seenFromPlane } from './analysis/scene';
+export { measureSegmentation, SEGMENT } from './analysis/segmentation';
+export { embeddingSimilarity } from './analysis/embedding';
 export { groupPoses } from './grouping/poses';
 export { selectPack } from './selection/select';
 export { learnWeights, learnedAdjustment, meanFeatures, preferencePairs } from './learning/preferences';

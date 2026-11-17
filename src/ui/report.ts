@@ -1,5 +1,5 @@
 import type { Session } from './session';
-import { mainFaces, photoKey, signatureDistance, type ChoiceRecord, type DayAnalysis, type Decision, type LearnedWeights, type PhotoScore, type SceneType } from '../engine';
+import { embeddingSimilarity, mainFaces, photoKey, signatureDistance, type ChoiceRecord, type DayAnalysis, type Decision, type LearnedWeights, type PhotoScore, type SceneType } from '../engine';
 import { formatDateTime, formatMs, formatOrientation, formatSize } from './format';
 
 const color = (c: readonly number[] | null): string => (c ? c.map((v) => Math.round(v)).join(',') : '?');
@@ -87,7 +87,7 @@ export function buildReport(session: Session, day: DayAnalysis, records: readonl
     `Types : ${counts(s.formats)}`,
     `Décodage : ${counts(s.methods)} · fil : ${counts(s.threads)}`,
     `Temps : total ${formatMs(session.totalMs)} · décodage moyen ${formatMs(s.avgDecodeMs)} · max ${formatMs(s.maxDecodeMs)}`,
-    `Corps : ${avg(session.results.flatMap((r) => (r.diagnostic.bodyMs === null ? [] : [r.diagnostic.bodyMs]))) === null ? 'non analysés' : `analyse moyenne ${formatMs(avg(session.results.flatMap((r) => (r.diagnostic.bodyMs === null ? [] : [r.diagnostic.bodyMs]))))}`}`,
+    `Silhouette, empreinte et scène : ${avg(session.results.flatMap((r) => (r.diagnostic.modelsMs === null ? [] : [r.diagnostic.modelsMs]))) === null ? 'non analysés' : `analyse moyenne ${formatMs(avg(session.results.flatMap((r) => (r.diagnostic.modelsMs === null ? [] : [r.diagnostic.modelsMs]))))}`}`,
     `Objets : ${avg(session.results.flatMap((r) => (r.diagnostic.objectMs === null ? [] : [r.diagnostic.objectMs]))) === null ? 'non détectés' : `recherche moyenne ${formatMs(avg(session.results.flatMap((r) => (r.diagnostic.objectMs === null ? [] : [r.diagnostic.objectMs]))))}`}`,
     `Visages : ${session.faceError ? `INDISPONIBLE (${session.faceError})` : `${s.photosWithFaces} photos avec visage · recherche moyenne ${formatMs(s.avgFaceMs)}`}`,
     `Mémoire : ${session.heapAfterMB === null ? 'non mesurable sur ce navigateur' : `${session.heapBeforeMB?.toFixed(0)} → ${session.heapAfterMB.toFixed(0)} Mo`}`,
@@ -96,7 +96,7 @@ export function buildReport(session: Session, day: DayAnalysis, records: readonl
     'n° | nom | type (type déclaré) | taille | date de prise de vue | date du fichier | orientation | dimensions | décodage | netteté | erreur',
     '    puis : note, rang dans le paquet, raisons, et les mesures de chaque visage principal (de gauche à droite)',
   ];
-  const scores = new Map<string, PhotoScore & { pack: string; scene: SceneType; decision: Decision | undefined; similarPrev: number }>();
+  const scores = new Map<string, PhotoScore & { pack: string; scene: SceneType; decision: Decision | undefined; similarPrev: number; embedPrev: number | null }>();
   day.packs.forEach((pack, i) => {
     pack.pack.items.forEach((it, k) => {
       const score = pack.scores.get(it.id)!;
@@ -107,10 +107,12 @@ export function buildReport(session: Session, day: DayAnalysis, records: readonl
         scene: pack.sceneOf.get(it.id) ?? pack.scene,
         decision: pack.decisions.get(it.id),
         similarPrev: prev ? signatureDistance(prev.signature, it.signature) : NaN,
+        embedPrev: prev ? embeddingSimilarity(prev.embedding, it.embedding) : null,
       });
     });
   });
   const choiceOf = new Map(records.map((r) => [r.key, r.choice]));
+  const commentOf = new Map(records.filter((r) => r.comment).map((r) => [r.key, r.comment!.replace(/\s+/g, ' ')]));
   lines.splice(
     lines.length - 2,
     0,
@@ -149,10 +151,10 @@ export function buildReport(session: Session, day: DayAnalysis, records: readonl
         .join(' ');
       const objects = (item.objects ?? []).map((o) => `${o.label} ${o.score.toFixed(2)}`).join(', ') || 'aucun';
       lines.push(
-        `    ${score.pack} ${score.scene} pose ${score.decision?.pose ?? '?'} · app : ${score.decision ? `${score.decision.keep ? 'GARDER' : 'supprimer'} (${score.decision.code}${score.decision.keptIds?.length ? ` après ${score.decision.keptIds.map((id) => day.dayIndex.get(id)).join('+')}` : ''})` : '?'} · vous : ${choiceOf.get(photoKey(item)) ?? '—'} · écart photo précédente ${Number.isFinite(score.similarPrev) ? score.similarPrev.toFixed(3) : '—'}`,
+        `    ${score.pack} ${score.scene} pose ${score.decision?.pose ?? '?'} · app : ${score.decision ? `${score.decision.keep ? 'GARDER' : 'supprimer'} (${score.decision.code}${score.decision.keptIds?.length ? ` après ${score.decision.keptIds.map((id) => day.dayIndex.get(id)).join('+')}` : ''})` : '?'} · vous : ${choiceOf.get(photoKey(item)) ?? '—'}${commentOf.get(photoKey(item)) ? ` « ${commentOf.get(photoKey(item))} »` : ''} · écart photo précédente ${Number.isFinite(score.similarPrev) ? score.similarPrev.toFixed(3) : '—'} ressemblance ${score.embedPrev === null ? '—' : score.embedPrev.toFixed(3)}`,
       );
       lines.push(
-        `    note ${score.score.toFixed(2)} (base ${score.baseScore.toFixed(2)} appris ${score.learned >= 0 ? '+' : ''}${score.learned.toFixed(2)}) rang ${score.rank}${score.vetoed ? ' VETO' : ''} · couleurs ${item.color ? `vivacité ${item.color.colorfulness.toFixed(2)} chaud ${(item.color.warmFraction * 100).toFixed(0)}%×${item.color.warmStrength.toFixed(2)} contraste ${item.color.contrast.toFixed(2)} lum ${item.color.mean.toFixed(2)}` : '?'} · visages ${score.faceCount}/${score.expectedFaces} (2e recherche +${g.faceRetry}) · visages ${score.faceCount}/${score.expectedFaces} (${g.faceCount ?? '?'} détectés, ${formatMs(g.faceMs)}) · ${score.reasons.map((r) => r.code).join(', ') || '—'} · masquage ${score.occlusion.toFixed(2)} devant ${score.front.toFixed(2)} lum-visage ${score.faceBrightness.toFixed(2)} arrière-plan ${score.background.toFixed(2)} gêne ${score.distraction} · corps ${item.bodies ? `${item.bodies.length}${g.bodyRetry ? ` dont ${g.bodyRetry} en 2e recherche` : ''} (mains coupées ${item.bodies.map((b) => b.cutHands).join('/') || '0'}, pieds ${item.bodies.map((b) => b.cutFeet).join('/') || '0'}, en plus ${score.extraCutLimbs}; bras ${item.bodies.map((b) => (b.arms ?? []).map(([x, y, v]) => `${x.toFixed(2)},${y.toFixed(2)}:${v.toFixed(1)}`).join(' ')).join(' | ')})` : '?'} · bords masqués ${item.obstruction === null ? '?' : `${(item.obstruction * 100).toFixed(0)}% (+${(score.extraObstruction * 100).toFixed(0)})`}${score.failed ? ' · RATÉE' : ''} · penché ${item.tiltDeg?.toFixed(1) ?? '?'}° (force ${item.tiltStrength?.toFixed(2) ?? '?'}) · expo brûlé ${pct(item.exposure?.highlights)} bouché ${pct(item.exposure?.shadows)} moy ${item.exposure?.mean.toFixed(0) ?? '?'} · objets : ${objects} ${faces}`,
+        `    note ${score.score.toFixed(2)} (base ${score.baseScore.toFixed(2)} appris ${score.learned >= 0 ? '+' : ''}${score.learned.toFixed(2)}) rang ${score.rank}${score.vetoed ? ' VETO' : ''} · couleurs ${item.color ? `vivacité ${item.color.colorfulness.toFixed(2)} chaud ${(item.color.warmFraction * 100).toFixed(0)}%×${item.color.warmStrength.toFixed(2)} contraste ${item.color.contrast.toFixed(2)} lum ${item.color.mean.toFixed(2)}` : '?'} · visages ${score.faceCount}/${score.expectedFaces} (2e recherche +${g.faceRetry}) · visages ${score.faceCount}/${score.expectedFaces} (${g.faceCount ?? '?'} détectés, ${formatMs(g.faceMs)}) · ${score.reasons.map((r) => r.code).join(', ') || '—'} · masquage ${score.occlusion.toFixed(2)} devant ${score.front.toFixed(2)} lum-visage ${score.faceBrightness.toFixed(2)} arrière-plan ${score.background.toFixed(2)} gêne ${score.distraction} · silhouette ${item.segmentation ? `peau au bord ${(item.segmentation.edgeBodySkin * 100).toFixed(1)}% (+${(score.extraEdgeSkin * 100).toFixed(1)}) peau visages ${item.segmentation.faceSkin.map((v) => (v === null ? '?' : `${(v * 100).toFixed(0)}%`)).join('/')}` : '?'} · scène ${(item.labels ?? []).slice(0, 3).map((l) => `${l.name} ${l.score.toFixed(2)}`).join(', ') || '?'} · bords masqués ${item.obstruction === null ? '?' : `${(item.obstruction * 100).toFixed(0)}% (+${(score.extraObstruction * 100).toFixed(0)})`}${score.failed ? ' · RATÉE' : ''} · penché ${item.tiltDeg?.toFixed(1) ?? '?'}° (force ${item.tiltStrength?.toFixed(2) ?? '?'}) · expo brûlé ${pct(item.exposure?.highlights)} bouché ${pct(item.exposure?.shadows)} moy ${item.exposure?.mean.toFixed(0) ?? '?'} · objets : ${objects} ${faces}`,
       );
     }
   });

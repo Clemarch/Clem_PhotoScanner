@@ -107,6 +107,10 @@ export const config = {
     backgroundEdgeWeight: 0.35,
     /** Pénalité pour une « personne entière » d'écart avec la photo du paquet la plus dégagée, et pénalité maximale. */
     backgroundPenalty: 0.1,
+    /** Sans personne au premier plan (paysage, rue), un passant gêne davantage : pénalité multipliée, et raison
+     *  affichée dès ce seuil (ruelle du 17/11 : « un bonhomme apparaît et cache un peu la photo »). */
+    backgroundLandscapeFactor: 3,
+    backgroundLandscapeFrom: 0.05,
     backgroundPenaltyMax: 0.3,
     /** Une personne détectée qui recouvre à ce point la place d'un sujet sur une autre photo du paquet est un sujet
      *  (son visage n'a simplement pas été trouvé sur cette photo), pas un passant. */
@@ -152,17 +156,36 @@ export const config = {
     clippedFull: 0.15,
     penalty: 0.25,
   },
-  body: {
-    /** Un point du corps compte comme visible au-dessus de cette visibilité. */
-    visibleFrom: 0.5,
-    /** Une extrémité (poignet, doigt, cheville, orteils) est coupée si elle est à moins de cette marge du bord, ou
-     *  au-delà : le modèle place souvent une main coupée tout contre le bord (0,99) plutôt qu'en dehors. */
-    edgeMargin: 0.02,
-    /** Pénalité par main ou pied coupé en plus de la photo la mieux cadrée du groupe, et pénalité maximale. */
-    cutPenalty: 0.12,
-    cutPenaltyMax: 0.3,
-    /** Sans visage dans le groupe, un corps compte comme sujet s'il occupe au moins cette part de l'image. */
-    subjectMinArea: 0.05,
+  segmentation: {
+    /** Largeur des bandes de bord examinées (part du petit côté de l'image). */
+    band: 0.03,
+    /** Peau du corps au bord en plus de la photo du groupe qui en a le moins : début et pleine pénalité.
+     *  Essai : 0 % sur un portrait entier, 5,5 % sur le même portrait coupé au milieu des mains. */
+    edgeSkinFrom: 0.015,
+    edgeSkinFull: 0.05,
+    edgePenalty: 0.2,
+    /** Visage masqué : baisse de la part de peau dans la boîte du visage, par rapport à la même personne sur les
+     *  autres photos (0,2 = un cinquième de peau en moins), début et pleine échelle. */
+    faceSkinDropFrom: 0.15,
+    faceSkinDropFull: 0.45,
+    /** Taille de l'image donnée au modèle (plus grand côté, pixels) : le masque est à cette taille. */
+    inputMaxSide: 512,
+  },
+  classifier: {
+    /** Catégories retenues : score minimal, et nombre maximal. */
+    minScore: 0.15,
+    maxLabels: 5,
+    /** Numéros de catégories ImageNet. Avion (hublot) : avion de ligne, aile. */
+    airplane: [404, 908] as readonly number[],
+    /** Captures d'écran et documents : site web, menu, enveloppe, couverture de livre, bande dessinée, mots croisés. */
+    document: [916, 922, 549, 921, 917, 918] as readonly number[],
+    /** Nourriture et boissons : de l'assiette (923) au lait de poule (969). */
+    food: [923, 969],
+    /** Animaux : des poissons (0) aux mammifères (397). */
+    animal: [0, 397],
+    /** Part des photos d'un groupe (et score minimal) pour décider d'un type. */
+    sceneShare: 0.5,
+    sceneScore: 0.25,
   },
   obstruction: {
     /** L'image est découpée en cases ; une case est « masquée » si elle est sombre et uniforme. */
@@ -170,9 +193,11 @@ export const config = {
     gridY: 18,
     darkBelow: 55,
     flatBelow: 12,
-    /** Part de l'image masquée en plus de la photo la plus dégagée du paquet : début et pleine pénalité. */
-    from: 0.03,
-    full: 0.2,
+    /** Part de l'image masquée en plus de la photo la plus dégagée du paquet : début et pleine pénalité.
+     *  Ne s'applique qu'aux photos prises d'un avion (reconnues par le modèle de classement) : ailleurs, des murs
+     *  sombres ou des ombres le déclenchaient à tort (ruelle du 17/11). */
+    from: 0.08,
+    full: 0.3,
     penalty: 0.25,
   },
   framing: {
@@ -201,6 +226,7 @@ export const config = {
     /** Poids de l'esthétique selon le type : couleurs chaudes, contraste, vivacité, équilibre de l'exposition. */
     aesthetic: {
       coucher: { warm: 0.45, contrast: 0.2, colorful: 0.15, balance: 0.2 },
+      nourriture: { warm: 0.1, contrast: 0.25, colorful: 0.4, balance: 0.25 },
       paysage: { warm: 0, contrast: 0.3, colorful: 0.3, balance: 0.4 },
       personnes: { warm: 0, contrast: 0.25, colorful: 0.25, balance: 0.5 },
     },
@@ -210,8 +236,16 @@ export const config = {
     dullBelow: 0.85,
   },
   poses: {
-    /** Une photo rejoint le groupe de pose courant si son empreinte diffère de moins de ceci de la précédente,
-     *  et de moins de `fromFirst` du premier du groupe (0 = identiques, 1 = opposées). */
+    /** Avec l'empreinte fine (modèle) : même pose si la ressemblance (cosinus, 1 = identiques) avec la photo
+     *  précédente est au moins de `similarPrevious`, et avec la première du groupe de `similarFirst`. */
+    similarPrevious: 0.8,
+    similarFirst: 0.7,
+    /** Prises en rafale (moins de `burstSeconds` d'écart, même nombre de visages) : même pose, sauf si la
+     *  ressemblance tombe sous `burstMinSimilar` (scène vraiment différente). Un zoom entre deux prises ne
+     *  change plus la pose (paquet de la plage du 17/11 : 4 poses pour 6 photos). */
+    burstSeconds: 4,
+    burstMinSimilar: 0.5,
+    /** Sans empreinte fine : empreinte de 8 x 8 pixels (0 = identiques, 1 = opposées). */
     fromPrevious: 0.1,
     fromFirst: 0.14,
     /** Au-delà de cet écart de temps (secondes) entre deux photos, nouveau groupe. */
@@ -220,13 +254,13 @@ export const config = {
     faceMove: 0.15,
   },
   selection: {
-    /** Plafond du paquet de N photos : ceil(packShare × N). Le quota est un plafond, jamais un objectif. */
-    packShare: 0.25,
     /** Une photo est gardée si sa note est à moins de ceci (sur 1) de la meilleure de sa pose : seules les notes
      *  décident, il n'y a pas de nombre maximal de photos par pose. */
-    scoreMargin: 0.04,
-    /** Deux photos dont l'empreinte diffère de moins de ceci sont des quasi-doublons : on n'en garde qu'une. */
+    scoreMargin: 0.06,
+    /** Deux photos dont l'empreinte diffère de moins de ceci sont des quasi-doublons : on n'en garde qu'une.
+     *  Avec l'empreinte fine : ressemblance d'au moins `nearDuplicateSimilar`. */
     nearDuplicate: 0.015,
+    nearDuplicateSimilar: 0.985,
   },
   learning: {
     /** Ajustement maximal de la note apporté par l'apprentissage, et poids maximal d'un critère. */
@@ -242,7 +276,7 @@ export const config = {
   scoring: {
     /** Note d'un visage. Le contenu d'abord : l'expression domine. Le regard compte peu,
      *  car regarder au loin peut faire une très belle photo. */
-    faceWeights: { eyes: 0.15, gaze: 0.1, expression: 0.55, sharpness: 0.2 },
+    faceWeights: { eyes: 0.15, gaze: 0.12, expression: 0.55, sharpness: 0.18 },
     /** Note « visages » d'une photo : le visage le plus raté pèse le plus. */
     worstFaceWeight: 0.6,
     meanFaceWeight: 0.4,

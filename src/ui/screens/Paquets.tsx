@@ -18,12 +18,13 @@ interface Props {
   onNewDay: (files: File[]) => void;
   choices: Choices;
   onChoose: (item: MediaItem, pack: PackAnalysis, choice: Choice | null) => void;
+  onComment: (item: MediaItem, comment: string) => void;
 }
 
 /** Le paquet mêle-t-il plusieurs types de photo (personnes et paysages, par exemple) ? */
 const mixed = (pack: PackAnalysis): boolean => new Set(pack.sceneOf.values()).size > 1;
 
-export function Paquets({ session, day, gap, onGap, onJoin, onNewDay, choices, onChoose }: Props) {
+export function Paquets({ session, day, gap, onGap, onJoin, onNewDay, choices, onChoose, onComment }: Props) {
   const [viewing, setViewing] = useState<number | null>(null);
   const numberOf = (id: string) => day.dayIndex.get(id) ?? null;
 
@@ -207,6 +208,7 @@ export function Paquets({ session, day, gap, onGap, onJoin, onNewDay, choices, o
           choices={choices}
           numberOf={numberOf}
           onChoose={(entry, choice) => entry.pack && onChoose(entry.item, entry.pack, choice)}
+          onComment={(entry, comment) => onComment(entry.item, comment)}
           onClose={() => setViewing(null)}
         />
       )}
