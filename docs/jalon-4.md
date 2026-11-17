@@ -57,9 +57,9 @@ le 17/11 sur le serveur officiel des modèles.
 
 | Modèle | Taille | Ce qu'il apporterait | Avis |
 | --- | --- | --- | --- |
-| Silhouette avec peau (« Selfie Multiclass ») | 15,6 Mo | Pour chaque pixel : fond, cheveux, peau du corps, peau du visage, vêtements, accessoires. **Main, bras, tête coupés par le bord** (peau du corps qui touche le bord : 0 % contre 5,5 % lors de l'essai) ; **visage masqué** (casquette, main devant) par la part de peau dans le visage. | Recommandé |
-| Empreinte d'image (« MobileNet v3 small ») | 3,9 Mo | Ressemblance fine entre photos : quasi-doublons (selfies n° 30/31), groupes de pose, apprentissage des goûts sur le contenu même de l'image. | Recommandé |
-| Classement de scène (« EfficientNet-Lite0 ») | 5,2 Mo | Environ 1000 types de scènes et d'objets : critères selon le type (nourriture, animaux, ville…), repérage des captures d'écran et photos de documents à mettre de côté. | Recommandé |
+| Silhouette avec peau (« Selfie Multiclass ») | 15,6 Mo | Pour chaque pixel : fond, cheveux, peau du corps, peau du visage, vêtements, accessoires. **Main, bras, tête coupés par le bord** (peau du corps qui touche le bord : 0 % contre 5,5 % lors de l'essai) ; **visage masqué** (casquette, main devant) par la part de peau dans le visage. | Ajouté (17/11) |
+| Empreinte d'image (« MobileNet v3 small ») | 3,9 Mo | Ressemblance fine entre photos : quasi-doublons (selfies n° 30/31), groupes de pose, apprentissage des goûts sur le contenu même de l'image. | Ajouté (17/11) |
+| Classement de scène (« EfficientNet-Lite0 ») | 5,2 Mo | Environ 1000 types de scènes et d'objets : critères selon le type (nourriture, animaux, ville…), repérage des captures d'écran et photos de documents à mettre de côté. | Ajouté (17/11) |
 | Gestes (« Gesture Recognizer ») | 8 Mo | V de la victoire, pouce levé… : confirme une pose voulue. Ne voit pas une main coupée (essai : 0 main trouvée). | Plus tard |
 | Objets, version plus fine (« EfficientDet-Lite2 ») | 7,2 Mo | Repère mieux les petites personnes et objets en arrière-plan ; environ 3 fois plus lent. | Facultatif |
 | Corps, version complète (« Pose Landmarker full ») | 9 Mo | Points du corps plus précis. Gain faible pour nos usages. | Non |

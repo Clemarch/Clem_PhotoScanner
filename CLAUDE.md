@@ -14,7 +14,9 @@ Décisions prises et écarts : `docs/decisions.md` — à mettre à jour à chaq
 - Jamais de photos dans le dépôt (`tests/fixtures/` est ignoré par git).
 - Interface en français, fluide, soignée, utilisable d'une main.
 - RAW repérés et mis de côté. Vidéos plus tard (`MediaItem.kind`). Live Photos non ciblées.
-- Esprit de la sélection : jugement relatif par paquet, quota = plafond jamais objectif, au moins 1 photo par paquet.
+- Esprit de la sélection : jugement relatif par paquet ; seules les notes décident. Plus de quota : retiré à la
+  demande de l'utilisateur (17/11, « un paquet de 2 photos peut garder les 2 »). Au moins 1 photo gardée par paquet,
+  sauf si toutes sont ratées (accord de l'utilisateur, 17/11).
 
 ## Utilisateur
 
@@ -40,8 +42,10 @@ propre à ce test.
 
 ## MediaPipe : ne pas mettre à jour sans inspection
 
-Modèles embarqués dans `public/models/` : `face_landmarker.task` (visages), `efficientdet_lite0.tflite` (objets)
-et `pose_landmarker_lite.task` (corps). Tout nouveau modèle se propose d'abord à l'utilisateur.
+Modèles embarqués dans `public/models/` : `face_landmarker.task` (visages), `efficientdet_lite0.tflite` (objets),
+`selfie_multiclass_256x256.tflite` (silhouette avec peau), `mobilenet_v3_small.tflite` (empreinte fine) et
+`efficientnet_lite0.tflite` (classement de scène). Le modèle du corps a été retiré (`docs/decisions.md`, point 26).
+Tout nouveau modèle se propose d'abord à l'utilisateur.
 `@mediapipe/tasks-vision` est figé en 0.10.34. Les versions 1.x envoient des statistiques d'usage à Google
 (voir `docs/decisions.md`, point 8). Un test et `tools/check-dist.mjs` bloquent toute régression.
 
@@ -59,5 +63,5 @@ GitHub Actions (`.github/workflows/deploy.yml`) publie sur GitHub Pages à chaqu
 ## État
 
 Jalons 0 à 3 faits (diagnostic, paquets, visages, type de photo, poses, sélection, visionneuse, apprentissage).
-Jalon 4 en cours (plan : `docs/jalon-4.md`) : écran « À supprimer », cadrage du corps, zoom, paquets ratés, hublot.
-Modèles supplémentaires proposés, en attente de validation (`docs/decisions.md`, point 24).
+Jalon 4 en cours (plan : `docs/jalon-4.md`) : onglet « Dans Photos », zoom, paquets ratés, hublot, silhouette,
+empreinte fine, classement de scène, commentaires sur les choix. Modèles restants proposés : gestes, objets plus fins.

@@ -359,6 +359,32 @@ des personnes, empreinte d'image, classement de scène. Rien n'est ajouté sans 
 - Les choix de l'utilisateur sont conservés d'une version à l'autre (stockage local de l'iPhone) : voulu, pour
   l'apprentissage. Effaçables par « Oublier mes choix ».
 
+### 26. Deuxième test du jalon 4 (33 photos, 67 choix) : trois modèles ajoutés, modèle du corps retiré
+Retours de l'utilisateur, avec captures :
+- **« Pieds coupés » sur la photo moto n° 29** alors que les pieds sont cachés par une robe : le modèle du corps
+  comptait 2 pieds coupés sur cette photo et 1 sur les autres (bruit). **« Main coupée » sur le mauvais selfie**
+  (n° 16 au lieu de n° 15) : corps trouvés différemment d'une photo à l'autre. Le modèle du corps est **retiré** ;
+  mains, bras et jambes coupés sont repérés par la **silhouette avec peau** (Selfie Multiclass) : part de peau du
+  corps sur les bandes de bord, comparée à la photo du même groupe de pose qui en a le moins. Des pieds cachés ou
+  chaussés ne sont plus un argument. Vérifié en navigateur : 0 % sur un portrait entier, 5,6 % coupé aux mains.
+- **« Bords masqués » sur la ruelle n° 27** (murs sombres) : cette mesure ne s'applique plus qu'aux photos prises
+  d'un avion, reconnues par le **classement de scène** (catégories « avion de ligne » ou « aile »), avec des seuils
+  relevés (8 % à 30 % au lieu de 3 % à 20 %).
+- **4 poses pour 6 photos de la plage** : l'utilisateur zoomait entre les prises (33, 44, 58 mm), ce qui changeait
+  l'empreinte de 8 × 8 pixels. Les poses utilisent l'**empreinte fine** (MobileNet v3 small) ; en rafale (moins de 4 s,
+  même nombre de visages), même pose sauf scène vraiment différente (ressemblance < 0,5). Seuils à calibrer : le
+  rapport donne la ressemblance avec la photo précédente.
+- **Quota de 25 % retiré** (demande explicite : « un paquet de 2 photos peut garder les 2 »). Contrainte mise à jour
+  dans `CLAUDE.md`.
+- **Commentaire sur chaque choix** : zone « Pourquoi ? » dans la visionneuse après « À garder » ou « À supprimer »,
+  enregistré avec le choix et repris dans le rapport.
+- **Visage masqué** : mesuré par la part de peau de visage dans sa boîte (silhouette), comparée à la même personne
+  sur les autres photos ; la mesure par les couleurs ne sert plus que si la silhouette manque.
+- **Quasi-doublons** : ressemblance d'empreinte fine ≥ 0,985 (vérifié : deux copies de la même photo, 1,000).
+- **Types de photo** ajoutés grâce au classement : document ou capture d'écran, nourriture, animal (photos sans
+  personne).
+- Coût mesuré sur ordinateur : environ 0,55 s par photo pour les trois modèles ensemble ; à mesurer sur iPhone.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.
