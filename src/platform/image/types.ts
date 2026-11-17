@@ -27,6 +27,8 @@ export interface FileDiagnostic {
   faceRetry: number;
   /** Durée de la détection d'objets (null si non faite). */
   objectMs: number | null;
+  /** Durée de l'analyse du corps (null si non faite). */
+  bodyMs: number | null;
 }
 
 /** Image réduite gardée juste le temps de chercher les visages, puis libérée. */

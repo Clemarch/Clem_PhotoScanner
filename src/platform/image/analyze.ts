@@ -2,7 +2,7 @@
 // Fonctionne aussi bien dans un Web Worker que dans la page.
 
 import exifr from 'exifr';
-import { config, detectFormat, imageSignature, measureColor, measureExposure, measureTilt, rgbaToGray, sharpnessFromGray, type MediaItem } from '../../engine';
+import { config, detectFormat, imageSignature, measureColor, measureExposure, measureObstruction, measureTilt, rgbaToGray, sharpnessFromGray, type MediaItem } from '../../engine';
 import type { AnalysisFrame, AnalyzeResult, FileDiagnostic } from './types';
 
 interface ExifData {
@@ -184,6 +184,8 @@ export async function analyzeFile(
     exposure: null,
     color: null,
     signature: null,
+    bodies: null,
+    obstruction: null,
   };
 
   const diagnostic: FileDiagnostic = {
@@ -204,6 +206,7 @@ export async function analyzeFile(
     faceCount: null,
     faceRetry: 0,
     objectMs: null,
+    bodyMs: null,
   };
 
   // RAW et vidéos : repérés, mis de côté, jamais décodés.
@@ -240,6 +243,7 @@ export async function analyzeFile(
       item.exposure = measureExposure(gray);
       item.color = measureColor(pixels.data, size.w, size.h);
       item.signature = imageSignature(pixels.data, size.w, size.h);
+      item.obstruction = measureObstruction(gray, size.w, size.h);
       diagnostic.analysisMs = performance.now() - t2;
 
       // Deux images légères : une vignette pour la grille, une image moyenne pour la visionneuse.
