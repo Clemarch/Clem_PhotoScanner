@@ -139,12 +139,11 @@ export interface PoseGroup {
 
 export type DecisionCode =
   | 'meilleure'
-  | 'variete'
+  | 'aussi-bonne'
   | 'seule'
   | 'minimum'
   | 'trop-proche'
   | 'moins-bonne'
-  | 'budget'
   | 'plafond'
   | 'veto';
 

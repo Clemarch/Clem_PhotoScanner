@@ -1,5 +1,6 @@
 // Sélection : quelles photos garder dans un paquet.
-// Le quota est un plafond, jamais un objectif ; on garde toujours au moins une photo par paquet.
+// Seules les notes décident. Le quota (25 % par paquet) est un plafond, jamais un objectif ;
+// on garde toujours au moins une photo par paquet.
 
 import { config } from '../config';
 import { signatureDistance } from '../analysis/color';
@@ -29,24 +30,21 @@ export function selectPack(
     for (const item of group.items.filter(vetoed)) set(item, { keep: false, code: 'veto' });
     if (candidates.length === 0) continue;
 
-    const budget = Math.max(1, Math.ceil(cfg.poseShare * group.items.length));
     const best = candidates[0]!;
     const groupKept = [best];
     set(best, { keep: true, code: 'meilleure' });
 
-    // Choix suivants, dans l'ordre des notes : la qualité d'abord. On saute seulement les quasi-doublons
-    // (deux fois la même photo) ; une photo n'est jamais écartée au profit d'une moins bonne.
+    // Seules les notes comptent : toute photo dont la note est proche de la meilleure de sa pose est gardée.
+    // On saute seulement les quasi-doublons (deux fois la même photo).
     for (const pick of candidates.slice(1)) {
       const nearest = groupKept
         .map((k) => ({ k, d: signatureDistance(pick.signature, k.signature) }))
         .sort((x, y) => x.d - y.d)[0]!;
-      const keptIds = groupKept.map((k) => k.id);
-      if (scoreOf(pick) < scoreOf(best) - cfg.scoreMargin) set(pick, { keep: false, code: 'moins-bonne', refId: best.id, keptIds });
+      if (scoreOf(pick) < scoreOf(best) - cfg.scoreMargin) set(pick, { keep: false, code: 'moins-bonne', refId: best.id });
       else if (nearest.d < cfg.nearDuplicate) set(pick, { keep: false, code: 'trop-proche', refId: nearest.k.id });
-      else if (groupKept.length >= budget) set(pick, { keep: false, code: 'budget', refId: best.id, keptIds });
       else {
         groupKept.push(pick);
-        set(pick, { keep: true, code: 'variete' });
+        set(pick, { keep: true, code: 'aussi-bonne', refId: best.id });
       }
     }
     kept.push(...groupKept);

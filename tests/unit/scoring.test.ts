@@ -187,6 +187,22 @@ describe('éléments qui gâchent la photo', () => {
     expect(scores.get('brulee')!.rank).toBe(4);
   });
 
+  it('des personnes vues de dos, présentes sur toutes les photos, sont les sujets et non l’arrière-plan', () => {
+    // Couple de dos face au coucher de soleil : aucun visage, mais deux personnes au même endroit partout.
+    const couple = [obj('person', 0.3, 0.4, 0.15, 0.5), obj('person', 0.5, 0.42, 0.14, 0.48)];
+    const shift = (dx: number) => couple.map((o) => ({ ...o, box: { ...o.box, x: o.box.x + dx } }));
+    const scores = scorePack([
+      photo('a', [], 300, { objects: shift(0) }),
+      photo('b', [], 300, { objects: shift(0.02) }),
+      photo('c', [], 300, { objects: shift(-0.02) }),
+      photo('d', [], 300, { objects: [...shift(0.01), obj('person', 0.45, 0.3, 0.12, 0.4)] }),
+    ]);
+    for (const id of ['a', 'b', 'c']) expect(codes(scores.get(id))).not.toContain('arriere-plan');
+    expect(scores.get('a')!.background).toBe(0);
+    // Un vrai passant en plus reste repéré.
+    expect(scores.get('d')!.background).toBeGreaterThan(0);
+  });
+
   it('pénalise une photo penchée, si la mesure est fiable', () => {
     const scores = scorePack([
       photo('droite', [face()], 300, { tiltDeg: 0.3, tiltStrength: 0.4 }),

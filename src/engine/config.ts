@@ -111,6 +111,11 @@ export const config = {
     /** Une personne détectée qui recouvre à ce point la place d'un sujet sur une autre photo du paquet est un sujet
      *  (son visage n'a simplement pas été trouvé sur cette photo), pas un passant. */
     subjectOverlap: 0.3,
+    /** Une personne présente au même endroit sur au moins cette part des photos d'un groupe (de 3 photos au moins),
+     *  et assez grande, est un sujet même sans visage visible (vue de dos). */
+    recurringShare: 0.6,
+    recurringMinPhotos: 3,
+    recurringMinArea: 0.03,
     /** Visage en partie masqué : écart de couleur avec la même personne sur les autres photos du paquet.
      *  Écart de teinte (chromaticité) et de luminosité à partir duquel on commence à compter, et pleine échelle. */
     occlusionChromaFrom: 0.025,
@@ -190,22 +195,21 @@ export const config = {
     faceMove: 0.15,
   },
   selection: {
-    /** Dans un groupe de pose de n photos, on garde au plus max(1, ceil(poseShare × n)). */
-    poseShare: 0.2,
     /** Plafond du paquet de N photos : ceil(packShare × N). Le quota est un plafond, jamais un objectif. */
     packShare: 0.25,
-    /** Une photo n'est gardée en plus de la meilleure que si sa note est à moins de ceci de la meilleure. */
-    scoreMargin: 0.1,
+    /** Une photo est gardée si sa note est à moins de ceci (sur 1) de la meilleure de sa pose : seules les notes
+     *  décident, il n'y a pas de nombre maximal de photos par pose. */
+    scoreMargin: 0.04,
     /** Deux photos dont l'empreinte diffère de moins de ceci sont des quasi-doublons : on n'en garde qu'une. */
     nearDuplicate: 0.015,
   },
   learning: {
     /** Ajustement maximal de la note apporté par l'apprentissage, et poids maximal d'un critère. */
-    maxAdjustment: 0.2,
-    maxWeight: 0.4,
+    maxAdjustment: 0.15,
+    maxWeight: 0.3,
     /** Vitesse d'apprentissage, rappel vers zéro (évite de sur-apprendre sur peu de choix), passes sur les données. */
     rate: 0.5,
-    regularization: 0.05,
+    regularization: 0.2,
     epochs: 40,
     /** Échelle des différences de note dans la fonction logistique. */
     scale: 8,
@@ -217,8 +221,9 @@ export const config = {
     /** Note « visages » d'une photo : le visage le plus raté pèse le plus. */
     worstFaceWeight: 0.6,
     meanFaceWeight: 0.4,
-    /** Note d'une photo avec des personnes : visages, technique (netteté globale), esthétique (couleurs, exposition). */
-    photoWeights: { faces: 0.8, technique: 0.1, aesthetic: 0.1 },
+    /** Note d'une photo avec des personnes : visages, technique (netteté globale), esthétique (couleurs, exposition).
+     *  Avec des personnes au premier plan, les couleurs ne servent qu'à départager des photos égales. */
+    photoWeights: { faces: 0.87, technique: 0.1, aesthetic: 0.03 },
     /** Note d'une photo sans personne : technique, puis esthétique. */
     landscapeWeights: { technique: 0.3, aesthetic: 0.7 },
     /** La netteté ne sert qu'à repérer un défaut : au-dessus de `sharpEnough` fois la référence du paquet,

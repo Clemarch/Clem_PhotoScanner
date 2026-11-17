@@ -11,6 +11,8 @@ interface Props {
   day: DayAnalysis;
   gap: number;
   onGap: (seconds: number) => void;
+  /** Rattacher un paquet au précédent (true) ou annuler (false). */
+  onJoin: (key: string, join: boolean) => void;
   choices: Choices;
   onChoose: (item: MediaItem, pack: PackAnalysis, choice: Choice | null) => void;
 }
@@ -18,7 +20,7 @@ interface Props {
 /** Le paquet mêle-t-il plusieurs types de photo (personnes et paysages, par exemple) ? */
 const mixed = (pack: PackAnalysis): boolean => new Set(pack.sceneOf.values()).size > 1;
 
-export function Paquets({ session, day, gap, onGap, choices, onChoose }: Props) {
+export function Paquets({ session, day, gap, onGap, onJoin, choices, onChoose }: Props) {
   const [viewing, setViewing] = useState<number | null>(null);
   const numberOf = (id: string) => day.dayIndex.get(id) ?? null;
 
@@ -122,6 +124,20 @@ export function Paquets({ session, day, gap, onGap, choices, onChoose }: Props) 
               </span>
             </div>
             {mixed(pack) ? null : <p className="cherche">On cherche : {sceneGoal[pack.scene]}.</p>}
+            {(i > 0 || pack.joined.length > 0) && (
+              <div className="rattacher">
+                {i > 0 && (
+                  <button className="lien" onClick={() => onJoin(pack.key, true)}>
+                    Même série que le paquet {i} : les réunir
+                  </button>
+                )}
+                {pack.joined.length > 0 && (
+                  <button className="lien" onClick={() => pack.joined.forEach((key) => onJoin(key, false))}>
+                    Séparer à nouveau ({pack.joined.length + 1} paquets réunis)
+                  </button>
+                )}
+              </div>
+            )}
             {pack.poses.map((pose) => (
               <div className="pose" key={pose.id}>
                 {pack.poses.length > 1 && (

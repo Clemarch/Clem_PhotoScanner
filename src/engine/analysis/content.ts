@@ -46,6 +46,25 @@ export function subjectPersons(mainFaces: readonly FaceMetrics[], objects: reado
     .map((o) => o.box);
 }
 
+/**
+ * Personnes qui reviennent au même endroit sur la plupart des photos d'un groupe : ce sont les sujets (vus de dos,
+ * de loin, visage invisible), pas des passants. Ex. : un couple de dos face au coucher de soleil.
+ */
+export function recurringPersons(objectsByPhoto: readonly (readonly DetectedObject[] | null)[]): Box[] {
+  const cfg = config.content;
+  const photos = objectsByPhoto.filter((o): o is readonly DetectedObject[] => o !== null);
+  if (photos.length < cfg.recurringMinPhotos) return [];
+  const people = photos.map((list) =>
+    list.filter((o) => o.label === 'person' && o.score >= cfg.minObjectScore && area(o.box) >= cfg.recurringMinArea).map((o) => o.box),
+  );
+  const result: Box[] = [];
+  for (const box of people.flat()) {
+    const seen = people.filter((list) => list.some((b) => iou(b, box) >= cfg.subjectOverlap)).length;
+    if (seen / photos.length >= cfg.recurringShare && !result.some((b) => iou(b, box) >= cfg.subjectOverlap)) result.push(box);
+  }
+  return result;
+}
+
 /** Nombre de personnes présentes à la place d'un sujet (visage trouvé ou non). */
 export function countSubjects(
   mainFaces: readonly FaceMetrics[],

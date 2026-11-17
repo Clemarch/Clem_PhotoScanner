@@ -101,8 +101,22 @@ describe('sélection', () => {
     expect(d.get('9')!.keep).toBe(true);
     expect(d.get('11')!.keep).toBe(true);
     expect(d.get('17')!.keep).toBe(false);
-    // Le refus s'explique par les photos mieux notées gardées à sa place.
-    expect(d.get('17')).toMatchObject({ code: 'budget', keptIds: ['9', '11'] });
+    // Seul le plafond de 25 % du paquet limite le nombre ; le refus cite les photos mieux notées.
+    expect(d.get('17')).toMatchObject({ code: 'plafond', keptIds: ['9', '11', '12'] });
+    expect([...d.values()].some((x) => (x.code as string) === 'budget')).toBe(false);
+  });
+
+  it('seules les notes comptent : pas de nombre maximal de photos par pose', () => {
+    // 20 photos d'une même pose, 5 presque aussi bonnes que la meilleure : les 5 sont gardées (plafond : 5).
+    // Empreintes : chaque photo diffère de ses voisines (≥ 0,017) sans sortir de la pose (≤ 0,12 du premier).
+    const items = Array.from({ length: 20 }, (_, i) =>
+      item(String(i), i, { signature: sig(40 + 13 * (i % 5), 120 + 13 * Math.floor(i / 5), 120) }),
+    );
+    const values = Object.fromEntries(items.map((it, i) => [it.id, i < 5 ? 0.9 - i * 0.005 : 0.7]));
+    const d = selectPack(items, scoresOf(values), pose(items));
+    expect([...d.values()].filter((x) => x.keep)).toHaveLength(5);
+    expect(d.get('1')).toMatchObject({ keep: true, code: 'aussi-bonne', refId: '0' });
+    expect(d.get('10')).toMatchObject({ keep: false, code: 'moins-bonne', refId: '0' });
   });
 
   it('ne garde pas une seconde photo trop moins bonne que la meilleure', () => {
@@ -257,7 +271,34 @@ describe('apprentissage des goûts', () => {
   });
 });
 
+describe('apprentissage centré sur le paquet', () => {
+  it('départage les photos sans relever tout le paquet', () => {
+    const f = (equilibre: number): Features =>
+      ({ ...(Object.fromEntries(FEATURE_NAMES.map((n) => [n, 1])) as Features), equilibre });
+    const items = [item('a', 0, { color: { saturation: 0.4, colorfulness: 0.4, warmFraction: 0, warmStrength: 0, contrast: 0.4, mean: 0.45 } }),
+      item('b', 2, { color: { saturation: 0.4, colorfulness: 0.4, warmFraction: 0, warmStrength: 0, contrast: 0.4, mean: 0.25 } })];
+    const scores = scorePack(items, { equilibre: 0.3 });
+    const a = scores.get('a')!;
+    const b = scores.get('b')!;
+    // Les ajustements se compensent : l'un monte, l'autre descend.
+    expect(a.learned).toBeGreaterThan(0);
+    expect(b.learned).toBeLessThan(0);
+    expect(a.learned + b.learned).toBeCloseTo(0, 5);
+    void f;
+  });
+});
+
 describe('journée complète', () => {
+  it('réunit à la main un paquet au précédent', () => {
+    const items = [item('a', 0), item('b', 2), item('c', 200), item('d', 400)];
+    const separate = analyzeDay(items, 60);
+    expect(separate.packs).toHaveLength(3);
+    const joined = analyzeDay(items, 60, {}, new Set([separate.packs[1]!.key]));
+    expect(joined.packs).toHaveLength(2);
+    expect(joined.packs[0]!.pack.items.map((i) => i.id)).toEqual(['a', 'b', 'c']);
+    expect(joined.packs[0]!.joined).toEqual([separate.packs[1]!.key]);
+  });
+
   it('enchaîne paquets, notes, poses et décisions', () => {
     const items = [item('a', 0), item('b', 2), item('c', 4), item('d', 600)];
     const day = analyzeDay(items, 60);
