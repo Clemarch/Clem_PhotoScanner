@@ -16,6 +16,17 @@ export interface Box {
   height: number;
 }
 
+/** Couleur moyenne d'une zone, composantes entre 0 et 255. */
+export type Rgb = readonly [number, number, number];
+
+/** Objet ou personne repéré par le détecteur d'objets. */
+export interface DetectedObject {
+  /** Nom anglais de la catégorie (« person », « bottle »…). */
+  label: string;
+  score: number;
+  box: Box;
+}
+
 /** Ce que le détecteur de visages fournit, brut, pour un visage. */
 export interface FaceObservation {
   box: Box;
@@ -47,6 +58,13 @@ export interface FaceMetrics {
   /** Direction des yeux dans la tête, entre -1 et 1 : horizontale, puis verticale. */
   eyeH: number;
   eyeV: number;
+  /** Bouche ouverte sans sourire (en train de parler), et moue, entre 0 et 1. */
+  talking: number;
+  pout: number;
+  /** Couleur moyenne du haut (yeux) et du bas (bouche, menton) du visage, si mesurée.
+   *  Sert à repérer un objet devant le visage, par comparaison avec la même personne sur les autres photos. */
+  upperColor: Rgb | null;
+  lowerColor: Rgb | null;
 }
 
 export interface MediaItem {
@@ -71,6 +89,12 @@ export interface MediaItem {
   sharpness: number | null;
   /** Visages trouvés ; null si la recherche de visages n'a pas pu tourner. */
   faces: FaceMetrics[] | null;
+  /** Objets et personnes repérés ; null si la détection n'a pas pu tourner. */
+  objects: DetectedObject[] | null;
+  /** Inclinaison des grandes lignes droites de l'image (horizon, bâtiments), en degrés,
+   *  et force de cette mesure entre 0 (aucune ligne nette) et 1. */
+  tiltDeg: number | null;
+  tiltStrength: number | null;
 }
 
 export interface Pack {
@@ -95,14 +119,16 @@ export type ReasonCode =
   | 'yeux-fermes'
   | 'visage-coupe'
   | 'visage-cache'
+  | 'visage-masque'
   | 'aucun-visage'
-  | 'regard-ailleurs'
-  | 'expression'
+  | 'parle'
+  | 'moue'
+  | 'arriere-plan'
+  | 'objet'
+  | 'horizon'
   | 'visage-flou'
   | 'moins-nette'
-  | 'regarde-objectif'
   | 'sourire'
-  | 'visage-net'
   | 'plus-nette';
 
 export interface Reason {
@@ -114,6 +140,9 @@ export interface Reason {
   expected?: number;
   /** Pour 'moins-nette' : la photo de référence. */
   refId?: string;
+  /** Pour 'objet' : noms (anglais) des objets ; pour 'horizon' : l'inclinaison en degrés. */
+  labels?: string[];
+  degrees?: number;
 }
 
 export interface PhotoScore {
@@ -127,7 +156,12 @@ export interface PhotoScore {
   /** Visages principaux visibles, et nombre attendu d'après le reste du paquet. */
   faceCount: number;
   expectedFaces: number;
-  /** Détail de la note : visages (null s'il n'y en a pas) et technique. */
+  /** Détail de la note : visages (null s'il n'y en a pas), technique, et multiplicateurs de pénalité. */
   faceScore: number | null;
   technique: number;
+  /** Mesures de contenu, pour le rapport de diagnostic. */
+  background: number;
+  distraction: number;
+  /** Visage le plus masqué de la photo, entre 0 et 1. */
+  occlusion: number;
 }

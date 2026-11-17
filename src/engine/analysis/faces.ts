@@ -1,7 +1,7 @@
 // Transforme les mesures brutes du détecteur en notes lisibles pour un visage.
 
 import { config } from '../config';
-import type { Box, FaceMetrics, FaceObservation } from '../types';
+import type { Box, FaceMetrics, FaceObservation, Rgb } from '../types';
 import { sharpnessFromGray } from './sharpness';
 
 const clamp01 = (value: number): number => Math.min(1, Math.max(0, value));
@@ -75,12 +75,44 @@ export function cropGray(
   return { gray: out, width: w, height: h };
 }
 
+/** Couleur moyenne d'une zone d'une image RGBA (zone en proportions de l'image). */
+export function regionColor(rgba: Uint8Array | Uint8ClampedArray, width: number, height: number, box: Box): Rgb | null {
+  const x0 = Math.max(0, Math.floor(box.x * width));
+  const y0 = Math.max(0, Math.floor(box.y * height));
+  const x1 = Math.min(width, Math.ceil((box.x + box.width) * width));
+  const y1 = Math.min(height, Math.ceil((box.y + box.height) * height));
+  let r = 0;
+  let g = 0;
+  let bl = 0;
+  let n = 0;
+  for (let y = y0; y < y1; y++)
+    for (let x = x0; x < x1; x++) {
+      const p = (y * width + x) * 4;
+      r += rgba[p]!;
+      g += rgba[p + 1]!;
+      bl += rgba[p + 2]!;
+      n++;
+    }
+  return n === 0 ? null : [r / n, g / n, bl / n];
+}
+
+/** Zones du visage (en proportions de sa boîte) : haut = yeux, bas = bouche et menton. */
+const UPPER = { x: 0.2, y: 0.18, width: 0.6, height: 0.27 };
+const LOWER = { x: 0.22, y: 0.6, width: 0.56, height: 0.36 };
+const within = (box: Box, part: Box): Box => ({
+  x: box.x + part.x * box.width,
+  y: box.y + part.y * box.height,
+  width: part.width * box.width,
+  height: part.height * box.height,
+});
+
 export function measureFace(
   observation: FaceObservation,
   gray: Uint8Array | Uint8ClampedArray,
   width: number,
   height: number,
   focal35: number | null = null,
+  rgba: Uint8Array | Uint8ClampedArray | null = null,
 ): FaceMetrics {
   const cfg = config.faces;
   const b = (name: string): number => observation.blendshapes[name] ?? 0;
@@ -141,6 +173,10 @@ export function measureFace(
     offAxisVDeg,
     eyeH,
     eyeV,
+    talking: clamp01(talking / (1 - cfg.jawOpenFrom)),
+    pout: clamp01(pout / (1 - cfg.poutFrom)),
+    upperColor: rgba ? regionColor(rgba, width, height, within(box, UPPER)) : null,
+    lowerColor: rgba ? regionColor(rgba, width, height, within(box, LOWER)) : null,
   };
 }
 

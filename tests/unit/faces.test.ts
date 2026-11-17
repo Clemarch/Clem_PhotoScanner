@@ -98,6 +98,22 @@ describe('mesures d’un visage', () => {
     expect(talking.expression).toBeLessThan(0.35);
   });
 
+  it('distingue la parole et la moue', () => {
+    expect(measure(observation({ jawOpen: 0.7 })).talking).toBeGreaterThan(0.5);
+    expect(measure(observation({ jawOpen: 0.7, mouthSmileLeft: 0.9, mouthSmileRight: 0.9 })).talking).toBeLessThan(0.1);
+    expect(measure(observation({ mouthPucker: 0.8 })).pout).toBeGreaterThan(0.5);
+    expect(measure(observation()).talking).toBe(0);
+  });
+
+  it('mesure la couleur du haut et du bas du visage quand l’image en couleur est fournie', () => {
+    const rgba = new Uint8Array(W * H * 4);
+    for (let i = 0; i < W * H; i++) rgba.set(i < (W * H) / 2 ? [200, 150, 120, 255] : [230, 60, 120, 255], i * 4);
+    const face = measureFace(observation({}, { box: { x: 0.3, y: 0.25, width: 0.4, height: 0.5 } }), detailed, W, H, 23, rgba);
+    expect(face.upperColor).toEqual([200, 150, 120]);
+    expect(face.lowerColor).toEqual([230, 60, 120]);
+    expect(measure(observation()).lowerColor).toBeNull();
+  });
+
   it('mesure la netteté dans la boîte du visage, pas dans le décor', () => {
     // Décor détaillé partout, mais visage uniforme (flou) dans sa boîte.
     const gray = detailed.slice();
