@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { relativeSharpness, rgbaToGray, sharpnessFromGray, type MediaItem } from '../../src/engine';
+import { rgbaToGray, sharpnessFromGray } from '../../src/engine';
 
 const W = 96;
 const H = 96;
@@ -70,22 +70,5 @@ describe('netteté globale', () => {
     const gray = rgbaToGray(new Uint8Array([255, 255, 255, 255, 0, 0, 0, 255]), 2, 1);
     expect(gray[0]).toBeGreaterThanOrEqual(254);
     expect(gray[1]).toBe(0);
-  });
-});
-
-describe('netteté relative dans un paquet', () => {
-  const item = (id: string, sharpness: number | null) => ({ id, sharpness }) as MediaItem;
-
-  it('classe les photos et rapporte chacune à la meilleure', () => {
-    const result = relativeSharpness([item('a', 50), item('b', 200), item('c', 100)]);
-    expect(result.get('b')).toEqual({ rank: 1, ratio: 1 });
-    expect(result.get('c')).toEqual({ rank: 2, ratio: 0.5 });
-    expect(result.get('a')).toEqual({ rank: 3, ratio: 0.25 });
-  });
-
-  it('ignore les photos non mesurées', () => {
-    const result = relativeSharpness([item('a', null), item('b', 10)]);
-    expect(result.has('a')).toBe(false);
-    expect(result.get('b')?.rank).toBe(1);
   });
 });

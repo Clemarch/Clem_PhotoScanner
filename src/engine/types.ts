@@ -8,6 +8,41 @@ export type MediaFormat = 'HEIC' | 'JPEG' | 'PNG' | 'DNG' | 'RAW' | 'VIDEO' | 'A
 /** D'où vient la date utilisée : des métadonnées de la photo (fiable), du fichier (douteux), ou nulle part. */
 export type DateSource = 'exif' | 'fichier' | 'absente';
 
+/** Rectangle en proportions de l'image (0 = bord gauche ou haut, 1 = bord droit ou bas). */
+export interface Box {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** Ce que le détecteur de visages fournit, brut, pour un visage. */
+export interface FaceObservation {
+  box: Box;
+  /** Mesures d'expression entre 0 et 1 (clignement, sourire, direction des yeux…). */
+  blendshapes: Readonly<Record<string, number>>;
+  /** Matrice 4 x 4 (par colonnes) donnant l'orientation de la tête, si disponible. */
+  matrix: readonly number[] | null;
+}
+
+/** Mesures d'un visage, toutes entre 0 (mauvais) et 1 (bon) sauf mention contraire. */
+export interface FaceMetrics {
+  box: Box;
+  /** Part de l'image occupée par le visage. */
+  areaRatio: number;
+  eyesOpen: number;
+  gaze: number;
+  expression: number;
+  smile: number;
+  /** Netteté brute mesurée dans la boîte du visage (ne se compare qu'à l'intérieur d'un paquet). */
+  sharpness: number;
+  /** Le visage touche le bord de l'image. */
+  cut: boolean;
+  /** Rotation de la tête en degrés : gauche-droite, puis haut-bas. */
+  yawDeg: number;
+  pitchDeg: number;
+}
+
 export interface MediaItem {
   id: string;
   kind: MediaKind;
@@ -26,6 +61,8 @@ export interface MediaItem {
   orientation: number | null;
   /** Netteté globale (plus grand = plus net). Ne se compare qu'entre photos d'un même paquet. */
   sharpness: number | null;
+  /** Visages trouvés ; null si la recherche de visages n'a pas pu tourner. */
+  faces: FaceMetrics[] | null;
 }
 
 export interface Pack {
@@ -46,9 +83,43 @@ export interface DayGrouping {
   dayIndex: Map<string, number>;
 }
 
-export interface RelativeSharpness {
-  /** 1 = la plus nette du paquet. */
+export type ReasonCode =
+  | 'yeux-fermes'
+  | 'visage-coupe'
+  | 'visage-cache'
+  | 'aucun-visage'
+  | 'regard-ailleurs'
+  | 'expression'
+  | 'visage-flou'
+  | 'moins-nette'
+  | 'regarde-objectif'
+  | 'sourire'
+  | 'visage-net'
+  | 'plus-nette';
+
+export interface Reason {
+  code: ReasonCode;
+  /** 'veto' écarte la photo, 'moins' la pénalise, 'plus' joue en sa faveur. */
+  tone: 'veto' | 'moins' | 'plus';
+  /** Pour 'visage-cache' : visages visibles et visages attendus. */
+  count?: number;
+  expected?: number;
+  /** Pour 'moins-nette' : la photo de référence. */
+  refId?: string;
+}
+
+export interface PhotoScore {
+  id: string;
+  /** Note entre 0 et 1, relative au paquet. */
+  score: number;
+  /** 1 = la meilleure du paquet. */
   rank: number;
-  /** Netteté rapportée à la meilleure du paquet, entre 0 et 1. */
-  ratio: number;
+  vetoed: boolean;
+  reasons: Reason[];
+  /** Visages principaux visibles, et nombre attendu d'après le reste du paquet. */
+  faceCount: number;
+  expectedFaces: number;
+  /** Détail de la note : visages (null s'il n'y en a pas) et technique. */
+  faceScore: number | null;
+  technique: number;
 }

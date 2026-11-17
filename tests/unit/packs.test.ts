@@ -17,6 +17,7 @@ function photo(id: string, secondsAfterStart: number | null, extra: Partial<Medi
     height: 3024,
     orientation: 1,
     sharpness: null,
+    faces: null,
     ...extra,
   };
 }
