@@ -5,7 +5,7 @@ import { finalKeep, stateLook, type Choice, type Choices } from '../choices';
 import { dayEntries } from '../entries';
 import { formatDate, formatTime, plural } from '../format';
 import { Visionneuse } from './Visionneuse';
-import { runShortcut, SHORTCUT_NAME } from '../../platform/shortcut';
+import { runShortcut, SHORTCUT_DAYS, SHORTCUT_NAME } from '../../platform/shortcut';
 import { GuideRaccourci } from '../GuideRaccourci';
 
 interface Props {
@@ -52,6 +52,8 @@ export function ASupprimer({ session, day, choices, onChoose, onComment }: Props
   const todo = packs.filter((p) => p.remove.length > 0);
   const totalRemove = todo.reduce((n, p) => n + p.remove.length, 0);
   const remaining = todo.filter((p) => !done.has(p.pack.key)).reduce((n, p) => n + p.remove.length, 0);
+  const oldestAt = Math.min(...todo.flatMap((p) => p.remove.map((item) => item.capturedAt ?? Date.now())));
+  const tooOld = Number.isFinite(oldestAt) && Date.now() - oldestAt > (SHORTCUT_DAYS - 0.5) * 86_400_000;
   const toReview = day.packs.reduce((n, pack) => n + pack.pack.items.filter((it) => finalKeep(it, pack, choices).review).length, 0);
 
   return (
@@ -89,6 +91,12 @@ export function ASupprimer({ session, day, choices, onChoose, onComment }: Props
             « Supprimés récemment » (récupérables 30 jours). Les paquets sont ensuite marqués « Fait » ; touchez
             « rouvrir » si la suppression n’a pas eu lieu.
           </p>
+          {tooOld && (
+            <p className="alerte">
+              Certaines photos ont plus de {SHORTCUT_DAYS} jours : le raccourci ne les trouvera pas. Supprimez-les à la
+              main (plus bas), ou augmentez le nombre de jours dans le raccourci.
+            </p>
+          )}
           <GuideRaccourci />
         </section>
       )}

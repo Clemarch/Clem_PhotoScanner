@@ -107,10 +107,14 @@ describe('poses (réglage 6)', () => {
 });
 
 describe('pont Raccourcis (réglage 6)', () => {
-  it('envoie les noms des photos sans extension, une par ligne, au raccourci « Photo Triage »', async () => {
+  it('envoie les noms des photos sans extension, entre chevrons, une par ligne, au raccourci « Photo Triage »', async () => {
     const { shortcutUrl } = await import('../../src/platform/shortcut');
     const url = shortcutUrl(['IMG_0654.jpeg', 'IMG_0657.HEIC']);
     expect(url.startsWith('shortcuts://run-shortcut?name=Photo%20Triage&input=text&text=')).toBe(true);
-    expect(decodeURIComponent(url.split('text=')[1]!)).toBe('IMG_0654\nIMG_0657');
+    const text = decodeURIComponent(url.split('text=')[1]!);
+    expect(text).toBe('<IMG_0654>\n<IMG_0657>');
+    // Correspondance exacte : « <IMG_065> » ou « <IMG_06541> » ne sont pas dans le texte.
+    expect(text.includes('<IMG_065>')).toBe(false);
+    expect(text.includes('<IMG_0654>')).toBe(true);
   });
 });
