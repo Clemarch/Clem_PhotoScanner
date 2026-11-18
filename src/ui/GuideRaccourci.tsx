@@ -3,8 +3,8 @@ import { SHORTCUT_NAME } from '../platform/shortcut';
 
 /**
  * Marche à suivre, une seule fois, pour créer le raccourci qui supprime les photos (app Raccourcis d'Apple).
- * Le raccourci cherche chaque nom reçu dans Photos (quelques photos par nom, donc rapide), puis ne garde une photo que
- * si « <nom|date à la seconde> » figure dans le texte reçu (les noms seuls ne sont pas uniques).
+ * Une ligne reçue par photo : « nom|début|fin ». Pour chaque ligne, une seule recherche dans Photos avec deux filtres
+ * (nom, et date de création dans la fenêtre) : une seule photo correspond. Aperçu, puis confirmation d'iOS.
  */
 export function GuideRaccourci({ open = false }: { open?: boolean }) {
   const [shown, setShown] = useState(open);
@@ -17,47 +17,40 @@ export function GuideRaccourci({ open = false }: { open?: boolean }) {
       {shown && (
         <ol className="etapes">
           <li>
-            App <strong>Raccourcis</strong>, touchez <strong>+</strong>, renommez le raccourci exactement{' '}
-            <strong>{SHORTCUT_NAME}</strong> (touchez le titre, puis Renommer).
+            App <strong>Raccourcis</strong>, touchez <strong>+</strong>, renommez-le exactement{' '}
+            <strong>{SHORTCUT_NAME}</strong>.
           </li>
           <li>
-            Ajoutez <strong>Scinder le texte</strong> : « Scinder <strong>Entrée de raccourci</strong> selon Nouvelles
-            lignes ». Un bloc « Recevoir … depuis Nulle part » apparaît en haut : touchez son premier mot bleu et ne
-            cochez que <strong>Texte</strong>.
+            <strong>Scinder le texte</strong> : « Scinder <strong>Entrée de raccourci</strong> selon{' '}
+            <strong>Nouvelles lignes</strong> ». Dans le bloc « Recevoir » apparu en haut, ne cochez que{' '}
+            <strong>Texte</strong>.
           </li>
           <li>
-            Ajoutez <strong>Répéter avec chaque élément</strong> (dans « Texte scindé »).
+            <strong>Répéter avec chaque élément</strong> dans « Texte scindé ».
           </li>
           <li>
-            Dans cette boucle, ajoutez <strong>Rechercher des photos</strong>. S’il affiche « Filtrer Élément de
-            répétition », touchez ce mot bleu puis <strong>Effacer</strong> : il doit dire « Rechercher{' '}
-            <strong>Photos</strong> ». Ajoutez le filtre <strong>Nom</strong> <strong>est</strong>{' '}
-            <strong>Élément de répétition</strong>. Pas de limite.
+            Dans la boucle : <strong>Scinder le texte</strong> « Scinder <strong>Élément de répétition</strong> selon{' '}
+            <strong>Personnalisé</strong> » et tapez <strong>|</strong> (barre verticale).
           </li>
           <li>
-            Juste dessous, ajoutez une seconde <strong>Répéter avec chaque élément</strong> : « … dans{' '}
-            <strong>Photos</strong> ». Elle se place dans la première boucle.
+            Dessous, trois fois <strong>Obtenir l’élément de la liste</strong> (de « Texte scindé ») : le premier avec{' '}
+            <strong>Premier élément</strong>, le deuxième avec <strong>Élément à l’indice</strong> 2, le troisième avec{' '}
+            <strong>Dernier élément</strong>.
           </li>
           <li>
-            Dans cette seconde boucle, ajoutez dans l’ordre (le mot bleu doit être « Élément de répétition{' '}
-            <strong>2</strong> », celui de la seconde boucle) :
-            <br />• <strong>Obtenir le nom</strong> de Élément de répétition 2 ;
-            <br />• <strong>Obtenir les détails des images</strong> : <strong>Date de prise de vue</strong> de Élément de
-            répétition 2 ;
-            <br />• <strong>Formater la date</strong> : format <strong>Personnalisé</strong>, chaîne exactement{' '}
-            <strong>yyyy-MM-dd HH:mm:ss</strong> (deux « s » à la fin) ;
-            <br />• <strong>Si</strong> <strong>Entrée de raccourci</strong> <strong>contient</strong>{' '}
-            <strong>&lt;Nom|Date formatée&gt;</strong> (tapez &lt;, variable Nom, |, variable Date formatée, &gt;) ;
-            <br />• entre « Si » et « Sinon » : <strong>Ajouter à la variable</strong> « Élément de répétition 2 » à{' '}
-            <strong>A supprimer</strong>.
+            Dessous, <strong>Rechercher des photos</strong> (s’il affiche « Filtrer … », touchez le mot bleu puis
+            Effacer). Deux filtres : <strong>Nom</strong> <strong>est</strong> « Élément de liste » ; et{' '}
+            <strong>Date de création</strong> <strong>est entre</strong> « Élément de liste 2 » et « Élément de liste
+            3 ». En haut du bloc : <strong>tous</strong> les éléments sont vrais.
           </li>
           <li>
-            Tout en bas, sous les deux « Fin de la répétition », ajoutez <strong>Supprimer les photos</strong> :{' '}
-            <strong>A supprimer</strong>. Touchez <strong>OK</strong>.
+            Dessous, <strong>Ajouter à la variable</strong> : « Ajouter <strong>Photos</strong> à{' '}
+            <strong>A supprimer</strong> ».
           </li>
           <li>
-            L’iPhone demande toujours de confirmer, avec le nombre de photos : il doit être celui de l’app. Les photos
-            restent 30 jours dans « Supprimés récemment ».
+            Après « Fin de la répétition » : <strong>Afficher le résultat</strong> (<strong>A supprimer</strong>) pour
+            voir les photos avant de supprimer, puis <strong>Supprimer les photos</strong> (<strong>A supprimer</strong>).
+            Touchez <strong>OK</strong>.
           </li>
         </ol>
       )}
