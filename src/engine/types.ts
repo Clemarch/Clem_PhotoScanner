@@ -186,7 +186,8 @@ export type DecisionCode =
   | 'moins-bonne'
   | 'plafond'
   | 'veto'
-  | 'ratee';
+  | 'ratee'
+  | 'a-verifier';
 
 export interface Decision {
   keep: boolean;
@@ -197,6 +198,8 @@ export interface Decision {
   keptIds?: string[];
   /** Groupe de pose de la photo. */
   pose: string;
+  /** Presque aussi bonne que la meilleure : l'utilisateur tranche (gardée tant qu'il n'a rien dit). */
+  review?: boolean;
 }
 
 /** Critères dont l'importance s'ajuste aux choix de l'utilisateur. Valeurs entre 0 et 1, relatives au paquet. */
@@ -236,7 +239,13 @@ export interface ChoiceRecord {
   at: number;
   /** Commentaire de l'utilisateur sur ce choix (facultatif), repris dans le rapport de diagnostic. */
   comment?: string;
+  /** Version des critères au moment du choix (`FEATURES_VERSION`) ; absente pour les choix d'avant le 18/11.
+   *  Permet plus tard d'écarter ou de recalculer des choix dont les critères ont changé de sens. */
+  v?: number;
 }
+
+/** À augmenter quand le sens d'un critère change (pas quand on en ajoute un : il vaut alors 0,5 dans les anciens). */
+export const FEATURES_VERSION = 2;
 
 export interface Pack {
   id: string;

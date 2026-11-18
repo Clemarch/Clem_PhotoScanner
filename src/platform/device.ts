@@ -9,6 +9,8 @@ export interface DeviceReport {
   support: Record<string, boolean>;
   storageUsedMB: number | null;
   storageQuotaMB: number | null;
+  /** Stockage déclaré durable : iOS ne l'efface pas de lui-même (choix et apprentissage protégés). */
+  persisted: boolean | null;
   /** Mémoire utilisée par la page, si le navigateur accepte de la donner (Safari refuse). */
   jsHeapMB: number | null;
 }
@@ -20,6 +22,27 @@ interface ChromeMemory {
 export function readJsHeapMB(): number | null {
   const memory = (performance as unknown as { memory?: ChromeMemory }).memory;
   return memory ? memory.usedJSHeapSize / 1_048_576 : null;
+}
+
+/** App ouverte depuis l'écran d'accueil (installée), et non dans un onglet Safari. */
+export function isInstalled(): boolean {
+  return (
+    (navigator as unknown as { standalone?: boolean }).standalone === true ||
+    window.matchMedia('(display-mode: standalone)').matches
+  );
+}
+
+/**
+ * Demande que le stockage de l'app soit durable. Sans cela, Safari peut effacer les choix enregistrés d'un site
+ * resté sans visite pendant 7 jours ; une app installée sur l'écran d'accueil est mieux protégée.
+ */
+export async function requestPersistentStorage(): Promise<boolean | null> {
+  try {
+    if (await navigator.storage?.persisted?.()) return true;
+    return (await navigator.storage?.persist?.()) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function readDeviceReport(): Promise<DeviceReport> {
@@ -34,9 +57,13 @@ export async function readDeviceReport(): Promise<DeviceReport> {
   } catch {
     // Information facultative.
   }
-  const standalone =
-    (navigator as unknown as { standalone?: boolean }).standalone === true ||
-    window.matchMedia('(display-mode: standalone)').matches;
+  let persisted: boolean | null = null;
+  try {
+    persisted = (await navigator.storage?.persisted?.()) ?? null;
+  } catch {
+    // Information facultative.
+  }
+  const standalone = isInstalled();
 
   return {
     userAgent: navigator.userAgent,
@@ -54,6 +81,7 @@ export async function readDeviceReport(): Promise<DeviceReport> {
     },
     storageUsedMB,
     storageQuotaMB,
+    persisted,
     jsHeapMB: readJsHeapMB(),
   };
 }

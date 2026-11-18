@@ -7,6 +7,7 @@
   --accent: #f2c14e;
   --alerte: #ff8a6b;
   --ok: #6fd08c;
+  --verifier: #6fb7ff;
   color-scheme: dark;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
   -webkit-text-size-adjust: 100%;
@@ -23,6 +24,10 @@ button, label.bouton, .onglets label { font: inherit; color: inherit; cursor: po
 .note { color: var(--doux); font-size: 13px; }
 .marge { margin: 10px 4px 0; }
 .tronque { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.info { color: var(--texte); background: rgba(111, 183, 255, 0.12); border-radius: 12px; padding: 12px 14px; font-size: 14px; }
+.info summary { font-weight: 600; cursor: pointer; }
+.info p, .info ol { margin: 8px 0 0; }
+.info ol { padding-left: 20px; }
 .alerte { color: var(--alerte); background: rgba(255, 138, 107, 0.1); border-radius: 12px; padding: 12px 14px; font-size: 14px; }
 
 .bouton {
@@ -98,6 +103,11 @@ button, label.bouton, .onglets label { font: inherit; color: inherit; cursor: po
 .etat { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; }
 .etat.garder { background: var(--ok); color: #0c1a10; }
 .etat.supprimer { background: rgba(0, 0, 0, 0.6); color: var(--alerte); }
+.vignette.verifier { outline: 2px dashed var(--verifier); outline-offset: -2px; }
+.etat.verifier { background: var(--verifier); color: #08131f; }
+.bleu { color: var(--verifier); }
+.vis-decision.verifier { color: var(--verifier); }
+.a-verifier-carte .grille { grid-template-columns: repeat(4, 1fr); }
 .etat.vous { box-shadow: 0 0 0 2px var(--texte); }
 .type { font-size: 12px; font-weight: 600; color: var(--accent); border: 1px solid rgba(242, 193, 78, 0.4); border-radius: 8px; padding: 1px 6px; margin-left: 6px; vertical-align: 2px; }
 .rattacher { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: -6px; }
@@ -106,7 +116,7 @@ button, label.bouton, .onglets label { font: inherit; color: inherit; cursor: po
 .pose { display: flex; flex-direction: column; gap: 6px; }
 .pose-lettre { font-size: 12px; color: var(--doux); font-weight: 600; }
 .bilan { flex-direction: row; flex-wrap: wrap; gap: 10px 0; }
-.bilan > div { width: 50%; display: flex; flex-direction: column; }
+.bilan > div { flex: 1 1 33%; display: flex; flex-direction: column; }
 .bilan strong { font-size: 28px; font-variant-numeric: tabular-nums; }
 .bilan span { color: var(--doux); font-size: 13px; }
 .bilan .note { width: 100%; }

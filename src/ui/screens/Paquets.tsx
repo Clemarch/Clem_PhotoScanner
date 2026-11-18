@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { asideKind, config, type DayAnalysis, type MediaItem, type PackAnalysis } from '../../engine';
 import type { Session } from '../session';
-import { finalKeep, type Choice, type Choices } from '../choices';
+import { finalKeep, stateLook, type Choice, type Choices } from '../choices';
 import { formatGap, formatShortTime, formatSize, plural } from '../format';
 import { asideLabel, sceneGoal, sceneLabel } from '../reasons';
 import { Visionneuse, type ViewerEntry } from './Visionneuse';
@@ -40,12 +40,15 @@ export function Paquets({ session, day, gap, onGap, onJoin, onNewDay, choices, o
   const totals = useMemo(() => {
     let keep = 0;
     let total = 0;
+    const review: { item: MediaItem; pack: PackAnalysis }[] = [];
     for (const pack of day.packs)
       for (const item of pack.pack.items) {
         total++;
-        if (finalKeep(item, pack, choices).keep) keep++;
+        const state = finalKeep(item, pack, choices);
+        if (state.review) review.push({ item, pack });
+        else if (state.keep) keep++;
       }
-    return { keep, total, remove: total - keep };
+    return { keep, total, review, remove: total - keep - review.length };
   }, [day, choices]);
 
   const tile = (item: MediaItem, pack: PackAnalysis | null) => {
@@ -53,7 +56,8 @@ export function Paquets({ session, day, gap, onGap, onJoin, onNewDay, choices, o
     const url = session.thumbnails.get(item.id);
     const state = pack ? finalKeep(item, pack, choices) : null;
     const best = pack?.decisions.get(item.id)?.code === 'meilleure' && pack.pack.items.length > 1;
-    const classes = ['vignette', state ? (state.keep ? 'garder' : 'supprimer') : '', best && state?.keep ? 'meilleure' : '']
+    const look = state ? stateLook(state) : null;
+    const classes = ['vignette', look?.css ?? '', best && state?.keep && !state.review ? 'meilleure' : '']
       .filter(Boolean)
       .join(' ');
     return (
@@ -61,8 +65,8 @@ export function Paquets({ session, day, gap, onGap, onJoin, onNewDay, choices, o
         {url ? <img src={url} alt="" loading="lazy" decoding="async" /> : <span className="vide">{item.format}</span>}
         {number !== null && <span className="numero">{number}</span>}
         {state && (
-          <span className={`etat ${state.keep ? 'garder' : 'supprimer'}${state.byUser ? ' vous' : ''}`} aria-label={state.keep ? 'à garder' : 'à supprimer'}>
-            {state.keep ? '✓' : '✕'}
+          <span className={`etat ${look!.css}${state.byUser ? ' vous' : ''}`} aria-label={look!.label}>
+            {look!.mark}
           </span>
         )}
       </button>
@@ -107,6 +111,12 @@ export function Paquets({ session, day, gap, onGap, onJoin, onNewDay, choices, o
             <strong className="vert">{totals.keep}</strong>
             <span>à garder ({Math.round((totals.keep / totals.total) * 100)} %)</span>
           </div>
+          {totals.review.length > 0 && (
+            <div>
+              <strong className="bleu">{totals.review.length}</strong>
+              <span>à vérifier</span>
+            </div>
+          )}
           <div>
             <strong className="rouge">{totals.remove}</strong>
             <span>à supprimer</span>
@@ -115,6 +125,20 @@ export function Paquets({ session, day, gap, onGap, onJoin, onNewDay, choices, o
             Étape 1 : touchez une photo pour la voir en grand, la feuilleter et corriger la décision. Étape 2 : onglet
             « Dans Photos », pour les supprimer vous-même dans l’app Photos.
           </p>
+        </section>
+      )}
+
+      {totals.review.length > 0 && (
+        <section className="carte a-verifier-carte">
+          <div className="titre-paquet">
+            <h3 className="bleu">À vérifier</h3>
+            <span>{plural(totals.review.length, 'photo')}</span>
+          </div>
+          <p className="doux">
+            Presque aussi bonnes que la meilleure de leur pose : à vous de trancher. Touchez-en une, puis « À garder » ou
+            « À supprimer ». Sans choix de votre part, elles sont gardées.
+          </p>
+          <div className="grille">{totals.review.map(({ item, pack }) => tile(item, pack))}</div>
         </section>
       )}
 
@@ -134,7 +158,11 @@ export function Paquets({ session, day, gap, onGap, onJoin, onNewDay, choices, o
       </section>
 
       {day.packs.map((pack, i) => {
-        const keep = pack.pack.items.filter((item) => finalKeep(item, pack, choices).keep).length;
+        const keep = pack.pack.items.filter((item) => {
+          const state = finalKeep(item, pack, choices);
+          return state.keep && !state.review;
+        }).length;
+        const review = pack.pack.items.filter((item) => finalKeep(item, pack, choices).review).length;
         return (
           <section className="carte" key={pack.key}>
             <div className="titre-paquet">
@@ -143,6 +171,7 @@ export function Paquets({ session, day, gap, onGap, onJoin, onNewDay, choices, o
               </h3>
               <span>
                 {formatShortTime(pack.pack.startAt)} · {keep} / {pack.pack.items.length} gardée{keep > 1 ? 's' : ''}
+                {review > 0 && ` · ${review} à vérifier`}
               </span>
             </div>
             {mixed(pack) ? null : <p className="cherche">On cherche : {sceneGoal[pack.scene]}.</p>}

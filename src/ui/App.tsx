@@ -5,6 +5,7 @@ import {
   markProgress,
   readDeviceReport,
   readInterruptedRun,
+  requestPersistentStorage,
   readJsHeapMB,
   type InterruptedRun,
 } from '../platform/device';
@@ -51,6 +52,8 @@ export function App() {
     setInterrupted(readInterruptedRun());
     clearProgress();
     void loadChoices().then(setRecords);
+    // Protège les choix enregistrés contre l'effacement automatique de Safari.
+    void requestPersistentStorage();
   }, []);
 
   // Choix de l'utilisateur, et goûts appris à partir de tous ses choix enregistrés sur l'appareil.

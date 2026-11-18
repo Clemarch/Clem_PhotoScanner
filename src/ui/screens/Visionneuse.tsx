@@ -254,8 +254,8 @@ export function Visionneuse({ entries, start, previews, originals, thumbnails, c
           )}
         </p>
         {state && (
-          <p className={`vis-decision ${state.keep ? 'garder' : 'supprimer'}`}>
-            {state.keep ? 'À garder' : 'À supprimer'}
+          <p className={`vis-decision ${state.review ? 'verifier' : state.keep ? 'garder' : 'supprimer'}`}>
+            {state.review ? 'À vérifier' : state.keep ? 'À garder' : 'À supprimer'}
             <span>
               {' '}
               ·{' '}

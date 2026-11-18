@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { DayAnalysis, MediaItem, PackAnalysis } from '../../engine';
 import type { Session } from '../session';
-import { finalKeep, type Choice, type Choices } from '../choices';
+import { finalKeep, stateLook, type Choice, type Choices } from '../choices';
 import { dayEntries } from '../entries';
 import { formatDate, formatTime, plural } from '../format';
 import { Visionneuse } from './Visionneuse';
@@ -50,6 +50,7 @@ export function ASupprimer({ session, day, choices, onChoose, onComment }: Props
   const todo = packs.filter((p) => p.remove.length > 0);
   const totalRemove = todo.reduce((n, p) => n + p.remove.length, 0);
   const remaining = todo.filter((p) => !done.has(p.pack.key)).reduce((n, p) => n + p.remove.length, 0);
+  const toReview = day.packs.reduce((n, pack) => n + pack.pack.items.filter((it) => finalKeep(it, pack, choices).review).length, 0);
 
   return (
     <main className="page">
@@ -61,6 +62,13 @@ export function ASupprimer({ session, day, choices, onChoose, onComment }: Props
             : `${plural(totalRemove, 'photo')} à supprimer vous-même dans l’app Photos, ${plural(todo.length, 'paquet')}${remaining < totalRemove ? ` · encore ${remaining}` : ''}`}
         </p>
       </header>
+
+      {toReview > 0 && (
+        <p className="alerte">
+          Encore {plural(toReview, 'photo')} « à vérifier » (pastille bleue <span className="bleu">?</span>) : tranchez-les
+          d’abord dans l’onglet « 1. Trier ». Sans choix de votre part, elles sont gardées.
+        </p>
+      )}
 
       {totalRemove > 0 && (
         <section className="carte mode-emploi">
@@ -111,7 +119,9 @@ export function ASupprimer({ session, day, choices, onChoose, onComment }: Props
             {!isDone && (
               <div className="grille carte-ordre">
                 {pack.pack.items.map((item) => {
-                  const del = !finalKeep(item, pack, choices).keep;
+                  const state = finalKeep(item, pack, choices);
+                  const del = !state.keep;
+                  const look = stateLook(state);
                   const url = session.thumbnails.get(item.id);
                   return (
                     <button
@@ -121,7 +131,7 @@ export function ASupprimer({ session, day, choices, onChoose, onComment }: Props
                     >
                       {url ? <img src={url} alt="" loading="lazy" decoding="async" /> : <span className="vide">{item.format}</span>}
                       <span className="numero">{numberOf(item.id)}</span>
-                      <span className={`etat ${del ? 'supprimer' : 'garder'}`}>{del ? '✕' : '✓'}</span>
+                      <span className={`etat ${look.css}`}>{look.mark}</span>
                       <span className="heure">{formatTime(item.capturedAt)}</span>
                     </button>
                   );

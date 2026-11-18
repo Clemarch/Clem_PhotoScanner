@@ -12,7 +12,7 @@ interface ExifData {
   height: number | null;
   focal35: number | null;
   /** Marque de l'appareil ou focale présente : photo prise par un appareil photo. */
-  camera: boolean;
+  camera: boolean | null;
   found: boolean;
 }
 
@@ -29,10 +29,19 @@ const EXIF_TAGS = [
   'FocalLength',
   'Make',
   'Model',
+  'UserComment',
 ];
 
 function asNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+/** iOS écrit « Screenshot » dans le commentaire des captures d'écran. */
+function isScreenshotComment(value: unknown): boolean {
+  let text = '';
+  if (typeof value === 'string') text = value;
+  else if (value instanceof Uint8Array) text = String.fromCharCode(...value.slice(0, 64));
+  return /screenshot/i.test(text);
 }
 
 async function readExif(file: Blob): Promise<ExifData> {
@@ -57,14 +66,16 @@ async function readExif(file: Blob): Promise<ExifData> {
       height: asNumber(tags.ExifImageHeight) ?? asNumber(tags.ImageHeight),
       focal35: asNumber(tags.FocalLengthIn35mmFormat) || null,
       camera:
-        (typeof tags.Make === 'string' && tags.Make.trim() !== '') ||
+        !isScreenshotComment(tags.UserComment) &&
+        ((typeof tags.Make === 'string' && tags.Make.trim() !== '') ||
         (typeof tags.Model === 'string' && tags.Model.trim() !== '') ||
         asNumber(tags.FocalLength) !== null ||
-        asNumber(tags.FocalLengthIn35mmFormat) !== null,
+        asNumber(tags.FocalLengthIn35mmFormat) !== null),
       found: true,
     };
   } catch {
-    return empty;
+    // Métadonnées illisibles : on ne présume pas que ce soit une capture d'écran.
+    return { ...empty, camera: null };
   }
 }
 

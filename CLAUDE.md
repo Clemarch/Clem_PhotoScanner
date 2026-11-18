@@ -18,7 +18,8 @@ Décisions prises et écarts : `docs/decisions.md` — à mettre à jour à chaq
   (`src/engine/grouping/aside.ts`, `docs/decisions.md`, point 28).
 - Esprit de la sélection : jugement relatif par paquet ; seules les notes décident. Plus de quota : retiré à la
   demande de l'utilisateur (17/11, « un paquet de 2 photos peut garder les 2 »). Au moins 1 photo gardée par paquet,
-  sauf si toutes sont ratées (accord de l'utilisateur, 17/11).
+  sauf si toutes sont ratées (accord de l'utilisateur, 17/11). Photos presque aussi bonnes : « à vérifier »,
+  l'utilisateur tranche, gardées tant qu'il n'a rien dit (18/11, `docs/decisions.md`, point 29).
 
 ## Utilisateur
 
@@ -66,5 +67,5 @@ GitHub Actions (`.github/workflows/deploy.yml`) publie sur GitHub Pages à chaqu
 
 Jalons 0 à 3 faits (diagnostic, paquets, visages, type de photo, poses, sélection, visionneuse, apprentissage).
 Jalon 4 en cours (plan : `docs/jalon-4.md`) : onglet « Dans Photos », zoom, paquets ratés, hublot, silhouette,
-empreinte fine, classement de scène, commentaires sur les choix, gestes, captures mises de côté.
+empreinte fine, classement de scène, commentaires sur les choix, gestes, captures mises de côté, « à vérifier ».
 Modèle restant proposé : objets plus fins.

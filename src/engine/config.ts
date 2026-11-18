@@ -256,9 +256,12 @@ export const config = {
     faceMove: 0.15,
   },
   selection: {
-    /** Une photo est gardée si sa note est à moins de ceci (sur 1) de la meilleure de sa pose : seules les notes
-     *  décident, il n'y a pas de nombre maximal de photos par pose. */
-    scoreMargin: 0.06,
+    /** Seules les notes décident, sans nombre maximal de photos par pose (point 28 de `docs/decisions.md`).
+     *  À moins de `keepMargin` (sur 1) de la meilleure de sa pose : gardée, ex aequo.
+     *  À moins de `reviewMargin` : « à vérifier », l'utilisateur tranche ; gardée tant qu'il n'a rien dit.
+     *  Au-delà : à supprimer. */
+    keepMargin: 0.01,
+    reviewMargin: 0.03,
     /** Deux photos dont l'empreinte diffère de moins de ceci sont des quasi-doublons : on n'en garde qu'une.
      *  Avec l'empreinte fine : ressemblance d'au moins `nearDuplicateSimilar`. */
     nearDuplicate: 0.015,

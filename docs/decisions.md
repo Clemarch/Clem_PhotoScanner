@@ -425,6 +425,32 @@ Retours de l'utilisateur, avec captures :
   0,06 pour l'instant ; proposition faite à l'utilisateur : un état « à vérifier » pour les photos presque aussi
   bonnes.
 
+### 29. « À vérifier », et audit de durabilité (18/11)
+
+- **Troisième état « à vérifier »** (demande de l'utilisateur) : dans chaque pose, la meilleure est gardée ; une photo
+  à moins de 0,01 d'elle aussi (ex aequo) ; à moins de 0,03, elle est **à vérifier** : pastille bleue « ? », carte
+  « À vérifier » en tête de « 1. Trier », et l'utilisateur tranche avec « À garder » / « À supprimer ». Tant qu'il n'a
+  rien dit, elle est **gardée** (jamais supprimée sans lui). Au-delà de 0,03 : à supprimer. Sur le rapport du 18/11,
+  cela donne environ 38 photos gardées et 7 à vérifier, au lieu de 49 gardées. Ses choix sur ces photos sont les plus
+  utiles à l'apprentissage.
+- **Audit de durabilité** :
+  1. *Effacement des choix par Safari* : le rapport indique « installée : non ». Dans un onglet Safari, iOS peut
+     effacer le stockage d'un site non visité pendant 7 jours, donc les choix et l'apprentissage. Corrigé en partie :
+     l'app demande un stockage durable (`navigator.storage.persist`), le rapport dit s'il est accordé, et l'accueil
+     conseille d'installer l'app sur l'écran d'accueil (marche à suivre en 3 étapes).
+  2. *Mise à jour sur une connexion faible* (cas du 17/11) : l'accueil affiche « mise à jour en cours » puis « prête,
+     fermez et rouvrez ».
+  3. *Critères qui changent de sens* : chaque choix enregistre désormais la version des critères (`v`), pour pouvoir
+     plus tard écarter ou recalculer les choix anciens si un critère est redéfini. Un critère ajouté vaut 0,5 dans
+     les anciens choix (déjà le cas).
+  4. *Captures d'écran* : des métadonnées illisibles ne font plus passer une vraie photo pour une capture ; le
+     commentaire « Screenshot » écrit par iOS est reconnu.
+  5. *Mémoire* : six modèles MediaPipe chargés en même temps (chacun avec son moteur). Le rapport du 18/11 (82 photos)
+     n'a montré aucun arrêt ; le modèle des gestes ne tourne que sur les photos avec visage. À surveiller sur de plus
+     grosses journées (une analyse interrompue est signalée à l'accueil).
+  6. *Apprentissage* : des poids touchent déjà leur plafond (équilibre +0,30) avec 76 choix, signe de bruit. Rester
+     prudent : plafonds inchangés, et l'état « à vérifier » apporte des choix plus informatifs.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

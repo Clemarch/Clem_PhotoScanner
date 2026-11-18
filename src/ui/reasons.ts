@@ -88,7 +88,9 @@ export function decisionText(
     case 'meilleure':
       return 'La meilleure de sa pose';
     case 'aussi-bonne':
-      return `Presque aussi bien notée que ${n}, la meilleure de sa pose (${mine} contre ${note(decision.refId ? scoreOf(decision.refId) : undefined)} sur 100)`;
+      return `Aussi bien notée que ${n}, la meilleure de sa pose (${mine} contre ${note(decision.refId ? scoreOf(decision.refId) : undefined)} sur 100)`;
+    case 'a-verifier':
+      return `Presque aussi bien notée que ${n}, la meilleure de sa pose (${mine} contre ${note(decision.refId ? scoreOf(decision.refId) : undefined)} sur 100) : à vous de trancher. Sans choix de votre part, elle est gardée`;
     case 'seule':
       return 'Seule photo de son paquet';
     case 'minimum':
