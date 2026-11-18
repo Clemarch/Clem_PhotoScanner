@@ -179,6 +179,8 @@ export const config = {
     airplane: [404, 908] as readonly number[],
     /** Captures d'écran et documents : site web, menu, enveloppe, couverture de livre, bande dessinée, mots croisés. */
     document: [916, 922, 549, 921, 917, 918] as readonly number[],
+    /** Écrans photographiés : moniteur, écran, télévision, ordinateur portable, ordinateur de bureau, carnet, téléphone. */
+    screen: [664, 782, 851, 620, 527, 681, 487] as readonly number[],
     /** Nourriture et boissons : de l'assiette (923) au lait de poule (969). */
     food: [923, 969],
     /** Animaux : des poissons (0) aux mammifères (397). */
@@ -254,13 +256,31 @@ export const config = {
     faceMove: 0.15,
   },
   selection: {
-    /** Une photo est gardée si sa note est à moins de ceci (sur 1) de la meilleure de sa pose : seules les notes
-     *  décident, il n'y a pas de nombre maximal de photos par pose. */
-    scoreMargin: 0.06,
+    /** Seules les notes décident, sans nombre maximal de photos par pose (point 28 de `docs/decisions.md`).
+     *  À moins de `keepMargin` (sur 1) de la meilleure de sa pose : gardée, ex aequo.
+     *  À moins de `reviewMargin` : « à vérifier », l'utilisateur tranche ; gardée tant qu'il n'a rien dit.
+     *  Au-delà : à supprimer. */
+    keepMargin: 0.01,
+    reviewMargin: 0.03,
     /** Deux photos dont l'empreinte diffère de moins de ceci sont des quasi-doublons : on n'en garde qu'une.
      *  Avec l'empreinte fine : ressemblance d'au moins `nearDuplicateSimilar`. */
     nearDuplicate: 0.015,
     nearDuplicateSimilar: 0.985,
+  },
+  /** Fichiers mis de côté : ni analysés en détail, ni proposés à la suppression (toujours gardés). */
+  aside: {
+    /** Photo d'un document ou d'un écran (sans visage) : score minimal de la catégorie principale. */
+    documentScore: 0.3,
+  },
+  /** Gestes des mains (modèle Gesture Recognizer). */
+  gestures: {
+    /** Gestes qui montrent une pose voulue : V de la victoire, pouce levé, « je t'aime » en langue des signes. */
+    intended: ['Victory', 'Thumb_Up', 'ILoveYou'] as readonly string[],
+    minScore: 0.6,
+    /** Bonus sur la note d'une photo de personnes où un geste voulu est fait. */
+    bonus: 0.05,
+    /** Nombre maximal de mains cherchées par photo. */
+    maxHands: 4,
   },
   learning: {
     /** Ajustement maximal de la note apporté par l'apprentissage, et poids maximal d'un critère. */

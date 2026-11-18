@@ -1,4 +1,5 @@
 import type { DayGrouping, MediaItem, Pack } from '../types';
+import { asideKind } from './aside';
 
 const collator = new Intl.Collator('fr', { numeric: true, sensitivity: 'base' });
 
@@ -22,7 +23,7 @@ export function groupIntoPacks(items: readonly MediaItem[], packGapSeconds: numb
   const dated: MediaItem[] = [];
 
   for (const item of sortChronologically(items)) {
-    if (item.isRaw || item.kind !== 'photo') setAside.push(item);
+    if (asideKind(item) !== null) setAside.push(item);
     else if (item.capturedAt === null) undated.push(item);
     else dated.push(item);
   }

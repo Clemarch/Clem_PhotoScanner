@@ -150,7 +150,22 @@ export interface MediaItem {
   labels: SceneLabel[] | null;
   /** Part de l'image envahie depuis les bords par une zone sombre et uniforme (hublot, doigt), entre 0 et 1. */
   obstruction: number | null;
+  /** Prise par un appareil photo (marque ou focale dans les métadonnées) ; false pour une capture d'écran ou une image
+   *  enregistrée ; null si inconnu. */
+  camera: boolean | null;
+  /** Mains et gestes repérés ; null si non analysés. */
+  hands: HandGesture[] | null;
 }
+
+/** Une main repérée et son geste (noms du modèle : Victory, Thumb_Up, ILoveYou, Open_Palm, None…). */
+export interface HandGesture {
+  gesture: string;
+  score: number;
+  box: Box;
+}
+
+/** Pourquoi un fichier est mis de côté, sans analyse ni proposition de suppression. */
+export type AsideKind = 'raw' | 'video' | 'capture' | 'document';
 
 /** Type de photo, décidé pour un paquet entier. */
 export type SceneType = 'selfie' | 'portrait' | 'groupe' | 'coucher' | 'paysage' | 'nourriture' | 'animal' | 'document';
@@ -171,7 +186,8 @@ export type DecisionCode =
   | 'moins-bonne'
   | 'plafond'
   | 'veto'
-  | 'ratee';
+  | 'ratee'
+  | 'a-verifier';
 
 export interface Decision {
   keep: boolean;
@@ -182,6 +198,8 @@ export interface Decision {
   keptIds?: string[];
   /** Groupe de pose de la photo. */
   pose: string;
+  /** Presque aussi bonne que la meilleure : l'utilisateur tranche (gardée tant qu'il n'a rien dit). */
+  review?: boolean;
 }
 
 /** Critères dont l'importance s'ajuste aux choix de l'utilisateur. Valeurs entre 0 et 1, relatives au paquet. */
@@ -203,6 +221,7 @@ export const FEATURE_NAMES = [
   'contraste',
   'equilibre',
   'nettete',
+  'geste',
 ] as const;
 export type FeatureName = (typeof FEATURE_NAMES)[number];
 export type Features = Record<FeatureName, number>;
@@ -220,7 +239,13 @@ export interface ChoiceRecord {
   at: number;
   /** Commentaire de l'utilisateur sur ce choix (facultatif), repris dans le rapport de diagnostic. */
   comment?: string;
+  /** Version des critères au moment du choix (`FEATURES_VERSION`) ; absente pour les choix d'avant le 18/11.
+   *  Permet plus tard d'écarter ou de recalculer des choix dont les critères ont changé de sens. */
+  v?: number;
 }
+
+/** À augmenter quand le sens d'un critère change (pas quand on en ajoute un : il vaut alors 0,5 dans les anciens). */
+export const FEATURES_VERSION = 2;
 
 export interface Pack {
   id: string;
@@ -256,6 +281,7 @@ export type ReasonCode =
   | 'visage-non-analyse'
   | 'parle'
   | 'pose'
+  | 'geste'
   | 'couleurs-vives'
   | 'couleurs-ternes'
   | 'equilibree'

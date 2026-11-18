@@ -1,4 +1,4 @@
-import { config, type Decision, type FeatureName, type Reason, type SceneType } from '../engine';
+import { config, type AsideKind, type Decision, type FeatureName, type Reason, type SceneType } from '../engine';
 
 /** Texte affiché pour chaque raison. `numberOf` donne le numéro d'une photo dans la journée. */
 export function reasonText(reason: Reason, numberOf: (id: string) => number | null): string {
@@ -31,6 +31,8 @@ export function reasonText(reason: Reason, numberOf: (id: string) => number | nu
       return 'Bouche ouverte, en train de parler';
     case 'pose':
       return 'Pose voulue (moue, bisou…)';
+    case 'geste':
+      return 'Geste voulu (V, pouce levé…)';
     case 'visage-non-analyse':
       return 'Un visage n’a pas pu être analysé (tête tournée ?)';
     case 'couleurs-vives':
@@ -86,7 +88,9 @@ export function decisionText(
     case 'meilleure':
       return 'La meilleure de sa pose';
     case 'aussi-bonne':
-      return `Presque aussi bien notée que ${n}, la meilleure de sa pose (${mine} contre ${note(decision.refId ? scoreOf(decision.refId) : undefined)} sur 100)`;
+      return `Aussi bien notée que ${n}, la meilleure de sa pose (${mine} contre ${note(decision.refId ? scoreOf(decision.refId) : undefined)} sur 100)`;
+    case 'a-verifier':
+      return `Presque aussi bien notée que ${n}, la meilleure de sa pose (${mine} contre ${note(decision.refId ? scoreOf(decision.refId) : undefined)} sur 100) : à vous de trancher. Sans choix de votre part, elle est gardée`;
     case 'seule':
       return 'Seule photo de son paquet';
     case 'minimum':
@@ -145,4 +149,13 @@ export const featureLabel: Record<FeatureName, string> = {
   contraste: 'contraste',
   equilibre: 'exposition équilibrée',
   nettete: 'netteté de l’image',
+  geste: 'geste voulu (V, pouce levé)',
+};
+
+/** Pourquoi un fichier est mis de côté (toujours gardé, jamais proposé à la suppression). */
+export const asideLabel: Record<AsideKind, string> = {
+  raw: 'RAW (traité dans Lightroom)',
+  video: 'vidéo (pas encore analysée)',
+  capture: 'capture d’écran ou image enregistrée',
+  document: 'photo d’un document ou d’un écran',
 };

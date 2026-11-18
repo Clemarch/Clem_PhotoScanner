@@ -11,6 +11,8 @@ interface ExifData {
   width: number | null;
   height: number | null;
   focal35: number | null;
+  /** Marque de l'appareil ou focale présente : photo prise par un appareil photo. */
+  camera: boolean | null;
   found: boolean;
 }
 
@@ -24,14 +26,26 @@ const EXIF_TAGS = [
   'ImageWidth',
   'ImageHeight',
   'FocalLengthIn35mmFormat',
+  'FocalLength',
+  'Make',
+  'Model',
+  'UserComment',
 ];
 
 function asNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+/** iOS écrit « Screenshot » dans le commentaire des captures d'écran. */
+function isScreenshotComment(value: unknown): boolean {
+  let text = '';
+  if (typeof value === 'string') text = value;
+  else if (value instanceof Uint8Array) text = String.fromCharCode(...value.slice(0, 64));
+  return /screenshot/i.test(text);
+}
+
 async function readExif(file: Blob): Promise<ExifData> {
-  const empty: ExifData = { capturedAt: null, orientation: null, width: null, height: null, focal35: null, found: false };
+  const empty: ExifData = { capturedAt: null, orientation: null, width: null, height: null, focal35: null, camera: false, found: false };
   try {
     const tags = (await exifr.parse(file, { pick: EXIF_TAGS, translateValues: false })) as
       | Record<string, unknown>
@@ -51,10 +65,17 @@ async function readExif(file: Blob): Promise<ExifData> {
       width: asNumber(tags.ExifImageWidth) ?? asNumber(tags.ImageWidth),
       height: asNumber(tags.ExifImageHeight) ?? asNumber(tags.ImageHeight),
       focal35: asNumber(tags.FocalLengthIn35mmFormat) || null,
+      camera:
+        !isScreenshotComment(tags.UserComment) &&
+        ((typeof tags.Make === 'string' && tags.Make.trim() !== '') ||
+        (typeof tags.Model === 'string' && tags.Model.trim() !== '') ||
+        asNumber(tags.FocalLength) !== null ||
+        asNumber(tags.FocalLengthIn35mmFormat) !== null),
       found: true,
     };
   } catch {
-    return empty;
+    // Métadonnées illisibles : on ne présume pas que ce soit une capture d'écran.
+    return { ...empty, camera: null };
   }
 }
 
@@ -188,6 +209,9 @@ export async function analyzeFile(
     embedding: null,
     labels: null,
     obstruction: null,
+    // Une capture d'écran ou une image enregistrée n'a ni marque d'appareil ni focale.
+    camera: info.kind === 'photo' && !info.isRaw ? exif.camera : null,
+    hands: null,
   };
 
   const diagnostic: FileDiagnostic = {

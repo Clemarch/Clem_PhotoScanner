@@ -50,7 +50,7 @@ const photo = (id: string, extra: Partial<MediaItem>): MediaItem =>
     segmentation: null,
     embedding: null,
     labels: null,
-    obstruction: null,
+    obstruction: null, camera: null, hands: null,
     ...extra,
   }) as MediaItem;
 

@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { photoKey, type MediaItem, type PackAnalysis } from '../../engine';
+import { photoKey, type AsideKind, type MediaItem, type PackAnalysis } from '../../engine';
 import { finalKeep, type Choice, type Choices } from '../choices';
 import { formatTime } from '../format';
-import { decisionText, reasonText, sceneLabel } from '../reasons';
+import { asideLabel, decisionText, reasonText, sceneLabel } from '../reasons';
 
 export interface ViewerEntry {
   item: MediaItem;
   pack: PackAnalysis | null;
   packNumber: number | null;
+  /** Fichier mis de côté : toujours gardé. */
+  aside?: AsideKind;
 }
 
 interface Props {
@@ -242,7 +244,8 @@ export function Visionneuse({ entries, start, previews, originals, thumbnails, c
 
       <section className="vis-infos">
         <p className="vis-titre">
-          {number !== null ? `Photo n° ${number}` : 'Photo sans date'} · {formatTime(item.capturedAt)}
+          {number !== null ? `Photo n° ${number}` : entry.aside ? 'Mise de côté' : 'Photo sans date'}
+          {item.capturedAt !== null && ` · ${formatTime(item.capturedAt)}`}
           {entry.packNumber !== null && pack && (
             <span>
               {' '}
@@ -251,8 +254,8 @@ export function Visionneuse({ entries, start, previews, originals, thumbnails, c
           )}
         </p>
         {state && (
-          <p className={`vis-decision ${state.keep ? 'garder' : 'supprimer'}`}>
-            {state.keep ? 'À garder' : 'À supprimer'}
+          <p className={`vis-decision ${state.review ? 'verifier' : state.keep ? 'garder' : 'supprimer'}`}>
+            {state.review ? 'À vérifier' : state.keep ? 'À garder' : 'À supprimer'}
             <span>
               {' '}
               ·{' '}
@@ -262,6 +265,12 @@ export function Visionneuse({ entries, start, previews, originals, thumbnails, c
                   ? decisionText(decision, numberOf, (id) => pack?.scores.get(id)?.score, item.id)
                   : ''}
             </span>
+          </p>
+        )}
+        {entry.aside && (
+          <p className="vis-decision garder">
+            À garder
+            <span> · {asideLabel[entry.aside]} : pas analysée, jamais proposée à la suppression</span>
           </p>
         )}
         {score && score.reasons.length > 0 && (

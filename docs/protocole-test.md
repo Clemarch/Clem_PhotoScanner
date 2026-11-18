@@ -6,7 +6,9 @@ Claude complète la partie « Ce test-ci » à chaque mise à jour.
 ## Toujours
 
 1. Fusionner la pull request indiquée par Claude, attendre 3 minutes.
-2. Fermer complètement l'app, la rouvrir deux fois, vérifier la version écrite en bas de l'écran d'accueil.
+2. En Wi-Fi, ouvrir l'app et la laisser ouverte 2 à 3 minutes (la mise à jour télécharge les modèles, environ 50 Mo
+   en tout ; une connexion faible peut la faire échouer, l'ancienne version reste alors en place). Puis la fermer
+   complètement, la rouvrir deux fois, et vérifier la version écrite en bas de l'écran d'accueil.
 3. Choisir les photos d'une journée et lancer l'analyse.
 4. Pour chaque paquet, ouvrir les photos et les feuilleter en glissant le doigt.
    - Quand l'app se trompe, toucher **✓ À garder** ou **✕ À supprimer** (ces boutons marquent la photo, ils ne suppriment rien).

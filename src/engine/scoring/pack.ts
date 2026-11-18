@@ -272,6 +272,7 @@ export function scorePackDetailed(
     let poseF = 0;
     let gazeF = 1;
     let faceSharpF = 1;
+    let gestureF = 0;
 
     if (expected > 0) {
       technique = sharpEnough(rawRatio);
@@ -335,6 +336,12 @@ export function scorePackDetailed(
         if (!talking && faces.some((face) => face.pout >= r.poseFrom)) reasons.push({ code: 'pose', tone: 'plus' });
         if (!talking && faces.every((face) => face.smile >= r.smileFrom)) reasons.push({ code: 'sourire', tone: 'plus' });
         if (ratios.some((ratio) => ratio < r.faceBlurBelow)) reasons.push({ code: 'visage-flou', tone: 'moins' });
+      }
+      // Geste voulu (V, pouce levé) : une pose, comme un sourire.
+      const g = config.gestures;
+      if ((item.hands ?? []).some((h) => h.score >= g.minScore && g.intended.includes(h.gesture))) {
+        gestureF = 1;
+        reasons.push({ code: 'geste', tone: 'plus' });
       }
     } else {
       // Paquet sans visage (paysage, coucher de soleil) : la netteté départage en douceur, l'esthétique compte d'abord.
@@ -412,7 +419,8 @@ export function scorePackDetailed(
       (1 - c.darkFacePenalty * dark) *
       (1 - e.penalty * Math.max(over, under)) *
       (1 - sg.edgePenalty * limbDefect) *
-      (1 - o.penalty * obstructionDefect);
+      (1 - o.penalty * obstructionDefect) *
+      (1 + config.gestures.bonus * gestureF);
 
     const features: Features = {
       expression: expressionF,
@@ -432,6 +440,7 @@ export function scorePackDetailed(
       contraste: parts?.contrast ?? 1,
       equilibre: parts?.balance ?? 1,
       nettete: rawRatio,
+      geste: gestureF,
     };
 
     return {

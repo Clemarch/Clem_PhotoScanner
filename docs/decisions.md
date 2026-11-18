@@ -400,6 +400,57 @@ Retours de l'utilisateur, avec captures :
   détails ». Sourire et regard sont mesurés ; le V ne l'est pas : il faudrait le modèle des gestes, proposé à
   nouveau à l'utilisateur.
 
+### 28. Captures d'écran mises de côté, modèle des gestes (18/11)
+
+- **Captures d'écran, QR codes, cartes, documents** : l'utilisateur laissait le choix entre « ne pas les analyser » et
+  « toujours les garder ». Retenu : les deux. Elles sont **mises de côté** (comme les RAW) : ni analysées en détail,
+  ni rangées dans un paquet, ni proposées à la suppression ; elles apparaissent en vignettes dans « Mis de côté ».
+  Deux façons de les reconnaître :
+  - **capture d'écran ou image enregistrée** : aucune marque d'appareil ni focale dans les métadonnées. Pas de modèle
+    lancé, donc plus rapide ;
+  - **photo d'un document ou d'un écran** : catégorie principale du classement de scène parmi documents (site web,
+    menu…) ou écrans (moniteur, télévision, ordinateur, téléphone), avec un score d'au moins 0,3, et aucun visage.
+  Une photo aux métadonnées illisibles n'est pas mise de côté (rien n'est présumé).
+- **Gestes** (accord de l'utilisateur, 18/11) : modèle « Gesture Recognizer » de MediaPipe (8,4 Mo, servi par la même
+  bibliothèque 0.10.34). Lancé seulement sur les photos avec visage. Un V, un pouce levé ou le signe « je t'aime »
+  (score ≥ 0,6) donne la raison « Geste voulu » et un bonus de 5 % à la note, comme une pose. Nouveau critère appris
+  `geste`.
+- **Sélection dans la galerie** : le sélecteur de photos appartient à iOS ; l'app ne peut ni le modifier ni ajouter
+  une sélection « de la première à la dernière ». Le glisser du doigt sur plusieurs vignettes est une fonction
+  d'iOS, à essayer dans ce sélecteur.
+- **Constat sur le rapport du 18/11** (82 photos, 75 choix) : accord 55 % ; l'app ne propose de supprimer que 3
+  photos que l'utilisateur garde (sur 26), mais garde 31 photos qu'il supprime. Elle garde trop (49 sur 82, contre
+  26 pour l'utilisateur), surtout dans les longues poses de paysage, où les notes sont très proches. Simulation sur
+  le rapport : marge 0,03 → accord 66 %, 22 photos sur 26 retrouvées ; marge 0,06 → 55 %, 23 sur 26. Marge laissée à
+  0,06 pour l'instant ; proposition faite à l'utilisateur : un état « à vérifier » pour les photos presque aussi
+  bonnes.
+
+### 29. « À vérifier », et audit de durabilité (18/11)
+
+- **Troisième état « à vérifier »** (demande de l'utilisateur) : dans chaque pose, la meilleure est gardée ; une photo
+  à moins de 0,01 d'elle aussi (ex aequo) ; à moins de 0,03, elle est **à vérifier** : pastille bleue « ? », carte
+  « À vérifier » en tête de « 1. Trier », et l'utilisateur tranche avec « À garder » / « À supprimer ». Tant qu'il n'a
+  rien dit, elle est **gardée** (jamais supprimée sans lui). Au-delà de 0,03 : à supprimer. Sur le rapport du 18/11,
+  cela donne environ 38 photos gardées et 7 à vérifier, au lieu de 49 gardées. Ses choix sur ces photos sont les plus
+  utiles à l'apprentissage.
+- **Audit de durabilité** :
+  1. *Effacement des choix par Safari* : le rapport indique « installée : non ». Dans un onglet Safari, iOS peut
+     effacer le stockage d'un site non visité pendant 7 jours, donc les choix et l'apprentissage. Corrigé en partie :
+     l'app demande un stockage durable (`navigator.storage.persist`), le rapport dit s'il est accordé, et l'accueil
+     conseille d'installer l'app sur l'écran d'accueil (marche à suivre en 3 étapes).
+  2. *Mise à jour sur une connexion faible* (cas du 17/11) : l'accueil affiche « mise à jour en cours » puis « prête,
+     fermez et rouvrez ».
+  3. *Critères qui changent de sens* : chaque choix enregistre désormais la version des critères (`v`), pour pouvoir
+     plus tard écarter ou recalculer les choix anciens si un critère est redéfini. Un critère ajouté vaut 0,5 dans
+     les anciens choix (déjà le cas).
+  4. *Captures d'écran* : des métadonnées illisibles ne font plus passer une vraie photo pour une capture ; le
+     commentaire « Screenshot » écrit par iOS est reconnu.
+  5. *Mémoire* : six modèles MediaPipe chargés en même temps (chacun avec son moteur). Le rapport du 18/11 (82 photos)
+     n'a montré aucun arrêt ; le modèle des gestes ne tourne que sur les photos avec visage. À surveiller sur de plus
+     grosses journées (une analyse interrompue est signalée à l'accueil).
+  6. *Apprentissage* : des poids touchent déjà leur plafond (équilibre +0,30) avec 76 choix, signe de bruit. Rester
+     prudent : plafonds inchangés, et l'état « à vérifier » apporte des choix plus informatifs.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.
