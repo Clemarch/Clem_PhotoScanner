@@ -7,9 +7,6 @@
 // et l'heure de prise de vue à la seconde.
 
 export const SHORTCUT_NAME = 'Photo Triage';
-/** Le raccourci ne parcourt que les photos de ces derniers jours (plus, ce serait lent). */
-export const SHORTCUT_DAYS = 14;
-
 /** Nom de la photo dans Photos : le nom du fichier sans son extension (IMG_0654.jpeg → IMG_0654). */
 export function photoName(fileName: string): string {
   return fileName.replace(/\.[^.]+$/, '');
@@ -31,15 +28,18 @@ export interface ShortcutPhoto {
 }
 
 /**
- * Une ligne par photo : « <IMG_0654|2026-11-18 22:45:12> ». Le nom seul ne suffit pas (essai du 18/11 : six photos
- * s'appellent IMG_0696 dans la photothèque, le compteur de l'iPhone repart à zéro). Le raccourci cherche « <nom|date> »
- * en entier : correspondance exacte, au nom et à la seconde près.
+ * Texte envoyé au raccourci :
+ * - d'abord un nom par ligne (« IMG_0654 »), sans doublon : le raccourci cherche chaque nom dans Photos, ce qui ne
+ *   donne que quelques photos à examiner (rapide, quelle que soit la date) ;
+ * - puis, sur la dernière ligne, les clés exactes « <IMG_0654|2026-11-18 22:45:12> » : nom et heure à la seconde.
+ *   Le raccourci ne garde une photo trouvée que si sa clé y figure, car les noms ne sont pas uniques (six photos
+ *   « IMG_0696 » le 18/11). Cette ligne, cherchée comme un nom, ne trouve rien.
  */
 export function shortcutText(photos: readonly ShortcutPhoto[]): string {
-  return photos
-    .filter((p) => p.at !== null)
-    .map((p) => `<${photoName(p.fileName)}|${shortcutDate(p.at!)}>`)
-    .join('\n');
+  const dated = photos.filter((p) => p.at !== null);
+  const names = [...new Set(dated.map((p) => photoName(p.fileName)))];
+  const keys = dated.map((p) => `<${photoName(p.fileName)}|${shortcutDate(p.at!)}>`).join('');
+  return [...names, keys].join('\n');
 }
 
 /** Lien qui ouvre le raccourci. Ce n'est pas un appel réseau : iOS ouvre l'app Raccourcis. */

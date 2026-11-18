@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { SHORTCUT_DAYS, SHORTCUT_NAME } from '../platform/shortcut';
+import { SHORTCUT_NAME } from '../platform/shortcut';
 
 /**
  * Marche à suivre, une seule fois, pour créer le raccourci qui supprime les photos (app Raccourcis d'Apple).
- * Le raccourci parcourt les photos récentes et ne garde que celles dont « <nom|date à la seconde> » est dans la liste
- * envoyée par l'app (correspondance exacte ; les noms seuls ne sont pas uniques).
+ * Le raccourci cherche chaque nom reçu dans Photos (quelques photos par nom, donc rapide), puis ne garde une photo que
+ * si « <nom|date à la seconde> » figure dans le texte reçu (les noms seuls ne sont pas uniques).
  */
 export function GuideRaccourci({ open = false }: { open?: boolean }) {
   const [shown, setShown] = useState(open);
@@ -17,49 +17,47 @@ export function GuideRaccourci({ open = false }: { open?: boolean }) {
       {shown && (
         <ol className="etapes">
           <li>
-            App <strong>Raccourcis</strong>, onglet <strong>Raccourcis</strong>, touchez <strong>+</strong>. Renommez le
-            raccourci exactement <strong>{SHORTCUT_NAME}</strong> (touchez le titre en haut, puis Renommer).
+            App <strong>Raccourcis</strong>, touchez <strong>+</strong>, renommez le raccourci exactement{' '}
+            <strong>{SHORTCUT_NAME}</strong> (touchez le titre, puis Renommer).
           </li>
           <li>
-            Ajoutez <strong>Rechercher des photos</strong>. Touchez <strong>Ajouter un filtre</strong> : premier mot bleu{' '}
-            <strong>Date de création</strong>, puis <strong>est dans les derniers</strong>, mettez{' '}
-            <strong>{SHORTCUT_DAYS}</strong> et <strong>jours</strong>. Pas de limite.
+            Ajoutez <strong>Scinder le texte</strong> : « Scinder <strong>Entrée de raccourci</strong> selon Nouvelles
+            lignes ». Un bloc « Recevoir … depuis Nulle part » apparaît en haut : touchez son premier mot bleu et ne
+            cochez que <strong>Texte</strong>.
           </li>
           <li>
-            Ajoutez <strong>Répéter avec chaque élément</strong> : elle doit dire « Répéter avec chaque élément dans{' '}
-            <strong>Photos</strong> ».
+            Ajoutez <strong>Répéter avec chaque élément</strong> (dans « Texte scindé »).
           </li>
           <li>
-            Dans la boucle, ajoutez <strong>Obtenir le nom</strong> : « Obtenir le nom de <strong>Élément de
-            répétition</strong> » (touchez le mot bleu pour le choisir si besoin).
+            Dans cette boucle, ajoutez <strong>Rechercher des photos</strong>. S’il affiche « Filtrer Élément de
+            répétition », touchez ce mot bleu puis <strong>Effacer</strong> : il doit dire « Rechercher{' '}
+            <strong>Photos</strong> ». Ajoutez le filtre <strong>Nom</strong> <strong>est</strong>{' '}
+            <strong>Élément de répétition</strong>. Pas de limite.
           </li>
           <li>
-            Dessous, ajoutez <strong>Obtenir les détails des images</strong> : « Obtenir <strong>Date de prise de
-            vue</strong> de <strong>Élément de répétition</strong> ».
+            Juste dessous, ajoutez une seconde <strong>Répéter avec chaque élément</strong> : « … dans{' '}
+            <strong>Photos</strong> ». Elle se place dans la première boucle.
           </li>
           <li>
-            Dessous, ajoutez <strong>Formater la date</strong> (de « Date de prise de vue ») : format de date{' '}
-            <strong>Personnalisé</strong>, chaîne de format exactement <strong>yyyy-MM-dd HH:mm:ss</strong>.
+            Dans cette seconde boucle, ajoutez dans l’ordre (le mot bleu doit être « Élément de répétition{' '}
+            <strong>2</strong> », celui de la seconde boucle) :
+            <br />• <strong>Obtenir le nom</strong> de Élément de répétition 2 ;
+            <br />• <strong>Obtenir les détails des images</strong> : <strong>Date de prise de vue</strong> de Élément de
+            répétition 2 ;
+            <br />• <strong>Formater la date</strong> : format <strong>Personnalisé</strong>, chaîne exactement{' '}
+            <strong>yyyy-MM-dd HH:mm:ss</strong> (deux « s » à la fin) ;
+            <br />• <strong>Si</strong> <strong>Entrée de raccourci</strong> <strong>contient</strong>{' '}
+            <strong>&lt;Nom|Date formatée&gt;</strong> (tapez &lt;, variable Nom, |, variable Date formatée, &gt;) ;
+            <br />• entre « Si » et « Sinon » : <strong>Ajouter à la variable</strong> « Élément de répétition 2 » à{' '}
+            <strong>A supprimer</strong>.
           </li>
           <li>
-            Dessous, ajoutez <strong>Si</strong>. Réglez : « Si <strong>Entrée de raccourci</strong>{' '}
-            <strong>contient</strong> … ». Dans la case de droite, tapez <strong>&lt;</strong>, touchez la variable{' '}
-            <strong>Nom</strong>, tapez <strong>|</strong> (barre verticale), touchez la variable{' '}
-            <strong>Date formatée</strong>, puis tapez <strong>&gt;</strong>. La case affiche « &lt;Nom|Date
-            formatée&gt; » : une photo ne correspond que si son nom et son heure, à la seconde, sont dans la liste.
+            Tout en bas, sous les deux « Fin de la répétition », ajoutez <strong>Supprimer les photos</strong> :{' '}
+            <strong>A supprimer</strong>. Touchez <strong>OK</strong>.
           </li>
           <li>
-            Entre « Si » et « Sinon », ajoutez <strong>Ajouter à la variable</strong> : « Ajouter{' '}
-            <strong>Élément de répétition</strong> à <strong>A supprimer</strong> » (tapez « A supprimer » comme nom de
-            variable). Supprimez la ligne « Sinon » si vous pouvez, sinon laissez-la vide.
-          </li>
-          <li>
-            Tout en bas, sous « Fin de la répétition », ajoutez <strong>Supprimer les photos</strong> et choisissez la
-            variable <strong>A supprimer</strong>.
-          </li>
-          <li>
-            Touchez <strong>OK</strong>. Au premier lancement, autorisez l’accès à Photos. L’iPhone demande toujours de
-            confirmer la suppression, avec le nombre de photos : vérifiez qu’il correspond à celui de l’app.
+            L’iPhone demande toujours de confirmer, avec le nombre de photos : il doit être celui de l’app. Les photos
+            restent 30 jours dans « Supprimés récemment ».
           </li>
         </ol>
       )}

@@ -505,6 +505,13 @@ voyage soit bien retrouvée. Le raccourci forme la même clé avec « Obtenir le
 « Formater la date » (format yyyy-MM-dd HH:mm:ss). Si une heure ne correspond pas, la photo n'est pas trouvée, donc
 pas supprimée : l'erreur possible est toujours du côté prudent.
 
+**Complément (19/11, raccourci rapide)** : parcourir toutes les photos des 30 derniers jours était très lent (quatre
+actions par photo, plus de mille photos). Les essais ont aussi montré que le filtre « Nom » de « Rechercher des
+photos » fonctionne (il trouvait les six « IMG_0696 ») : les échecs venaient d'actions branchées sur la mauvaise
+entrée et d'un format de secondes sans zéro (« s » au lieu de « ss »). Nouveau raccourci : pour chaque nom reçu, une
+recherche par nom (quelques photos seulement), puis la vérification exacte « <nom|heure> » sur ces quelques photos.
+L'app envoie les noms un par ligne, puis toutes les clés sur la dernière ligne. Plus de limite de 14 ou 30 jours.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

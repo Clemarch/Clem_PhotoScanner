@@ -107,7 +107,7 @@ describe('poses (réglage 6)', () => {
 });
 
 describe('pont Raccourcis (réglage 6)', () => {
-  it('envoie « <nom|date à la seconde> » par photo au raccourci « Photo Triage » (les noms seuls ne sont pas uniques)', async () => {
+  it('envoie les noms puis « <nom|date à la seconde> » au raccourci « Photo Triage » (les noms seuls ne sont pas uniques)', async () => {
     const { shortcutUrl, shortcutDate } = await import('../../src/platform/shortcut');
     const at = new Date(2026, 10, 18, 22, 45, 12, 640).getTime();
     const url = shortcutUrl([
@@ -117,8 +117,17 @@ describe('pont Raccourcis (réglage 6)', () => {
     ]);
     expect(url.startsWith('shortcuts://run-shortcut?name=Photo%20Triage&input=text&text=')).toBe(true);
     const text = decodeURIComponent(url.split('text=')[1]!);
-    expect(text).toBe('<IMG_0696|2026-11-18 22:45:12>\n<IMG_0697|2026-11-18 22:45:13>');
+    // Les noms, un par ligne (recherche rapide dans Photos), puis les clés exactes nom + heure sur la dernière ligne.
+    expect(text).toBe('IMG_0696\nIMG_0697\n<IMG_0696|2026-11-18 22:45:12><IMG_0697|2026-11-18 22:45:13>');
     expect(shortcutDate(at)).toBe('2026-11-18 22:45:12');
+    // Deux photos du même nom (compteur repassé à zéro) : le nom n'est cherché qu'une fois, les deux clés sont là.
+    const twice = decodeURIComponent(
+      shortcutUrl([
+        { fileName: 'IMG_0001.jpeg', at },
+        { fileName: 'IMG_0001.jpeg', at: at + 86_400_000 },
+      ]).split('text=')[1]!,
+    );
+    expect(twice).toBe('IMG_0001\n<IMG_0001|2026-11-18 22:45:12><IMG_0001|2026-11-19 22:45:12>');
     // Une autre photo nommée IMG_0696, prise un autre jour, ne correspond pas.
     expect(text.includes('<IMG_0696|2025-03-02 10:00:00>')).toBe(false);
   });
