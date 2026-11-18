@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { isInstalled, type InterruptedRun } from '../../platform/device';
 import { watchUpdate, type UpdateStatus } from '../../platform/update';
+import { GuideRaccourci } from '../GuideRaccourci';
 
 interface Props {
   onFiles: (files: File[]) => void;
@@ -50,6 +51,10 @@ export function Accueil({ onFiles, interrupted }: Props) {
         </details>
       )}
 
+      <section className="info">
+        <GuideRaccourci />
+      </section>
+
       {interrupted && (
         <p className="alerte">
           La dernière analyse s’est arrêtée brutalement à la photo {interrupted.done} sur {interrupted.total}.
@@ -72,7 +77,7 @@ export function Accueil({ onFiles, interrupted }: Props) {
             }}
           />
         </label>
-        <p className="note">Version de test · jalon 4 · réglage 6 (une photo par pose, suppression par Raccourcis)</p>
+        <p className="note">Version de test · jalon 4 · réglage 6 bis (guide du raccourci à l’accueil)</p>
       </div>
     </main>
   );

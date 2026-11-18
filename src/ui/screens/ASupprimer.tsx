@@ -6,6 +6,7 @@ import { dayEntries } from '../entries';
 import { formatDate, formatTime, plural } from '../format';
 import { Visionneuse } from './Visionneuse';
 import { runShortcut, SHORTCUT_NAME } from '../../platform/shortcut';
+import { GuideRaccourci } from '../GuideRaccourci';
 
 interface Props {
   session: Session;
@@ -38,7 +39,6 @@ export function ASupprimer({ session, day, choices, onChoose, onComment }: Props
   const [done, setDone] = useState<Set<string>>(() => loadDone());
   const [viewing, setViewing] = useState<number | null>(null);
   const [help, setHelp] = useState(false);
-  const [setup, setSetup] = useState(false);
   useEffect(() => saveDone(done), [done]);
 
   const entries = useMemo(() => dayEntries(day), [day]);
@@ -89,22 +89,7 @@ export function ASupprimer({ session, day, choices, onChoose, onComment }: Props
             « Supprimés récemment » (récupérables 30 jours). Les paquets sont ensuite marqués « Fait » ; touchez
             « rouvrir » si la suppression n’a pas eu lieu.
           </p>
-          <button className="titre-aide" onClick={() => setSetup((v) => !v)} aria-expanded={setup}>
-            <h3>Première fois : créer le raccourci</h3>
-            <span>{setup ? '▾' : '▸'}</span>
-          </button>
-          {setup && (
-            <ol className="etapes">
-              <li>Ouvrez l’app <strong>Raccourcis</strong> (icône bleue et rose), onglet <strong>Raccourcis</strong>, puis touchez <strong>+</strong> en haut à droite.</li>
-              <li>Touchez le nom en haut, puis <strong>Renommer</strong> : tapez exactement <strong>{SHORTCUT_NAME}</strong>.</li>
-              <li>Touchez <strong>Rechercher des actions</strong>, tapez « séparer », choisissez <strong>Séparer le texte</strong>. Touchez le mot bleu « Texte » et choisissez <strong>Entrée du raccourci</strong> ; laissez « Nouvelles lignes ».</li>
-              <li>Ajoutez l’action <strong>Répéter avec chaque élément</strong> (elle se branche sur le texte séparé).</li>
-              <li>Dans la boucle, ajoutez <strong>Rechercher des photos</strong>. Touchez <strong>Ajouter un filtre</strong>, choisissez <strong>Nom</strong>, laissez « est », et dans la case touchez <strong>Élément répété</strong>. Activez <strong>Limite</strong> à 1 et triez par <strong>Date de création</strong>, « Plus récent en premier ».</li>
-              <li>Après la fin de la boucle (sous « Fin de la répétition »), ajoutez <strong>Supprimer les photos</strong> : il prend tout seul les « Résultats de la répétition ».</li>
-              <li>Touchez <strong>OK</strong> (ou ✓) en haut à droite pour enregistrer le raccourci.</li>
-              <li>Revenez ici et touchez « Supprimer les … photos ». La première fois, iOS demande d’autoriser le raccourci à accéder à Photos : touchez <strong>Autoriser</strong>.</li>
-            </ol>
-          )}
+          <GuideRaccourci />
         </section>
       )}
 
