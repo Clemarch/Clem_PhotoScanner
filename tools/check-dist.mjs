@@ -23,6 +23,7 @@ for (const file of [
   'models/selfie_multiclass_256x256.tflite',
   'models/mobilenet_v3_small.tflite',
   'models/efficientnet_lite0.tflite',
+  'models/gesture_recognizer.task',
   'models/wasm/vision_wasm_internal.wasm',
 ])
   if (!existsSync(`dist/${file}`)) problems.push(`dist/${file} est absent`);

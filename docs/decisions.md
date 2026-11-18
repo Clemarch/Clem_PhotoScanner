@@ -400,6 +400,31 @@ Retours de l'utilisateur, avec captures :
   détails ». Sourire et regard sont mesurés ; le V ne l'est pas : il faudrait le modèle des gestes, proposé à
   nouveau à l'utilisateur.
 
+### 28. Captures d'écran mises de côté, modèle des gestes (18/11)
+
+- **Captures d'écran, QR codes, cartes, documents** : l'utilisateur laissait le choix entre « ne pas les analyser » et
+  « toujours les garder ». Retenu : les deux. Elles sont **mises de côté** (comme les RAW) : ni analysées en détail,
+  ni rangées dans un paquet, ni proposées à la suppression ; elles apparaissent en vignettes dans « Mis de côté ».
+  Deux façons de les reconnaître :
+  - **capture d'écran ou image enregistrée** : aucune marque d'appareil ni focale dans les métadonnées. Pas de modèle
+    lancé, donc plus rapide ;
+  - **photo d'un document ou d'un écran** : catégorie principale du classement de scène parmi documents (site web,
+    menu…) ou écrans (moniteur, télévision, ordinateur, téléphone), avec un score d'au moins 0,3, et aucun visage.
+  Une photo aux métadonnées illisibles n'est pas mise de côté (rien n'est présumé).
+- **Gestes** (accord de l'utilisateur, 18/11) : modèle « Gesture Recognizer » de MediaPipe (8,4 Mo, servi par la même
+  bibliothèque 0.10.34). Lancé seulement sur les photos avec visage. Un V, un pouce levé ou le signe « je t'aime »
+  (score ≥ 0,6) donne la raison « Geste voulu » et un bonus de 5 % à la note, comme une pose. Nouveau critère appris
+  `geste`.
+- **Sélection dans la galerie** : le sélecteur de photos appartient à iOS ; l'app ne peut ni le modifier ni ajouter
+  une sélection « de la première à la dernière ». Le glisser du doigt sur plusieurs vignettes est une fonction
+  d'iOS, à essayer dans ce sélecteur.
+- **Constat sur le rapport du 18/11** (82 photos, 75 choix) : accord 55 % ; l'app ne propose de supprimer que 3
+  photos que l'utilisateur garde (sur 26), mais garde 31 photos qu'il supprime. Elle garde trop (49 sur 82, contre
+  26 pour l'utilisateur), surtout dans les longues poses de paysage, où les notes sont très proches. Simulation sur
+  le rapport : marge 0,03 → accord 66 %, 22 photos sur 26 retrouvées ; marge 0,06 → 55 %, 23 sur 26. Marge laissée à
+  0,06 pour l'instant ; proposition faite à l'utilisateur : un état « à vérifier » pour les photos presque aussi
+  bonnes.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

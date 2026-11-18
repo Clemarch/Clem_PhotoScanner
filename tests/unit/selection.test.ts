@@ -43,7 +43,7 @@ const item = (id: string, seconds: number, extra: Partial<MediaItem> = {}): Medi
     segmentation: null,
     embedding: null,
     labels: null,
-    obstruction: null,
+    obstruction: null, camera: null, hands: null,
     ...extra,
   }) as MediaItem;
 

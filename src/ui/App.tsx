@@ -18,9 +18,11 @@ import { findFaces } from '../platform/vision/retry';
 import {
   createClassifier,
   createEmbedder,
+  createGestureFinder,
   createSegmenter,
   type Classifier,
   type Embedder,
+  type GestureFinder,
   type Segmenter,
 } from '../platform/vision/sceneModels';
 import { createAnalyzer } from '../platform/worker/analyzer';
@@ -94,6 +96,7 @@ export function App() {
     const segmenter: Segmenter | null = await start3('silhouette', createSegmenter);
     const embedder: Embedder | null = await start3('empreinte', createEmbedder);
     const classifier: Classifier | null = await start3('scène', createClassifier);
+    const gestures: GestureFinder | null = await start3('gestes', createGestureFinder);
     const results: AnalyzeResult[] = [];
     const originals = new Map<string, File>();
     const thumbnails = new Map<string, string>();
@@ -107,7 +110,9 @@ export function App() {
       const result = await analyzer.analyze(`m${i + 1}`, file);
       const frame = result.frame;
       result.frame = null;
-      if (frame) {
+      // Capture d'écran ou image enregistrée : mise de côté, sans passer par les modèles.
+      if (frame && result.item.camera === false) frame.bitmap.close();
+      else if (frame) {
         // Objets d'abord : les personnes détectées guident une seconde recherche des visages manqués.
         if (objectDetector) {
           try {
@@ -152,10 +157,12 @@ export function App() {
             }
             if (embedder) result.item.embedding = embedder.embed(frame.bitmap);
             if (classifier) result.item.labels = classifier.classify(frame.bitmap);
+            // Gestes : seulement s'il y a des personnes à juger.
+            if (gestures && (result.item.faces?.length ?? 0) > 0) result.item.hands = gestures.find(frame.bitmap);
           } catch (e) {
             faceError ??= `modèles : ${e instanceof Error ? e.message : String(e)}`;
           }
-          if (segmenter || embedder || classifier) result.diagnostic.modelsMs = performance.now() - t;
+          if (segmenter || embedder || classifier || gestures) result.diagnostic.modelsMs = performance.now() - t;
         }
         frame.bitmap.close();
       }
@@ -172,6 +179,7 @@ export function App() {
     segmenter?.close();
     embedder?.close();
     classifier?.close();
+    gestures?.close();
     wake.release();
     clearProgress();
     const device = await readDeviceReport();

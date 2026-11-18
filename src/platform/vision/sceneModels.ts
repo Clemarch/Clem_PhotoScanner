@@ -1,10 +1,11 @@
 // Adaptateurs MediaPipe pour trois modèles d'analyse, tous exécutés sur l'appareil, fichiers de l'app :
 // - silhouette des personnes avec peau (Selfie Multiclass) ;
 // - empreinte fine de l'image (MobileNet v3 small) ;
-// - classement de la scène (EfficientNet-Lite0, catégories ImageNet).
+// - classement de la scène (EfficientNet-Lite0, catégories ImageNet) ;
+// - gestes des mains (Gesture Recognizer : V, pouce levé…).
 
-import type { ImageClassifier, ImageEmbedder, ImageSegmenter } from '@mediapipe/tasks-vision';
-import { config, type SceneLabel } from '../../engine';
+import type { GestureRecognizer, ImageClassifier, ImageEmbedder, ImageSegmenter } from '@mediapipe/tasks-vision';
+import { config, type HandGesture, type SceneLabel } from '../../engine';
 
 const local = (path: string): string => new URL(path, document.baseURI).href;
 const fileset = () => ({
@@ -91,6 +92,40 @@ export async function createClassifier(): Promise<Classifier> {
     },
     close() {
       classifier.close();
+    },
+  };
+}
+
+export interface GestureFinder {
+  find(image: ImageBitmap): HandGesture[];
+  close(): void;
+}
+
+export async function createGestureFinder(): Promise<GestureFinder> {
+  const vision = await import('@mediapipe/tasks-vision');
+  const recognizer: GestureRecognizer = await vision.GestureRecognizer.createFromOptions(fileset(), {
+    baseOptions: { modelAssetPath: local('models/gesture_recognizer.task'), delegate: 'CPU' },
+    runningMode: 'IMAGE',
+    numHands: config.gestures.maxHands,
+  });
+  return {
+    find(image) {
+      const result = recognizer.recognize(image);
+      return result.landmarks.map((points, i) => {
+        const xs = points.map((p) => p.x);
+        const ys = points.map((p) => p.y);
+        const top = result.gestures[i]?.[0];
+        const x = Math.min(...xs);
+        const y = Math.min(...ys);
+        return {
+          gesture: top?.categoryName || 'None',
+          score: top?.score ?? 0,
+          box: { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y },
+        };
+      });
+    },
+    close() {
+      recognizer.close();
     },
   };
 }

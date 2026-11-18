@@ -2,6 +2,7 @@ export * from './types';
 export { config } from './config';
 export { detectFormat } from './format';
 export { groupIntoPacks, sortChronologically } from './grouping/packs';
+export { asideKind } from './grouping/aside';
 export { rgbaToGray, sharpnessFromGray } from './analysis/sharpness';
 export { boxFromPoints, cropGray, headPose, lensDirection, mainFaces, measureFace, regionColor, bodyZone } from './analysis/faces';
 export { analyzeContent, compareFaces, countSubjects, recurringPersons, subjectPersons, subjectZone } from './analysis/content';

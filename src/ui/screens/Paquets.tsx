@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
-import { config, type DayAnalysis, type MediaItem, type PackAnalysis } from '../../engine';
+import { asideKind, config, type DayAnalysis, type MediaItem, type PackAnalysis } from '../../engine';
 import type { Session } from '../session';
 import { finalKeep, type Choice, type Choices } from '../choices';
 import { formatGap, formatShortTime, formatSize, plural } from '../format';
-import { sceneGoal, sceneLabel } from '../reasons';
+import { asideLabel, sceneGoal, sceneLabel } from '../reasons';
 import { Visionneuse, type ViewerEntry } from './Visionneuse';
 import { dayEntries } from '../entries';
 
@@ -29,7 +29,12 @@ export function Paquets({ session, day, gap, onGap, onJoin, onNewDay, choices, o
   const numberOf = (id: string) => day.dayIndex.get(id) ?? null;
 
   // Toutes les photos de la journée dans l'ordre, pour feuilleter d'un paquet à l'autre.
-  const entries = useMemo<ViewerEntry[]>(() => dayEntries(day), [day]);
+  // Fichiers mis de côté qui ont une image : captures d'écran, documents (les RAW et vidéos n'en ont pas).
+  const asideShown = useMemo(() => day.setAside.filter((item) => session.thumbnails.has(item.id)), [day, session]);
+  const entries = useMemo<ViewerEntry[]>(
+    () => dayEntries(day, new Set(asideShown.map((item) => item.id))),
+    [day, asideShown],
+  );
   const positionOf = useMemo(() => new Map(entries.map((e, i) => [e.item.id, i])), [entries]);
 
   const totals = useMemo(() => {
@@ -187,14 +192,25 @@ export function Paquets({ session, day, gap, onGap, onJoin, onNewDay, choices, o
             <h3>Mis de côté</h3>
             <span>{plural(day.setAside.length, 'fichier')}</span>
           </div>
-          <p className="doux">RAW et vidéos : non analysés (les RAW sont traités dans Lightroom).</p>
-          <ul className="liste-simple">
-            {day.setAside.map((item) => (
-              <li key={item.id}>
-                {item.fileName} · {item.format} · {formatSize(item.sizeBytes)}
-              </li>
-            ))}
-          </ul>
+          <p className="doux">
+            Toujours gardés, jamais proposés à la suppression : captures d’écran, images enregistrées, photos d’un document
+            ou d’un écran, RAW et vidéos.
+          </p>
+          {asideShown.length > 0 && <div className="grille">{asideShown.map((item) => tile(item, null))}</div>}
+          {day.setAside.some((item) => !session.thumbnails.has(item.id)) && (
+            <ul className="liste-simple">
+              {day.setAside
+                .filter((item) => !session.thumbnails.has(item.id))
+                .map((item) => {
+                  const kind = asideKind(item);
+                  return (
+                    <li key={item.id}>
+                      {item.fileName} · {kind ? asideLabel[kind] : item.format} · {formatSize(item.sizeBytes)}
+                    </li>
+                  );
+                })}
+            </ul>
+          )}
         </section>
       )}
 
