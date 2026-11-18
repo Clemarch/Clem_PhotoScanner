@@ -487,6 +487,24 @@ pas supprimer moi-même les photos ».
   réécriture partielle (accès direct à toute la photothèque, sans sélection, et suppression). Proposé seulement si
   le pont Raccourcis ne suffit pas.
 
+### 32. Raccourci : comparaison des noms par le raccourci lui-même (18/11)
+
+Essais de l'utilisateur : la liste des noms arrive bien dans le raccourci (« IMG_0696 », « IMG_0697 »), et
+« Obtenir le nom » d'une photo renvoie bien « IMG_0701 », mais le filtre « Nom » de « Rechercher des photos » ne trouve
+rien, que ce soit avec « est » ou « contient ». Le raccourci est donc refait sans ce filtre : il parcourt les photos des
+14 derniers jours, lit le nom de chacune et garde celles dont « <nom> » figure dans le texte reçu. L'app entoure chaque
+nom de chevrons (« <IMG_0696> ») : la correspondance est exacte (pas de « contient » approximatif, remarque de
+l'utilisateur). L'iPhone demande toujours confirmation, avec le nombre de photos. Au-delà de 14 jours, l'app prévient
+que le raccourci ne les trouvera pas.
+
+**Complément (18/11, soir)** : l'utilisateur a constaté que six photos de sa photothèque s'appellent « IMG_0696 »
+(le compteur de l'iPhone repart à zéro, photos reçues…). Le nom seul ne suffit donc pas, d'où les échecs. L'app
+envoie désormais « <IMG_0696|2026-11-18 22:45:12> » : nom et heure de prise de vue à la seconde, dans le fuseau
+actuel de l'iPhone. Elle tient compte du fuseau du lieu de la photo (`OffsetTimeOriginal`), pour qu'une photo prise en
+voyage soit bien retrouvée. Le raccourci forme la même clé avec « Obtenir le nom », « Date de prise de vue » et
+« Formater la date » (format yyyy-MM-dd HH:mm:ss). Si une heure ne correspond pas, la photo n'est pas trouvée, donc
+pas supprimée : l'erreur possible est toujours du côté prudent.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

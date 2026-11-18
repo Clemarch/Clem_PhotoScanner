@@ -118,6 +118,9 @@ export interface MediaItem {
   sizeBytes: number;
   /** Date de prise de vue en millisecondes, ou null si inconnue. */
   capturedAt: number | null;
+  /** Instant absolu de la prise de vue (fuseau horaire de l'appareil photo pris en compte), en millisecondes ; sert à
+   *  retrouver la photo dans Photos depuis le raccourci. Égal à `capturedAt` si le fuseau est inconnu. */
+  instant?: number | null;
   dateSource: DateSource;
   /** Largeur et hauteur d'origine, si connues. */
   width: number | null;

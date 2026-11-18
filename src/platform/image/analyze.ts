@@ -7,6 +7,7 @@ import type { AnalysisFrame, AnalyzeResult, FileDiagnostic } from './types';
 
 interface ExifData {
   capturedAt: number | null;
+  instant: number | null;
   orientation: number | null;
   width: number | null;
   height: number | null;
@@ -20,6 +21,7 @@ const EXIF_TAGS = [
   'DateTimeOriginal',
   'CreateDate',
   'SubSecTimeOriginal',
+  'OffsetTimeOriginal',
   'Orientation',
   'ExifImageWidth',
   'ExifImageHeight',
@@ -45,7 +47,7 @@ function isScreenshotComment(value: unknown): boolean {
 }
 
 async function readExif(file: Blob): Promise<ExifData> {
-  const empty: ExifData = { capturedAt: null, orientation: null, width: null, height: null, focal35: null, camera: false, found: false };
+  const empty: ExifData = { capturedAt: null, instant: null, orientation: null, width: null, height: null, focal35: null, camera: false, found: false };
   try {
     const tags = (await exifr.parse(file, { pick: EXIF_TAGS, translateValues: false })) as
       | Record<string, unknown>
@@ -59,8 +61,17 @@ async function readExif(file: Blob): Promise<ExifData> {
       const subSec = String(tags.SubSecTimeOriginal ?? '').trim();
       if (/^\d+$/.test(subSec)) capturedAt += Math.round(Number(`0.${subSec}`) * 1000);
     }
+    // Fuseau de l'appareil au moment de la photo (« +07:00 ») : l'heure lue est celle du lieu de prise de vue.
+    let instant = capturedAt;
+    const offset = /^([+-])(\d{2}):(\d{2})$/.exec(String(tags.OffsetTimeOriginal ?? '').trim());
+    if (date instanceof Date && !Number.isNaN(date.getTime()) && offset) {
+      const minutes = (offset[1] === '-' ? -1 : 1) * (Number(offset[2]) * 60 + Number(offset[3]));
+      const wall = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), date.getHours(), date.getMinutes(), date.getSeconds());
+      instant = wall - minutes * 60_000;
+    }
     return {
       capturedAt,
+      instant,
       orientation: asNumber(tags.Orientation),
       width: asNumber(tags.ExifImageWidth) ?? asNumber(tags.ImageWidth),
       height: asNumber(tags.ExifImageHeight) ?? asNumber(tags.ImageHeight),
@@ -192,6 +203,7 @@ export async function analyzeFile(
     sizeBytes: file.size,
     // Seule la date des métadonnées est fiable. La date du fichier n'est jamais utilisée pour grouper.
     capturedAt: exif.capturedAt,
+    instant: exif.instant,
     dateSource: exif.capturedAt !== null ? 'exif' : 'absente',
     width: exif.width,
     height: exif.height,
