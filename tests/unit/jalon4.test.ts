@@ -174,7 +174,7 @@ describe('apprentissage et critères ajoutés depuis', () => {
   it('accepte des choix enregistrés avant l’ajout des nouveaux critères', () => {
     const old = (key: string, choice: 'garder' | 'supprimer', expression: number): ChoiceRecord =>
       ({ key, packKey: 'p', choice, baseScore: 0.8, at: 0, features: { expression } }) as unknown as ChoiceRecord;
-    const weights = learnWeights([old('a', 'garder', 1), old('b', 'supprimer', 0.4)]);
+    const weights = learnWeights(Array.from({ length: 60 }, (_, i) => [old(`a${i}`, 'garder', 1), old(`b${i}`, 'supprimer', 0.4)]).flat());
     for (const value of Object.values(weights)) expect(Number.isFinite(value)).toBe(true);
     expect(weights.expression).toBeGreaterThan(0);
   });

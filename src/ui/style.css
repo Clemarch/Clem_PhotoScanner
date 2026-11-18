@@ -201,6 +201,7 @@ dd { margin: 0; text-align: right; overflow-wrap: anywhere; font-variant-numeric
 .pastille { margin-left: 6px; min-width: 20px; padding: 0 6px; border-radius: 10px; background: var(--alerte); color: #1d0c07; font-size: 12px; line-height: 20px; }
 
 /* Écran « À supprimer » */
+.etapes { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 15px; }
 .mode-emploi ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 15px; }
 .titre-aide { display: flex; justify-content: space-between; align-items: center; background: none; border: 0; padding: 0; color: inherit; width: 100%; text-align: left; }
 .resume { font-size: 14px; color: var(--doux); margin-top: -4px; }

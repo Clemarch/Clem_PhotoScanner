@@ -242,11 +242,11 @@ export const config = {
      *  précédente est au moins de `similarPrevious`, et avec la première du groupe de `similarFirst`. */
     similarPrevious: 0.8,
     similarFirst: 0.7,
-    /** Prises en rafale (moins de `burstSeconds` d'écart, même nombre de visages) : même pose, sauf si la
-     *  ressemblance tombe sous `burstMinSimilar` (scène vraiment différente). Un zoom entre deux prises ne
-     *  change plus la pose (paquet de la plage du 17/11 : 4 poses pour 6 photos). */
-    burstSeconds: 4,
-    burstMinSimilar: 0.5,
+    /** Prises en rafale (moins de `burstSeconds` d'écart) : même pose, sauf si la ressemblance tombe sous
+     *  `burstMinSimilar` (scène vraiment différente). Le nombre de visages trouvés ne compte plus : de loin ou dans
+     *  l'eau, un visage est souvent manqué (paquet de la baignade du 18/11 : 4 poses pour 5 photos en 5 s). */
+    burstSeconds: 6,
+    burstMinSimilar: 0.6,
     /** Sans empreinte fine : empreinte de 8 x 8 pixels (0 = identiques, 1 = opposées). */
     fromPrevious: 0.1,
     fromFirst: 0.14,
@@ -256,12 +256,10 @@ export const config = {
     faceMove: 0.15,
   },
   selection: {
-    /** Seules les notes décident, sans nombre maximal de photos par pose (point 28 de `docs/decisions.md`).
-     *  À moins de `keepMargin` (sur 1) de la meilleure de sa pose : gardée, ex aequo.
-     *  À moins de `reviewMargin` : « à vérifier », l'utilisateur tranche ; gardée tant qu'il n'a rien dit.
-     *  Au-delà : à supprimer. */
-    keepMargin: 0.01,
-    reviewMargin: 0.03,
+    /** Une seule photo gardée par pose : la mieux notée (point 30 de `docs/decisions.md`). Les autres sont à
+     *  supprimer, sauf sur une photo de personnes où une autre est à moins de `reviewMargin` (sur 1) : elle est
+     *  « à vérifier » (une expression peut départager), gardée tant que l'utilisateur n'a rien dit. */
+    reviewMargin: 0.02,
     /** Deux photos dont l'empreinte diffère de moins de ceci sont des quasi-doublons : on n'en garde qu'une.
      *  Avec l'empreinte fine : ressemblance d'au moins `nearDuplicateSimilar`. */
     nearDuplicate: 0.015,
@@ -284,8 +282,11 @@ export const config = {
   },
   learning: {
     /** Ajustement maximal de la note apporté par l'apprentissage, et poids maximal d'un critère. */
-    maxAdjustment: 0.15,
+    maxAdjustment: 0.08,
     maxWeight: 0.3,
+    /** Confiance progressive : les poids appris sont multipliés par n / (n + trustChoices), n = nombre de choix.
+     *  Avec 42 choix, l'apprentissage du 18/11 décalait les notes de ±0,15, plus que l'écart entre deux photos. */
+    trustChoices: 150,
     /** Vitesse d'apprentissage, rappel vers zéro (évite de sur-apprendre sur peu de choix), passes sur les données. */
     rate: 0.5,
     regularization: 0.2,
