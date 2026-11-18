@@ -72,7 +72,9 @@ export function App() {
     setProgress({ done: 0, total: files.length, name: '' });
 
     const heapBeforeMB = readJsHeapMB();
-    const wake = await keepScreenAwake();
+    // Écran tenu allumé pendant toute l'analyse ; redemandé à chaque photo au cas où iOS l'aurait retiré.
+    const wake = keepScreenAwake();
+    await wake.ensure();
     const analyzer = createAnalyzer();
     let detector: FaceDetector | null = null;
     let faceError: string | null = null;
@@ -110,6 +112,7 @@ export function App() {
       const file = files[i]!;
       setProgress({ done: i, total: files.length, name: file.name });
       markProgress(i + 1, files.length);
+      void wake.ensure();
       const result = await analyzer.analyze(`m${i + 1}`, file);
       const frame = result.frame;
       result.frame = null;
@@ -183,6 +186,9 @@ export function App() {
     embedder?.close();
     classifier?.close();
     gestures?.close();
+    // À lire avant de relâcher : après, l'écran n'est évidemment plus tenu allumé.
+    const wakeActive = wake.active;
+    const wakeInfo = wake.describe();
     wake.release();
     clearProgress();
     const device = await readDeviceReport();
@@ -196,7 +202,8 @@ export function App() {
       originals,
       totalMs: performance.now() - startedAt,
       cancelled: cancelRef.current,
-      wakeLock: wake.active,
+      wakeLock: wakeActive,
+      wakeLockInfo: wakeInfo,
       heapBeforeMB,
       heapAfterMB: readJsHeapMB(),
       device,

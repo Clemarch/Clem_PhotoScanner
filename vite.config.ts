@@ -43,7 +43,7 @@ export default defineConfig({
       includeAssets: ['apple-touch-icon.png', 'icon.svg'],
       workbox: {
         // Le modèle de visages et son moteur sont mis en cache avec l'app : tout marche hors ligne.
-        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,wasm,task,tflite}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,wasm,task,tflite,mp4}'],
         maximumFileSizeToCacheInBytes: 25 * 1024 * 1024,
       },
       manifest: {

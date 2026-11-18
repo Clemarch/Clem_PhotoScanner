@@ -92,7 +92,7 @@ export function buildReport(session: Session, day: DayAnalysis, records: readonl
     `Objets : ${avg(session.results.flatMap((r) => (r.diagnostic.objectMs === null ? [] : [r.diagnostic.objectMs]))) === null ? 'non détectés' : `recherche moyenne ${formatMs(avg(session.results.flatMap((r) => (r.diagnostic.objectMs === null ? [] : [r.diagnostic.objectMs]))))}`}`,
     `Visages : ${session.faceError ? `INDISPONIBLE (${session.faceError})` : `${s.photosWithFaces} photos avec visage · recherche moyenne ${formatMs(s.avgFaceMs)}`}`,
     `Mémoire : ${session.heapAfterMB === null ? 'non mesurable sur ce navigateur' : `${session.heapBeforeMB?.toFixed(0)} → ${session.heapAfterMB.toFixed(0)} Mo`}`,
-    `Écran maintenu allumé : ${session.wakeLock ? 'oui' : 'non'} · analyse ${session.cancelled ? 'ANNULÉE' : 'terminée'}`,
+    `Écran maintenu allumé : ${session.wakeLock ? 'oui' : 'non'} (${session.wakeLockInfo}) · analyse ${session.cancelled ? 'ANNULÉE' : 'terminée'}`,
     '',
     'n° | nom | type (type déclaré) | taille | date de prise de vue | date du fichier | orientation | dimensions | décodage | netteté | erreur',
     '    puis : note, rang dans le paquet, raisons, et les mesures de chaque visage principal (de gauche à droite)',
