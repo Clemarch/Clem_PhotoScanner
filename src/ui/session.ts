@@ -13,6 +13,8 @@ export interface Session {
   totalMs: number;
   cancelled: boolean;
   wakeLock: boolean;
+  /** Méthode utilisée, reprises, ou raison de l'échec (pour le rapport). */
+  wakeLockInfo: string;
   heapBeforeMB: number | null;
   heapAfterMB: number | null;
   device: DeviceReport;

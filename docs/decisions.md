@@ -451,6 +451,16 @@ Retours de l'utilisateur, avec captures :
   6. *Apprentissage* : des poids touchent déjà leur plafond (équilibre +0,30) avec 76 choix, signe de bruit. Rester
      prudent : plafonds inchangés, et l'état « à vérifier » apporte des choix plus informatifs.
 
+### 30. Écran tenu allumé pendant l'analyse (18/11)
+
+- **Constat** : l'iPhone s'est mis en veille 2 à 3 fois pendant une analyse (rapport du 18/11 : « Écran maintenu
+  allumé : non », alors que le Wake Lock est géré par Safari). Le verrou n'était demandé qu'une fois, sans reprise,
+  et iOS le retire dès que la page passe en arrière-plan.
+- **Correction** (`keepScreenAwake`, `src/platform/device.ts`) : verrou système redemandé au retour au premier plan
+  et avant chaque photo ; si le système refuse, secours par une vidéo muette de 2 secondes (`public/nosleep.mp4`,
+  1,5 Ko, invisible, en boucle). Le rapport indique la méthode, le nombre de reprises et la raison d'un échec.
+- Pas encore testé sur iPhone : à vérifier avec une analyse longue (écran à ne pas toucher pendant 2 minutes).
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.
