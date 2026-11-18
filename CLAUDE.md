@@ -11,7 +11,7 @@ Décisions prises et écarts : `docs/decisions.md` — à mettre à jour à chaq
 - Tout reste sur l'iPhone : aucun appel réseau après l'installation, aucune télémétrie, modèles d'IA embarqués.
 - Pas d'ordinateur côté utilisateur : tout se teste sur iPhone via l'URL GitHub Pages.
 - Aucune suppression automatique. L'écran final rend la suppression la plus simple possible : bouton qui passe la
-  liste au raccourci « Photo Triage » (app Raccourcis), iOS demande confirmation (`docs/decisions.md`, point 30).
+  liste au raccourci « Photo Triage » (app Raccourcis), iOS demande confirmation (`docs/decisions.md`, point 31).
 - Jamais de photos dans le dépôt (`tests/fixtures/` est ignoré par git).
 - Interface en français, fluide, soignée, utilisable d'une main.
 - RAW repérés et mis de côté. Vidéos plus tard (`MediaItem.kind`). Live Photos non ciblées.
@@ -20,7 +20,7 @@ Décisions prises et écarts : `docs/decisions.md` — à mettre à jour à chaq
 - Esprit de la sélection : jugement relatif par paquet ; seules les notes décident. Plus de quota : retiré à la
   demande de l'utilisateur (17/11, « un paquet de 2 photos peut garder les 2 »). Au moins 1 photo gardée par paquet,
   sauf si toutes sont ratées (accord de l'utilisateur, 17/11). Une photo gardée par pose ; photos de personnes presque aussi
-  bonnes : « à vérifier », gardées tant que l'utilisateur n'a rien dit (18/11, `docs/decisions.md`, points 29 et 30).
+  bonnes : « à vérifier », gardées tant que l'utilisateur n'a rien dit (18/11, `docs/decisions.md`, points 29 et 31).
 
 ## Utilisateur
 

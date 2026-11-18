@@ -256,7 +256,7 @@ export const config = {
     faceMove: 0.15,
   },
   selection: {
-    /** Une seule photo gardée par pose : la mieux notée (point 30 de `docs/decisions.md`). Les autres sont à
+    /** Une seule photo gardée par pose : la mieux notée (point 31 de `docs/decisions.md`). Les autres sont à
      *  supprimer, sauf sur une photo de personnes où une autre est à moins de `reviewMargin` (sur 1) : elle est
      *  « à vérifier » (une expression peut départager), gardée tant que l'utilisateur n'a rien dit. */
     reviewMargin: 0.02,

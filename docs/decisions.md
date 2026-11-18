@@ -461,7 +461,7 @@ Retours de l'utilisateur, avec captures :
   1,5 Ko, invisible, en boucle). Le rapport indique la méthode, le nombre de reprises et la raison d'un échec.
 - Pas encore testé sur iPhone : à vérifier avec une analyse longue (écran à ne pas toucher pendant 2 minutes).
 
-### 30. Une photo par pose, poses moins découpées, apprentissage prudent, suppression par Raccourcis (18/11)
+### 31. Une photo par pose, poses moins découpées, apprentissage prudent, suppression par Raccourcis (18/11)
 
 Retours de l'utilisateur sur le rapport du 18/11 (44 photos) : « deux photos identiques gardées, c'est à l'app de
 trier » (bateau n° 19/20) ; « 4 photos gardées sur 5 alors qu'une seule suffit » (baignade n° 12 à 16) ; « je ne vais
