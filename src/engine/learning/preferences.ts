@@ -70,7 +70,9 @@ export function learnWeights(records: readonly ChoiceRecord[]): LearnedWeights {
       weights[name] = Math.max(-cfg.maxWeight, Math.min(cfg.maxWeight, weights[name]! + step / cfg.scale));
     }
   }
+  // Peu de choix : on n'en tire que des tendances prudentes.
+  const trust = records.length / (records.length + cfg.trustChoices);
   const result: LearnedWeights = {};
-  for (const name of FEATURE_NAMES) if (Math.abs(weights[name]!) >= 0.005) result[name] = weights[name]!;
+  for (const name of FEATURE_NAMES) if (Math.abs(weights[name]! * trust) >= 0.005) result[name] = weights[name]! * trust;
   return result;
 }

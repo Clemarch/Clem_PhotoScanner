@@ -461,6 +461,32 @@ Retours de l'utilisateur, avec captures :
   1,5 Ko, invisible, en boucle). Le rapport indique la méthode, le nombre de reprises et la raison d'un échec.
 - Pas encore testé sur iPhone : à vérifier avec une analyse longue (écran à ne pas toucher pendant 2 minutes).
 
+### 31. Une photo par pose, poses moins découpées, apprentissage prudent, suppression par Raccourcis (18/11)
+
+Retours de l'utilisateur sur le rapport du 18/11 (44 photos) : « deux photos identiques gardées, c'est à l'app de
+trier » (bateau n° 19/20) ; « 4 photos gardées sur 5 alors qu'une seule suffit » (baignade n° 12 à 16) ; « je ne vais
+pas supprimer moi-même les photos ».
+
+- **Une photo gardée par pose**, la mieux notée. « Ex aequo gardés » est retiré. « À vérifier » ne reste que pour les
+  photos de personnes, à moins de 0,02 de la meilleure (une expression peut départager). Paysages : l'app tranche.
+- **Poses moins découpées** : en rafale (6 s au plus entre deux photos), même pose si la ressemblance reste d'au moins
+  0,6, que les visages aient été trouvés ou non. La baignade (5 photos en 5 s) était coupée en 4 poses parce que les
+  visages, dans l'eau et de loin, étaient trouvés sur certaines photos seulement.
+- **Apprentissage prudent** : avec 42 choix (app réinstallée), il décalait les notes de ±0,15, plus que l'écart entre
+  deux photos d'une rafale, et dans des sens contradictoires (photo penchée préférée…). Les poids sont désormais
+  multipliés par n / (n + 150), n = nombre de choix, et l'ajustement plafonné à 0,08.
+- Estimation sur ce rapport : environ 19 photos gardées sur 43 au lieu de 30 (l'utilisateur en garde 13).
+- **Suppression par l'app Raccourcis** (contrainte « aucune suppression automatique » respectée : iOS demande
+  confirmation, et les photos restent 30 jours dans « Supprimés récemment ») : bouton « Supprimer les N photos » dans
+  « 2. Dans Photos ». Il ouvre le raccourci « Photo Triage » (créé une fois par l'utilisateur, marche à suivre dans
+  l'app) avec les noms des photos (nom du fichier sans extension, une par ligne). Le raccourci cherche chaque photo
+  par son nom (la plus récente si deux portent le même nom) puis les supprime en une fois. Une app web ne peut pas
+  supprimer elle-même : c'est le seul pont sans app native.
+- **App native** (question de l'utilisateur) : possible sans ordinateur en construisant l'app sur les serveurs de
+  GitHub (Mac loués) et en l'installant par TestFlight, mais il faut un compte développeur Apple (99 € par an) et une
+  réécriture partielle (accès direct à toute la photothèque, sans sélection, et suppression). Proposé seulement si
+  le pont Raccourcis ne suffit pas.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

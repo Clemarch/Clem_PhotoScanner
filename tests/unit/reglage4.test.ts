@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeDay, asideKind, scorePack, type FaceMetrics, type MediaItem } from '../../src/engine';
+import { analyzeDay, asideKind, groupPoses, scorePack, type FaceMetrics, type MediaItem } from '../../src/engine';
 
 const face = (x: number): FaceMetrics =>
   ({
@@ -89,5 +89,28 @@ describe('gestes (réglage 4)', () => {
       photo('b', 2000, { faces: [face(0.5)], hands: [{ gesture: 'Victory', score: 0.4, box: { x: 0, y: 0, width: 0.1, height: 0.1 } }] }),
     ]);
     expect(scores.get('a')!.score).toBeCloseTo(scores.get('b')!.score, 6);
+  });
+});
+
+describe('poses (réglage 6)', () => {
+  it('baignade du 18/11 (n° 12 à 16) : 5 photos en 5 s, visages trouvés ou non, une seule pose', () => {
+    const t = (a: number) => [Math.cos(a), Math.sin(a)];
+    const faces = [[face(0.2), face(0.6)], [], [face(0.4)], [face(0.4)], [face(0.3)]];
+    const items = [0, 0.68, 0, 0.68, 0].map((a, i) => photo(String(12 + i), 1000 * (i + 1), { embedding: t(a), faces: faces[i]! }));
+    expect(groupPoses(items)).toHaveLength(1);
+  });
+
+  it('une scène vraiment différente, même en rafale, change de pose', () => {
+    const items = [photo('a', 1000, { embedding: [1, 0] }), photo('b', 2000, { embedding: [0.4, 0.92] })];
+    expect(groupPoses(items)).toHaveLength(2);
+  });
+});
+
+describe('pont Raccourcis (réglage 6)', () => {
+  it('envoie les noms des photos sans extension, une par ligne, au raccourci « Photo Triage »', async () => {
+    const { shortcutUrl } = await import('../../src/platform/shortcut');
+    const url = shortcutUrl(['IMG_0654.jpeg', 'IMG_0657.HEIC']);
+    expect(url.startsWith('shortcuts://run-shortcut?name=Photo%20Triage&input=text&text=')).toBe(true);
+    expect(decodeURIComponent(url.split('text=')[1]!)).toBe('IMG_0654\nIMG_0657');
   });
 });

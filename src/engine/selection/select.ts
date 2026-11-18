@@ -48,20 +48,17 @@ export function selectPack(
     const groupKept = [best];
     set(best, { keep: true, code: 'meilleure' });
 
-    // Seules les notes comptent : ex aequo avec la meilleure de sa pose, la photo est gardée ; presque aussi bonne,
-    // elle est « à vérifier » (l'utilisateur tranche). On saute les quasi-doublons (deux fois la même photo).
+    // Une photo par pose : l'app tranche (demande de l'utilisateur, 18/11 : « deux photos identiques, c'est à l'app
+    // d'en supprimer une »). Seule exception : une photo de personnes presque aussi bien notée est « à vérifier ».
+    const people = (scores.get(best.id)?.expectedFaces ?? 0) > 0;
     for (const pick of candidates.slice(1)) {
       const twin = groupKept.find((k) => nearDuplicate(pick, k));
       const gap = scoreOf(best) - scoreOf(pick);
-      if (gap > cfg.reviewMargin + 1e-9) set(pick, { keep: false, code: 'moins-bonne', refId: best.id });
-      else if (twin) set(pick, { keep: false, code: 'trop-proche', refId: twin.id });
-      else if (gap <= cfg.keepMargin + 1e-9) {
-        groupKept.push(pick);
-        set(pick, { keep: true, code: 'aussi-bonne', refId: best.id });
-      } else {
+      if (twin) set(pick, { keep: false, code: 'trop-proche', refId: twin.id });
+      else if (people && gap <= cfg.reviewMargin + 1e-9) {
         groupKept.push(pick);
         set(pick, { keep: true, review: true, code: 'a-verifier', refId: best.id });
-      }
+      } else set(pick, { keep: false, code: 'moins-bonne', refId: best.id });
     }
   }
 

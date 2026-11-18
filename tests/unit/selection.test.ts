@@ -101,46 +101,32 @@ describe('groupes de pose', () => {
 describe('sélection', () => {
   const pose = (items: MediaItem[]) => groupPoses(items);
 
-  it('garde 2 photos sur 8 d’une même pose, les meilleures et différentes', () => {
+  it('une seule photo gardée par pose, la mieux notée (demande de l’utilisateur, 18/11)', () => {
     const items = Array.from({ length: 8 }, (_, i) => item(String(i + 1), i * 2, { signature: sig(110 + i * 4, 120, 120) }));
-    const scores = scoresOf({ '1': 0.9, '2': 0.7, '3': 0.95, '4': 0.93, '5': 0.6, '6': 0.8, '7': 0.92, '8': 0.5 });
+    const scores = scoresOf({ '1': 0.9, '2': 0.7, '3': 0.95, '4': 0.94, '5': 0.6, '6': 0.8, '7': 0.92, '8': 0.5 });
     const d = selectPack(items, scores, pose(items));
-    const kept = [...d].filter(([, x]) => x.keep).map(([id]) => id);
-    expect(kept).toHaveLength(2);
-    expect(kept).toContain('3');
+    expect([...d].filter(([, x]) => x.keep).map(([id]) => id)).toEqual(['3']);
     expect(d.get('3')!.code).toBe('meilleure');
-    expect(d.get('8')!.keep).toBe(false);
+    // Paysage (aucun visage attendu) : même une photo presque aussi bonne est à supprimer, l'app tranche.
+    expect(d.get('4')!.keep).toBe(false);
   });
 
-  it('la qualité d’abord : ne préfère jamais une photo moins bonne parce qu’elle est différente (pose B du 17/11)', () => {
-    // 9, 11 et 12 se ressemblent et sont les mieux notées ; 17 est différente mais moins bonne.
-    // Écart d'empreinte entre photos voisines : environ 0,017, comme dans le rapport (0,02 à 0,04).
-    const ids = ['9', '10', '11', '12', '13', '14', '15', '16', '17'];
+  it('deux photos identiques d’un paysage (bateau du 18/11, n° 19 et 20) : une seule gardée', () => {
+    const items = [item('19', 0, { signature: sig(60, 120, 120) }), item('20', 1, { signature: sig(62, 120, 120) })];
+    const d = selectPack(items, scoresOf({ '19': 0.99, '20': 1 }), pose(items));
+    expect([...d.values()].filter((x) => x.keep)).toHaveLength(1);
+    expect(d.get('20')!.keep).toBe(true);
+  });
+
+  it('photo de personnes presque aussi bien notée : « à vérifier », gardée tant que l’utilisateur n’a rien dit', () => {
+    const ids = ['9', '10', '11', '12'];
     const items = ids.map((id, i) => item(id, i * 2, { signature: sig(60 + i * 13, 120, 120) }));
-    const d = selectPack(
-      items,
-      scoresOf({ '9': 0.87, '10': 0.84, '11': 0.869, '12': 0.868, '13': 0.83, '14': 0.78, '15': 0.8, '16': 0.82, '17': 0.83 }),
-      pose(items),
-    );
-    // Seules les notes comptent : ex aequo (0,01) gardées, presque aussi bonnes (0,03) à vérifier, les autres non.
-    for (const id of ['9', '11', '12']) expect(d.get(id)).toMatchObject({ keep: true });
-    for (const id of ['11', '12']) expect(d.get(id)!.review).toBeUndefined();
+    const scores = scoresOf({ '9': 0.87, '10': 0.86, '11': 0.84, '12': 0.8 });
+    for (const s of scores.values()) s.expectedFaces = 2;
+    const d = selectPack(items, scores, pose(items));
+    expect(d.get('9')).toMatchObject({ keep: true, code: 'meilleure' });
     expect(d.get('10')).toMatchObject({ keep: true, review: true, code: 'a-verifier', refId: '9' });
-    for (const id of ['13', '17', '16', '14', '15']) expect(d.get(id)).toMatchObject({ keep: false, code: 'moins-bonne', refId: '9' });
-    expect([...d.values()].some((x) => (x.code as string) === 'budget' || (x.code as string) === 'plafond')).toBe(false);
-  });
-
-  it('seules les notes comptent : pas de nombre maximal de photos par pose', () => {
-    // 20 photos d'une même pose, 5 presque aussi bonnes que la meilleure : les 5 sont gardées (plafond : 5).
-    // Empreintes : chaque photo diffère de ses voisines (≥ 0,017) sans sortir de la pose (≤ 0,12 du premier).
-    const items = Array.from({ length: 20 }, (_, i) =>
-      item(String(i), i, { signature: sig(40 + 13 * (i % 5), 120 + 13 * Math.floor(i / 5), 120) }),
-    );
-    const values = Object.fromEntries(items.map((it, i) => [it.id, i < 5 ? 0.9 - i * 0.005 : 0.7]));
-    const d = selectPack(items, scoresOf(values), pose(items));
-    expect([...d.values()].filter((x) => x.keep)).toHaveLength(5);
-    expect(d.get('1')).toMatchObject({ keep: true, code: 'aussi-bonne', refId: '0' });
-    expect(d.get('10')).toMatchObject({ keep: false, code: 'moins-bonne', refId: '0' });
+    for (const id of ['11', '12']) expect(d.get(id)).toMatchObject({ keep: false, code: 'moins-bonne', refId: '9' });
   });
 
   it('ne garde pas une seconde photo trop moins bonne que la meilleure', () => {
@@ -179,18 +165,23 @@ describe('sélection', () => {
     expect(d.get('a')!.code).toBe('veto');
   });
 
-  it('sans quota : un paquet de 2 bonnes photos peut garder les 2 (demande de l’utilisateur, 17/11)', () => {
-    const items = [item('a', 0, { signature: sig(60, 120, 120) }), item('b', 2, { signature: sig(80, 120, 120) })];
-    const d = selectPack(items, scoresOf({ a: 0.9, b: 0.88 }), pose(items));
+  it('un paquet de 2 photos de poses différentes garde les 2', () => {
+    const items = [item('a', 0, { signature: sig(60, 120, 120) }), item('b', 30, { signature: sig(200, 40, 40) })];
+    const d = selectPack(items, scoresOf({ a: 0.9, b: 0.7 }), [
+      { id: 'p1', label: 'A', items: [items[0]!] },
+      { id: 'p2', label: 'B', items: [items[1]!] },
+    ]);
     expect([...d.values()].filter((x) => x.keep)).toHaveLength(2);
   });
 
   it('écarte un quasi-doublon d’après l’empreinte fine', () => {
     const v = (x: number) => [x, 1 - x, 0.3];
     const items = [item('a', 0, { embedding: v(0.6) }), item('b', 1, { embedding: v(0.6001) }), item('c', 2, { embedding: v(0.2) })];
-    const d = selectPack(items, scoresOf({ a: 0.9, b: 0.89, c: 0.89 }), [{ id: 'p', label: 'A', items }]);
+    const scores = scoresOf({ a: 0.9, b: 0.89, c: 0.89 });
+    for (const sc of scores.values()) sc.expectedFaces = 1;
+    const d = selectPack(items, scores, [{ id: 'p', label: 'A', items }]);
     expect(d.get('b')).toMatchObject({ keep: false, code: 'trop-proche', refId: 'a' });
-    expect(d.get('c')!.keep).toBe(true);
+    expect(d.get('c')).toMatchObject({ keep: true, review: true });
   });
 
   it('garde la photo seule d’un paquet', () => {
@@ -297,12 +288,13 @@ describe('apprentissage des goûts', () => {
 
   it('apprend qu’un critère compte quand l’utilisateur garde toujours la photo qui l’a', () => {
     // L'utilisateur garde les photos à couleurs vives, même un peu moins bien notées par l'app.
-    const records = [
-      record('a', 'garder', { couleurs: 0.9 }, 0.78),
-      record('b', 'supprimer', { couleurs: 0.3 }, 0.82),
-      record('c', 'garder', { couleurs: 1 }, 0.75, 'p2'),
-      record('d', 'supprimer', { couleurs: 0.4 }, 0.8, 'p2'),
-    ];
+    // Préférence constante sur 100 paquets : l'apprentissage, prudent avec peu de choix, s'y fie.
+    const records = Array.from({ length: 50 }, (_, i) => [
+      record(`a${i}`, 'garder', { couleurs: 0.9 }, 0.78, `p${i}`),
+      record(`b${i}`, 'supprimer', { couleurs: 0.3 }, 0.82, `p${i}`),
+      record(`c${i}`, 'garder', { couleurs: 1 }, 0.75, `q${i}`),
+      record(`d${i}`, 'supprimer', { couleurs: 0.4 }, 0.8, `q${i}`),
+    ]).flat();
     const weights = learnWeights(records);
     expect(weights.couleurs).toBeGreaterThan(0.05);
     const vivid = learnedAdjustment(features({ couleurs: 1 }), weights);
@@ -319,6 +311,9 @@ describe('apprentissage des goûts', () => {
     ]).flat();
     const weights = learnWeights(many);
     expect(Math.abs(weights.sourire!)).toBeLessThanOrEqual(0.4);
+    // Peu de choix (4) : ajustement minime.
+    const few = learnWeights(many.slice(0, 4));
+    expect(Math.abs(learnedAdjustment(features({ sourire: 1 }), few))).toBeLessThan(0.02);
     expect(Math.abs(learnedAdjustment(features({ sourire: 1 }), weights))).toBeLessThanOrEqual(0.2);
   });
 });
