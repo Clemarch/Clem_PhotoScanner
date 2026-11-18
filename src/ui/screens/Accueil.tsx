@@ -77,7 +77,7 @@ export function Accueil({ onFiles, interrupted }: Props) {
             }}
           />
         </label>
-        <p className="note">Version de test · jalon 4 · réglage 6 quater (raccourci par comparaison des noms)</p>
+        <p className="note">Version de test · jalon 4 · réglage 6 quinquies (raccourci : nom + heure)</p>
       </div>
     </main>
   );

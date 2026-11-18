@@ -80,7 +80,7 @@ export function ASupprimer({ session, day, choices, onChoose, onComment }: Props
             className="bouton principal"
             onClick={() => {
               const pending = todo.filter((p) => !done.has(p.pack.key));
-              runShortcut(pending.flatMap((p) => p.remove.map((item) => item.fileName)));
+              runShortcut(pending.flatMap((p) => p.remove.map((item) => ({ fileName: item.fileName, at: item.instant ?? item.capturedAt }))));
               setDone((set) => new Set([...set, ...pending.map((p) => p.pack.key)]));
             }}
           >

@@ -107,14 +107,19 @@ describe('poses (réglage 6)', () => {
 });
 
 describe('pont Raccourcis (réglage 6)', () => {
-  it('envoie les noms des photos sans extension, entre chevrons, une par ligne, au raccourci « Photo Triage »', async () => {
-    const { shortcutUrl } = await import('../../src/platform/shortcut');
-    const url = shortcutUrl(['IMG_0654.jpeg', 'IMG_0657.HEIC']);
+  it('envoie « <nom|date à la seconde> » par photo au raccourci « Photo Triage » (les noms seuls ne sont pas uniques)', async () => {
+    const { shortcutUrl, shortcutDate } = await import('../../src/platform/shortcut');
+    const at = new Date(2026, 10, 18, 22, 45, 12, 640).getTime();
+    const url = shortcutUrl([
+      { fileName: 'IMG_0696.jpeg', at },
+      { fileName: 'IMG_0697.HEIC', at: at + 1000 },
+      { fileName: 'IMG_0698.jpeg', at: null },
+    ]);
     expect(url.startsWith('shortcuts://run-shortcut?name=Photo%20Triage&input=text&text=')).toBe(true);
     const text = decodeURIComponent(url.split('text=')[1]!);
-    expect(text).toBe('<IMG_0654>\n<IMG_0657>');
-    // Correspondance exacte : « <IMG_065> » ou « <IMG_06541> » ne sont pas dans le texte.
-    expect(text.includes('<IMG_065>')).toBe(false);
-    expect(text.includes('<IMG_0654>')).toBe(true);
+    expect(text).toBe('<IMG_0696|2026-11-18 22:45:12>\n<IMG_0697|2026-11-18 22:45:13>');
+    expect(shortcutDate(at)).toBe('2026-11-18 22:45:12');
+    // Une autre photo nommée IMG_0696, prise un autre jour, ne correspond pas.
+    expect(text.includes('<IMG_0696|2025-03-02 10:00:00>')).toBe(false);
   });
 });

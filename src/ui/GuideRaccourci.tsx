@@ -3,8 +3,8 @@ import { SHORTCUT_DAYS, SHORTCUT_NAME } from '../platform/shortcut';
 
 /**
  * Marche à suivre, une seule fois, pour créer le raccourci qui supprime les photos (app Raccourcis d'Apple).
- * Le raccourci parcourt les photos récentes et ne garde que celles dont le nom, entouré de chevrons, est dans la liste
- * envoyée par l'app (correspondance exacte).
+ * Le raccourci parcourt les photos récentes et ne garde que celles dont « <nom|date à la seconde> » est dans la liste
+ * envoyée par l'app (correspondance exacte ; les noms seuls ne sont pas uniques).
  */
 export function GuideRaccourci({ open = false }: { open?: boolean }) {
   const [shown, setShown] = useState(open);
@@ -34,10 +34,19 @@ export function GuideRaccourci({ open = false }: { open?: boolean }) {
             répétition</strong> » (touchez le mot bleu pour le choisir si besoin).
           </li>
           <li>
+            Dessous, ajoutez <strong>Obtenir les détails des images</strong> : « Obtenir <strong>Date de prise de
+            vue</strong> de <strong>Élément de répétition</strong> ».
+          </li>
+          <li>
+            Dessous, ajoutez <strong>Formater la date</strong> (de « Date de prise de vue ») : format de date{' '}
+            <strong>Personnalisé</strong>, chaîne de format exactement <strong>yyyy-MM-dd HH:mm:ss</strong>.
+          </li>
+          <li>
             Dessous, ajoutez <strong>Si</strong>. Réglez : « Si <strong>Entrée de raccourci</strong>{' '}
-            <strong>contient</strong> … ». Dans la case de droite, tapez le signe <strong>&lt;</strong>, touchez la
-            variable <strong>Nom</strong> au-dessus du clavier, puis tapez <strong>&gt;</strong>. La case affiche
-            « &lt;Nom&gt; » : seule une photo au nom exactement dans la liste correspond.
+            <strong>contient</strong> … ». Dans la case de droite, tapez <strong>&lt;</strong>, touchez la variable{' '}
+            <strong>Nom</strong>, tapez <strong>|</strong> (barre verticale), touchez la variable{' '}
+            <strong>Date formatée</strong>, puis tapez <strong>&gt;</strong>. La case affiche « &lt;Nom|Date
+            formatée&gt; » : une photo ne correspond que si son nom et son heure, à la seconde, sont dans la liste.
           </li>
           <li>
             Entre « Si » et « Sinon », ajoutez <strong>Ajouter à la variable</strong> : « Ajouter{' '}

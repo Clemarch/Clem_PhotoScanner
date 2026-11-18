@@ -497,6 +497,14 @@ nom de chevrons (« <IMG_0696> ») : la correspondance est exacte (pas de « con
 l'utilisateur). L'iPhone demande toujours confirmation, avec le nombre de photos. Au-delà de 14 jours, l'app prévient
 que le raccourci ne les trouvera pas.
 
+**Complément (18/11, soir)** : l'utilisateur a constaté que six photos de sa photothèque s'appellent « IMG_0696 »
+(le compteur de l'iPhone repart à zéro, photos reçues…). Le nom seul ne suffit donc pas, d'où les échecs. L'app
+envoie désormais « <IMG_0696|2026-11-18 22:45:12> » : nom et heure de prise de vue à la seconde, dans le fuseau
+actuel de l'iPhone. Elle tient compte du fuseau du lieu de la photo (`OffsetTimeOriginal`), pour qu'une photo prise en
+voyage soit bien retrouvée. Le raccourci forme la même clé avec « Obtenir le nom », « Date de prise de vue » et
+« Formater la date » (format yyyy-MM-dd HH:mm:ss). Si une heure ne correspond pas, la photo n'est pas trouvée, donc
+pas supprimée : l'erreur possible est toujours du côté prudent.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.
