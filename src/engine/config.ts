@@ -109,6 +109,10 @@ export const config = {
     /** Objet gênant (frisbee, ballon…) : retenu seulement au-dessus de ce score (un frisbee imaginaire à 0,45–0,64
      *  sur des photos de randonnée, 19/11). */
     distractionMinScore: 0.7,
+    /** Objets qui font partie du sujet (planche de surf tenue entre deux personnes, 19/11 : « il faut la voir comme
+     *  une 3e personne ») : quand l'un d'eux est sur la photo, ce qui passe devant les personnes n'est pas un défaut. */
+    subjectObjects: ['surfboard', 'skis', 'snowboard', 'skateboard', 'bicycle', 'dog', 'cat', 'horse', 'kite', 'sports ball'] as string[],
+    subjectObjectMinScore: 0.5,
     /** Un objet gênant est compté s'il touche la zone des personnes, ou s'il occupe au moins cette part de l'image. */
     largeObjectArea: 0.04,
     /** Zone des personnes autour d'un visage : largeur et hauteur en multiples de la taille du visage. */
@@ -175,10 +179,15 @@ export const config = {
   segmentation: {
     /** Largeur des bandes de bord examinées (part du petit côté de l'image). */
     band: 0.03,
+    /** Bas de l'image ignoré : jambes coupées par le bas ou les coins du bas, c'est le cadre naturel (utilisateur,
+     *  19/11). Seuls les bords gauche et droit, au-dessus de cette part de la hauteur, comptent (mains, bras). */
+    ignoreBottom: 0.3,
     /** Peau du corps au bord en plus de la photo du groupe qui en a le moins : début et pleine pénalité.
      *  Essai : 0 % sur un portrait entier, 5,5 % sur le même portrait coupé au milieu des mains. */
-    edgeSkinFrom: 0.015,
-    edgeSkinFull: 0.05,
+    /** Doublés le 19/11 : sans le bas de l'image, la zone examinée est deux fois plus petite (même main coupée →
+     *  part deux fois plus grande). Valeurs d'avant : 0,015 et 0,05. */
+    edgeSkinFrom: 0.03,
+    edgeSkinFull: 0.1,
     edgePenalty: 0.2,
     /** Visage masqué : baisse de la part de peau dans la boîte du visage, par rapport à la même personne sur les
      *  autres photos (0,2 = un cinquième de peau en moins), début et pleine échelle. */
@@ -268,7 +277,8 @@ export const config = {
     fromFirst: 0.14,
     /** Au-delà de cet écart de temps (secondes) entre deux photos, nouveau groupe. */
     gapSeconds: 20,
-    /** Un visage qui se déplace de plus de cette part de l'image change la pose. */
+    /** Un visage qui se déplace de plus de cette part de l'image change la pose, sauf en rafale quand les photos se
+     *  ressemblent au moins à `similarPrevious` (cadrage qui bouge, même pose : paquet 1 du 19/11). */
     faceMove: 0.15,
     /** Paysage sans personne : même pose, quel que soit l'écart de temps, si la ressemblance avec la photo précédente
      *  et avec la première du groupe atteint ce seuil. */
@@ -351,7 +361,7 @@ export const config = {
   scoring: {
     /** Note d'un visage. Le contenu d'abord : l'expression domine. Le regard compte peu,
      *  car regarder au loin peut faire une très belle photo. */
-    faceWeights: { eyes: 0.15, gaze: 0.12, expression: 0.55, sharpness: 0.18 },
+    faceWeights: { eyes: 0.15, gaze: 0, expression: 0.67, sharpness: 0.18 },
     /** Photo de plusieurs personnes : tout le monde doit regarder l'objectif (utilisateur, 19/11 : « seul, on peut
      *  regarder ailleurs ; en groupe, il faut que les gens regardent »). */
     groupFaceWeights: { eyes: 0.15, gaze: 0.3, expression: 0.4, sharpness: 0.15 },
@@ -378,6 +388,9 @@ export const config = {
     unanalyzedFacePenalty: 0.06,
     /** Veto : yeux considérés fermés sous cette note d'ouverture. */
     eyesClosedBelow: 0.3,
+    /** Personne seule, tête nettement baissée ou levée (degrés) : les paupières paraissent fermées sans l'être ; c'est
+     *  un regard ailleurs, permis quand on est seul (photo 3 du 19/11, tête baissée de 42°, gardée). */
+    lookAwayPitchDeg: 25,
     /** Ouverture habituelle (médiane sur le groupe) en dessous de laquelle une personne a les yeux plissés partout :
      *  ses yeux « fermés » ne sont alors pas un clignement (P2 du 18/11 : médiane 0,40, photos gardées). */
     squintUsualBelow: 0.6,

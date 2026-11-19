@@ -646,6 +646,32 @@ Demandes de l'utilisateur après le réglage 9, validées point par point avant 
   restauration, un vrai choix l'emporte toujours sur un accord silencieux ; l'alerte « goûts perdus » ne compte que
   les vrais choix et se remet à zéro après « Oublier mes choix » ; l'interrupteur des paquets est gardé sur l'iPhone.
 
+### 39. Retours du 19/11 au soir : planche de surf, regard seul, poses, jambes, netteté du visage, comparaison
+
+Rapport de 38 photos (surf), accord 7/23 :
+
+- **Objet qui fait partie du sujet** (planche de surf entre deux personnes : « il faut la voir comme une 3e
+  personne ») : quand une planche, des skis, un vélo, un chien… est détecté (≥ 0,5), « objet devant la personne » ne
+  compte plus (`config.content.subjectObjects`).
+- **Personne seule** : elle peut regarder ailleurs. Le regard ne compte plus dans sa note (poids 0) ; tête baissée ou
+  levée de 25° ou plus, des paupières « fermées » ne sont pas un clignement (photo 3, tête baissée de 42°, gardée).
+  En groupe, rien ne change : tout le monde doit regarder.
+- **Même pose malgré un cadrage qui bouge** : en rafale, des photos très ressemblantes (≥ 0,8) restent dans la même
+  pose même si le visage se déplace dans l'image (paquet 1 : la photo 1 était seule en pose A et gardée d'office).
+- **Jambes coupées par le bas** : cadre naturel, plus un défaut. Seuls les bords gauche et droit, hors du bas de
+  l'image, comptent (mains, bras coupés).
+- **Netteté** : avec des personnes, c'est la netteté des visages qui compte, plus celle de l'image entière.
+  La comparaison ne parle plus de « l'image plus nette » quand il y a des visages : c'était l'incohérence relevée
+  (une photo « plus nette » mais moins bien notée, à cause d'un arrière-plan plus net).
+- **Comparaison côte à côte** : gauche (jaune) et droite (bleu), note sur 100, « Garder celle-ci », puis un tableau
+  « Pourquoi ces notes » avec chaque critère qui diffère (le meilleur en vert) et la part des goûts appris.
+- **Visionneuse** : la bande de miniatures du paquet reste visible après « Garder » ou « Supprimer ».
+- **Légende** sous le résumé : étoile = meilleure de sa pose, coche = gardée, ? = à départager, croix = à supprimer.
+- **Relecture** : l'objet-sujet doit toucher la zone d'une personne et vaut pour tout le groupe de pose (une planche
+  manquée sur une photo n'y devient pas « objet devant ») ; « tête baissée » se juge par rapport à l'objectif (un
+  selfie pris d'en haut reste vérifié pour les clignements) ; la comparaison ne montre plus le regard comme une raison
+  quand la personne est seule, et les photos y sont affichées entières (zones qui changent bien placées).
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

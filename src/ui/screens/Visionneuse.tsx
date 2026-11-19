@@ -254,7 +254,8 @@ export function Visionneuse({ entries, start, previews, originals, thumbnails, c
         )}
       </div>
 
-      <section className="vis-infos">
+      {/* Bande des photos du paquet hors de la zone qui défile : toujours visible, même après un choix. */}
+      <div className="vis-panneau">
         {pack && pack.pack.items.length > 1 && (
           <div className="bande" ref={strip} role="list" aria-label="Photos du paquet">
             {pack.pack.items.map((it) => {
@@ -279,6 +280,7 @@ export function Visionneuse({ entries, start, previews, originals, thumbnails, c
             })}
           </div>
         )}
+      <section className="vis-infos">
         <p className="vis-titre">
           {number !== null ? `Photo n° ${number}` : entry.aside ? 'Mise de côté' : 'Photo sans date'}
           {item.capturedAt !== null && ` · ${formatTime(item.capturedAt)}`}
@@ -352,6 +354,7 @@ export function Visionneuse({ entries, start, previews, originals, thumbnails, c
           </button>
         )}
       </section>
+      </div>
       {commenting && (
         <Commentaire
           initial={choices.byKey.get(photoKey(item))?.comment ?? ''}

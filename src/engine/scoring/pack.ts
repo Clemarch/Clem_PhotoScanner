@@ -4,7 +4,7 @@
 // Ce qui est recherché dépend du type de photo (selfie, portrait, groupe, paysage, coucher de soleil).
 
 import { config } from '../config';
-import { analyzeContent, compareFaces, countSubjects, recurringPersons, subjectPersons } from '../analysis/content';
+import { analyzeContent, compareFaces, countSubjects, holdsSubjectObject, recurringPersons, subjectPersons } from '../analysis/content';
 import { mainFaces } from '../analysis/faces';
 import { tiltDefect, tiltReliable } from '../analysis/framing';
 import { classifyPack, exposureBalance, seenFromPlane } from '../analysis/scene';
@@ -64,6 +64,8 @@ interface GroupContext {
   slotEyes: number[][];
   changesOf: Map<string, { occlusion: number[]; front: number[]; brightness: number[] }>;
   knownSubjects: ReturnType<typeof subjectPersons>;
+  /** Un objet qui fait partie du sujet (planche, vélo, chien) touche les personnes sur au moins une photo du groupe. */
+  holdsSubject: boolean;
   sharpest: MediaItem | null;
   bestAesthetic: number;
 }
@@ -126,6 +128,9 @@ export function scorePackDetailed(
         ...group.flatMap((item) => subjectPersons(facesOf.get(item.id)!, item.objects)),
         ...recurringPersons(group.map((item) => item.objects)),
       ],
+      // Décidé sur tout le groupe : le détecteur rate parfois la planche sur une photo, où elle passerait pour un
+      // objet devant la personne.
+      holdsSubject: group.some((item) => holdsSubjectObject(facesOf.get(item.id)!, item.objects)),
       sharpest: group.reduce<MediaItem | null>(
         (best, item) => ((item.sharpness ?? -1) > (best?.sharpness ?? -1) ? item : best),
         null,
@@ -306,7 +311,8 @@ export function scorePackDetailed(
           return seg ?? colorOccl[slot] ?? 0;
         });
         occlusion = Math.max(0, ...occl);
-        front = Math.max(0, ...(change?.front ?? [0]));
+        // Objet qui fait partie du sujet (planche de surf, vélo, chien) : ce qui passe devant n'est pas un défaut.
+        front = ctx.holdsSubject ? 0 : Math.max(0, ...(change?.front ?? [0]));
         faceBrightness = Math.min(1, ...(change?.brightness ?? [1]));
         const quality = faces.map(
           (face, i) =>
@@ -321,6 +327,8 @@ export function scorePackDetailed(
         poseF = Math.max(...faces.map((f) => f.pout));
         gazeF = Math.min(...faces.map((f) => f.gaze));
         faceSharpF = Math.min(...ratios.map(sharpEnough));
+        // La netteté qui compte est celle des visages, pas celle de l'arrière-plan (utilisateur, 19/11).
+        technique = faceSharpF;
 
         // Visages manquants : caché, ou simplement non analysé si la personne est bien là (tête tournée…).
         const missing = Math.max(0, expected - faces.length);
@@ -343,7 +351,11 @@ export function scorePackDetailed(
           const others = self >= 0 ? [...values.slice(0, self), ...values.slice(self + 1)] : values;
           return others[Math.floor(others.length / 2)] ?? 1;
         };
-        const shut = faces.map((face) => face.eyesOpen < cfg.eyesClosedBelow);
+        // Seul sur la photo, tête baissée ou levée par rapport à l'objectif : regard ailleurs, permis ; les paupières y
+        // paraissent fermées. Écart à l'objectif, pas inclinaison brute : un selfie pris d'en haut, tête levée vers le
+        // téléphone, regarde l'objectif et un clignement y reste un clignement.
+        const lookingAway = (face: FaceMetrics) => expected === 1 && Math.abs(face.offAxisVDeg) >= cfg.lookAwayPitchDeg;
+        const shut = faces.map((face) => face.eyesOpen < cfg.eyesClosedBelow && !lookingAway(face));
         const squinter = faces.map((face, i) => usualEyes(face, i) < cfg.squintUsualBelow);
         if (shut.some((closed, i) => closed && !squinter[i])) {
           vetoed = true;

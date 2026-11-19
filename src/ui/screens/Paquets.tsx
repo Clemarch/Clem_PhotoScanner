@@ -158,6 +158,32 @@ export function Paquets({ session, day, gap, onJoin, onNewDay, choices, previous
         </div>
       )}
 
+      {totals.total > 0 && (
+        <p className="legende" aria-label="Légende">
+          <span>
+            <i className="etoile-l">
+              <IconEtoile size={9} />
+            </i>
+            meilleure de sa pose
+          </span>
+          <span>
+            <i className="garder">
+              <IconCoche size={9} />
+            </i>
+            gardée
+          </span>
+          <span>
+            <i className="verifier">?</i>à départager
+          </span>
+          <span>
+            <i className="supprimer">
+              <IconCroix size={8} />
+            </i>
+            à supprimer
+          </span>
+        </p>
+      )}
+
       {hint && (
         <div className="astuce">
           <p>

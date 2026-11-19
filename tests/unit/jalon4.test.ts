@@ -58,11 +58,13 @@ describe('silhouette : mesures', () => {
   // Masque 20 x 20 : 0 fond, 2 peau du corps, 3 peau du visage.
   const mask = (fill: (x: number, y: number) => number) => Uint8Array.from({ length: 400 }, (_, i) => fill(i % 20, Math.floor(i / 20)));
 
-  it('mesure la peau du corps qui touche les bords bas, gauche et droit', () => {
+  it('mesure la peau du corps qui touche les bords gauche et droit, pas le bas (jambes coupées : cadre naturel, 19/11)', () => {
     expect(measureSegmentation(mask(() => 0), 20, 20, []).edgeBodySkin).toBe(0);
-    // Une main coupée en bas : 4 pixels de peau sur la dernière ligne.
-    const cut = measureSegmentation(mask((x, y) => (y === 19 && x >= 8 && x < 12 ? 2 : 0)), 20, 20, []);
-    expect(cut.edgeBodySkin).toBeCloseTo(4 / 58, 3);
+    // Jambes coupées par le bas : ne comptent pas.
+    expect(measureSegmentation(mask((x, y) => (y === 19 && x >= 8 && x < 12 ? 2 : 0)), 20, 20, []).edgeBodySkin).toBe(0);
+    // Une main coupée par le bord gauche, en haut de l'image : 4 pixels sur les 28 des bords examinés (14 lignes × 2).
+    const cut = measureSegmentation(mask((x, y) => (x === 0 && y >= 2 && y < 6 ? 2 : 0)), 20, 20, []);
+    expect(cut.edgeBodySkin).toBeCloseTo(4 / 28, 3);
     // De la peau au milieu de l'image ne compte pas.
     expect(measureSegmentation(mask((x, y) => (x > 5 && x < 15 && y > 5 && y < 15 ? 2 : 0)), 20, 20, []).edgeBodySkin).toBe(0);
   });

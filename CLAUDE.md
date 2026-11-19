@@ -23,7 +23,8 @@ Décisions prises et écarts : `docs/decisions.md` — à mettre à jour à chaq
   sauf si toutes sont ratées (accord de l'utilisateur, 17/11). Dans une pose : la meilleure, plus celles nettement
   différentes (tête, expression, geste, personnes, cadrage), bonnes et sans défaut ; identiques : supprimées (19/11,
   point 37). Presque aussi bonnes et un peu différentes : « à vérifier », gardées tant que l'utilisateur n'a rien dit
-  (points 29 et 31). En groupe, tout le monde doit regarder ; seule, une personne peut regarder ailleurs.
+  (points 29 et 31). En groupe, tout le monde doit regarder ; seule, une personne peut regarder ailleurs (point 39).
+  Netteté jugée sur les visages ; jambes coupées par le bas : cadre naturel ; objet tenu (planche…) : partie du sujet.
 
 ## Utilisateur
 
