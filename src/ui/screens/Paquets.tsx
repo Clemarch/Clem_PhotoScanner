@@ -106,6 +106,13 @@ export function Paquets({ session, day, gap, onGap, onJoin, onNewDay, choices, p
         </p>
       </header>
 
+      {session.restored && (
+        <p className="info">
+          Séance reprise : l’iPhone avait fermé l’app pendant que vous étiez ailleurs. Vos choix et commentaires sont
+          conservés. Seule différence : le zoom montre l’aperçu, pas la photo d’origine.
+        </p>
+      )}
+
       {session.faceError && (
         <p className="alerte">
           La recherche de visages ou d’objets n’a pas pu démarrer : le classement est moins fiable. Copiez le rapport de

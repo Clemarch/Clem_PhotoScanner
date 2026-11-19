@@ -99,7 +99,7 @@ export function Accueil({ onFiles, interrupted, reports, lastRun, records, onRes
             }}
           />
         </label>
-        <p className="note">Version de test · jalon 4 · réglage 8 (sauvegarde, séances, comparer)</p>
+        <p className="note">Version de test · jalon 4 · réglage 8 bis (séance reprise, commentaire facile)</p>
       </div>
     </main>
   );

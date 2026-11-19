@@ -566,6 +566,25 @@ Plan et audit des risques : `docs/jalon-5.md`.
   entourées (alignement ± 6 %, écarts de couleur par case), différences mesurées en clair, et « Garder l'une,
   supprimer l'autre » d'un toucher.
 
+### 36. Séance perdue au retour d'une autre app, commentaire difficile à saisir (19/11)
+
+- **Constat** : l'utilisateur a quitté l'app pour une autre ; au retour, l'app était revenue à l'accueil (séance
+  perdue), avec « 0 choix » et « jamais sauvegardés ».
+- **Cause certaine de la séance perdue** : iOS ferme en arrière-plan les apps web qui prennent de la mémoire ; au
+  retour, la page est rechargée et la séance n'existait qu'en mémoire. **Correction** : la séance (mesures,
+  vignettes, aperçus, réglages) est enregistrée sur l'iPhone (IndexedDB, base version 3) et reprise d'elle-même au
+  lancement suivant, pendant 14 jours ou jusqu'à la séance suivante. Seule perte : le zoom montre l'aperçu et non la
+  photo d'origine (qu'une app web ne peut pas relire après fermeture).
+- **Choix et réglages disparus** : la base IndexedDB et le stockage local étaient vides tous les deux, ce qui ne
+  s'explique pas par la fermeture seule. Causes possibles : icône de l'app supprimée puis remise sur l'écran
+  d'accueil (chaque icône a son propre stockage), ou base inaccessible. **Protections** : copie de secours des
+  choix dans le stockage local (reprise automatique si la base est vide ou illisible) ; mise à jour de base qui ne
+  peut plus rester bloquée ; état du stockage dans le rapport (base, choix repris, séance reprise) ; et la
+  sauvegarde iCloud permet de tout restaurer.
+- **Commentaire** : la case était tout en bas du panneau, difficile à atteindre. Remplacée par un bouton juste sous
+  « À garder / À supprimer », qui ouvre une fenêtre en haut de l'écran (au-dessus du clavier) avec des raisons
+  fréquentes à toucher (« Meilleur sourire », « Yeux fermés », « Main ou pied coupé »…).
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

@@ -240,3 +240,14 @@ dd { margin: 0; text-align: right; overflow-wrap: anywhere; font-variant-numeric
 .comp-fermer { position: absolute; top: calc(env(safe-area-inset-top) + 8px); left: 12px; width: 44px; height: 44px; border-radius: 22px; background: rgba(255, 255, 255, 0.15); color: var(--texte); display: flex; align-items: center; justify-content: center; font-size: 18px; }
 .vis-comparer { align-self: center; }
 .jour { margin: 8px 4px -4px; font-size: 15px; color: var(--accent); text-transform: capitalize; }
+
+/* Commentaire : fenêtre en haut de l'écran, au-dessus du clavier */
+.vis-infos { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+.commentaire-bouton { min-height: 46px; font-size: 15px; font-weight: 500; justify-content: flex-start; padding: 0 14px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.feuille-fond { position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, 0.55); }
+.feuille-com { position: absolute; left: 0; right: 0; top: 0; background: var(--carte); border-radius: 0 0 20px 20px; padding: calc(env(safe-area-inset-top) + 10px) 16px 16px; display: flex; flex-direction: column; gap: 12px; }
+.feuille-haut { display: flex; align-items: center; justify-content: space-between; }
+.feuille-haut .lien { text-decoration: none; font-size: 16px; padding: 8px 4px; }
+.lien.fort { color: var(--accent); font-weight: 700; }
+.puces { display: flex; flex-wrap: wrap; gap: 8px; }
+.puces .puce { font-size: 15px; padding: 6px 12px; }
