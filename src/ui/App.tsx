@@ -10,9 +10,10 @@ import {
   type InterruptedRun,
 } from '../platform/device';
 import type { AnalyzeResult } from '../platform/image/types';
-import { analyzeDay, config, learnWeights, measureFace, measureSegmentation, photoKey, sortChronologically, type ChoiceRecord, type MediaItem, type PackAnalysis } from '../engine';
+import { analyzeDay, config, learnWeights, mergeChoices, measureFace, measureSegmentation, photoKey, sortChronologically, type ChoiceRecord, type MediaItem, type PackAnalysis } from '../engine';
 import { clearChoices, loadChoices, removeChoice, saveChoice } from '../platform/storage/choices';
 import { loadReports, saveReport, type SavedReport } from '../platform/storage/reports';
+import { loadLastRun, saveLastRun, type LastRun } from '../platform/storage/lastRun';
 import { buildReport } from './report';
 import { formatDate } from './format';
 import { makeRecord, type Choice, type Choices } from './choices';
@@ -51,6 +52,8 @@ export function App() {
   // Paquets rattachés à la main au paquet précédent (pour cette journée).
   const [joined, setJoined] = useState<Set<string>>(new Set());
   const [reports, setReports] = useState<SavedReport[]>([]);
+  // Séance précédente (pour reprendre au bon endroit) et séance en cours.
+  const [runs, setRuns] = useState<{ previous: LastRun | null; latest: LastRun | null }>(() => ({ previous: null, latest: loadLastRun() }));
 
   useEffect(() => {
     setInterrupted(readInterruptedRun());
@@ -217,6 +220,12 @@ export function App() {
     // Ordre de la journée : le numéro d'une photo est le même dans les deux onglets.
     const order = new Map(sortChronologically(results.map((r) => r.item)).map((item, i) => [item.id, i]));
     results.sort((a, b) => order.get(a.item.id)! - order.get(b.item.id)!);
+    const dated = results.map((r) => r.item.capturedAt).filter((t): t is number => t !== null);
+    if (dated.length > 0 && !cancelRef.current) {
+      const run: LastRun = { firstAt: Math.min(...dated), lastAt: Math.max(...dated), photos: results.length, doneAt: Date.now() };
+      saveLastRun(run);
+      setRuns((r) => ({ previous: r.latest, latest: run }));
+    }
     setSession({
       id: String(Date.now()),
       results,
@@ -234,6 +243,15 @@ export function App() {
     });
     setProgress(null);
     setTab('paquets');
+  };
+
+  // Restauration d'une sauvegarde : fusion, rien n'est effacé ; le choix le plus récent l'emporte.
+  const restore = async (incoming: ChoiceRecord[]) => {
+    const { merged, added, updated } = mergeChoices(records, incoming);
+    const before = new Map(records.map((r) => [r.key, r]));
+    for (const r of merged) if (before.get(r.key) !== r) await saveChoice(r);
+    setRecords(merged);
+    return { added, updated };
   };
 
   const choose = (item: MediaItem, pack: PackAnalysis, choice: Choice | null) => {
@@ -270,7 +288,8 @@ export function App() {
     );
   }
 
-  if (!session) return <Accueil onFiles={start} interrupted={interrupted} reports={reports} />;
+  if (!session)
+    return <Accueil onFiles={start} interrupted={interrupted} reports={reports} lastRun={runs.latest} records={records} onRestore={restore} />;
 
   return (
     <>
@@ -289,6 +308,7 @@ export function App() {
             })
           }
           choices={choices}
+          previousRun={runs.previous}
           onNewDay={(files) => void start(files)}
           onChoose={choose}
           onComment={comment}
@@ -302,6 +322,7 @@ export function App() {
           records={records}
           learned={learned}
           reports={reports}
+          onRestore={restore}
           onForget={() => {
             setRecords([]);
             void clearChoices();

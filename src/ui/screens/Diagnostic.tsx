@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
-import { FEATURE_NAMES, preferencePairs, type ChoiceRecord, type DayAnalysis, type LearnedWeights } from '../../engine';
+import { FEATURE_NAMES, evaluateDay, preferencePairs, type ChoiceRecord, type DayAnalysis, type LearnedWeights } from '../../engine';
 import type { Session } from '../session';
 import { featureLabel } from '../reasons';
-import { buildReport, copyText, shareText, summarize } from '../report';
+import { agreementLine, buildReport, copyText, shareText, summarize } from '../report';
 import { RapportsEnregistres } from '../RapportsEnregistres';
+import { SauvegardeGouts } from '../SauvegardeGouts';
 import type { SavedReport } from '../../platform/storage/reports';
 import { formatDateTime, formatMs, formatOrientation, formatSize } from '../format';
 
@@ -13,13 +14,15 @@ interface Props {
   records: ChoiceRecord[];
   learned: LearnedWeights;
   reports: SavedReport[];
+  onRestore: (records: ChoiceRecord[]) => Promise<{ added: number; updated: number }>;
   onForget: () => void;
 }
 
-export function Diagnostic({ session, day, records, learned, reports, onForget }: Props) {
+export function Diagnostic({ session, day, records, learned, reports, onRestore, onForget }: Props) {
   const summary = useMemo(() => summarize(session), [session]);
   const report = useMemo(() => buildReport(session, day, records, learned), [session, day, records, learned]);
   const pairs = useMemo(() => preferencePairs(records).length, [records]);
+  const agreement = useMemo(() => evaluateDay(day, records), [day, records]);
   const learnedList = FEATURE_NAMES.filter((name) => learned[name] !== undefined).sort(
     (a, b) => Math.abs(learned[b]!) - Math.abs(learned[a]!),
   );
@@ -48,6 +51,7 @@ export function Diagnostic({ session, day, records, learned, reports, onForget }
             ? 'Aucun choix enregistré. Dans la visionneuse, touchez « Garder » ou « Supprimer » pour apprendre à l’app ce que vous préférez.'
             : `${records.length} choix enregistrés sur cet iPhone, ${pairs} comparaison${pairs > 1 ? 's' : ''} utilisable${pairs > 1 ? 's' : ''} (une photo gardée contre une supprimée, dans le même paquet).`}
         </p>
+        <p className="note">{agreementLine(agreement)}</p>
         {learnedList.length > 0 && (
           <ul className="gouts">
             {learnedList.map((name) => (
@@ -113,6 +117,7 @@ export function Diagnostic({ session, day, records, learned, reports, onForget }
         Partager le rapport (vers l’app Claude…)
       </button>
       <RapportsEnregistres reports={reports} />
+      <SauvegardeGouts records={records} onRestore={onRestore} />
       {copied === 'echec' && (
         <p className="alerte">Copie impossible : sélectionnez le texte ci-dessous à la main.</p>
       )}

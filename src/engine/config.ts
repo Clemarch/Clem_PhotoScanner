@@ -280,6 +280,16 @@ export const config = {
     /** Nombre maximal de mains cherchées par photo. */
     maxHands: 4,
   },
+  /** Goûts appris sur l'image (empreinte) : en test, sans influence sur les décisions (voir `docs/jalon-5.md`). */
+  taste: {
+    /** Nombre de choix voisins consultés, et ressemblance minimale pour qu'un choix compte comme voisin. */
+    neighbors: 7,
+    minSimilarity: 0.55,
+    /** Poids du vote dans la note simulée (écart au vote moyen de la pose). */
+    weight: 0.05,
+    /** En dessous de ce nombre de choix avec empreinte, pas de simulation. */
+    minChoices: 20,
+  },
   learning: {
     /** Ajustement maximal de la note apporté par l'apprentissage, et poids maximal d'un critère. */
     maxAdjustment: 0.08,

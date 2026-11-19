@@ -245,6 +245,9 @@ export interface ChoiceRecord {
   /** Version des critères au moment du choix (`FEATURES_VERSION`) ; absente pour les choix d'avant le 18/11.
    *  Permet plus tard d'écarter ou de recalculer des choix dont les critères ont changé de sens. */
   v?: number;
+  /** Empreinte de l'image (8 bits par valeur, base64), pour apprendre les goûts sur le contenu de l'image.
+   *  Absente pour les choix d'avant le 19/11. */
+  embedding?: string;
 }
 
 /** À augmenter quand le sens d'un critère change (pas quand on en ajoute un : il vaut alors 0,5 dans les anciens). */

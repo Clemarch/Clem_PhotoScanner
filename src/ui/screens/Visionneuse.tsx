@@ -3,6 +3,7 @@ import { photoKey, type AsideKind, type MediaItem, type PackAnalysis } from '../
 import { finalKeep, type Choice, type Choices } from '../choices';
 import { formatTime } from '../format';
 import { asideLabel, decisionText, reasonText, sceneLabel } from '../reasons';
+import { Comparer } from './Comparer';
 
 export interface ViewerEntry {
   item: MediaItem;
@@ -34,6 +35,7 @@ export function Visionneuse({ entries, start, previews, originals, thumbnails, c
   // Zoom : échelle et décalage (en pixels) de la photo affichée.
   const [zoom, setZoom] = useState({ s: 1, x: 0, y: 0 });
   const [fullUrl, setFullUrl] = useState<string | null>(null);
+  const [comparing, setComparing] = useState(false);
   const area = useRef<HTMLDivElement | null>(null);
   const gesture = useRef<{
     mode: 'swipe' | 'pan' | 'pinch';
@@ -298,6 +300,11 @@ export function Visionneuse({ entries, start, previews, originals, thumbnails, c
             </button>
           </div>
         )}
+        {pack && (pack.poses.find((p) => p.items.some((it) => it.id === item.id))?.items.length ?? 0) > 1 && (
+          <button className="bouton vis-comparer" onClick={() => setComparing(true)}>
+            Comparer avec une photo de la même pose
+          </button>
+        )}
         {pack && state && (
           <p className="note centre">Ces boutons marquent la photo. Rien n’est supprimé ici : vous le faites dans Photos.</p>
         )}
@@ -317,6 +324,18 @@ export function Visionneuse({ entries, start, previews, originals, thumbnails, c
           </button>
         )}
       </section>
+      {comparing && pack && (
+        <Comparer
+          item={item}
+          pack={pack}
+          previews={previews}
+          thumbnails={thumbnails}
+          choices={choices}
+          numberOf={numberOf}
+          onChoose={(it, p, c) => onChoose({ item: it, pack: p, packNumber: entry.packNumber }, c)}
+          onClose={() => setComparing(false)}
+        />
+      )}
     </div>
   );
 }

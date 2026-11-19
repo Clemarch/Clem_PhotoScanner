@@ -3,15 +3,22 @@ import { isInstalled, type InterruptedRun } from '../../platform/device';
 import { watchUpdate, type UpdateStatus } from '../../platform/update';
 import { GuideRaccourci } from '../GuideRaccourci';
 import { RapportsEnregistres } from '../RapportsEnregistres';
+import { SauvegardeGouts } from '../SauvegardeGouts';
+import type { ChoiceRecord } from '../../engine';
 import type { SavedReport } from '../../platform/storage/reports';
+import type { LastRun } from '../../platform/storage/lastRun';
+import { formatDate, formatShortTime } from '../format';
 
 interface Props {
   onFiles: (files: File[]) => void;
   interrupted: InterruptedRun | null;
   reports: SavedReport[];
+  lastRun: LastRun | null;
+  records: ChoiceRecord[];
+  onRestore: (records: ChoiceRecord[]) => Promise<{ added: number; updated: number }>;
 }
 
-export function Accueil({ onFiles, interrupted, reports }: Props) {
+export function Accueil({ onFiles, interrupted, reports, lastRun, records, onRestore }: Props) {
   const [update, setUpdate] = useState<UpdateStatus>(null);
   useEffect(() => watchUpdate(setUpdate), []);
   const installed = isInstalled();
@@ -21,7 +28,7 @@ export function Accueil({ onFiles, interrupted, reports }: Props) {
         <img className="logo" src="./icon.svg" alt="" />
         <h1>Photo Triage</h1>
         <p className="doux">
-          Choisissez toutes les photos d’une journée. Elles sont analysées ici, sur votre iPhone : rien n’est envoyé,
+          Choisissez les photos à trier : une après-midi, une journée ou plusieurs jours. Elles sont analysées ici, sur votre iPhone : rien n’est envoyé,
           rien n’est supprimé.
         </p>
       </div>
@@ -54,9 +61,19 @@ export function Accueil({ onFiles, interrupted, reports }: Props) {
         </details>
       )}
 
+      {lastRun && (
+        <p className="info">
+          Dernière séance : {lastRun.photos} photos, du {formatDate(lastRun.firstAt)} à {formatShortTime(lastRun.firstAt)}{' '}
+          au {formatDate(lastRun.lastAt)} à {formatShortTime(lastRun.lastAt)}. Pour continuer, choisissez les photos
+          prises <strong>après le {formatDate(lastRun.lastAt)} à {formatShortTime(lastRun.lastAt)}</strong>.
+        </p>
+      )}
+
       <section className="info">
         <GuideRaccourci />
       </section>
+
+      <SauvegardeGouts records={records} onRestore={onRestore} />
 
       <RapportsEnregistres reports={reports} />
 
@@ -82,7 +99,7 @@ export function Accueil({ onFiles, interrupted, reports }: Props) {
             }}
           />
         </label>
-        <p className="note">Version de test · jalon 4 · réglage 7 (rapports conservés, affichage calibré)</p>
+        <p className="note">Version de test · jalon 4 · réglage 8 (sauvegarde, séances, comparer)</p>
       </div>
     </main>
   );

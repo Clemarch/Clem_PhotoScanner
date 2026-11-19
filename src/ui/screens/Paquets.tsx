@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { asideKind, config, type DayAnalysis, type MediaItem, type PackAnalysis } from '../../engine';
 import type { Session } from '../session';
 import { finalKeep, stateLook, type Choice, type Choices } from '../choices';
@@ -6,6 +6,7 @@ import { formatGap, formatShortTime, formatSize, plural } from '../format';
 import { asideLabel, sceneGoal, sceneLabel } from '../reasons';
 import { Visionneuse, type ViewerEntry } from './Visionneuse';
 import { dayEntries } from '../entries';
+import type { LastRun } from '../../platform/storage/lastRun';
 
 interface Props {
   session: Session;
@@ -14,9 +15,11 @@ interface Props {
   onGap: (seconds: number) => void;
   /** Rattacher un paquet au précédent (true) ou annuler (false). */
   onJoin: (key: string, join: boolean) => void;
-  /** Choisir de nouvelles photos (nouvelle journée). */
+  /** Choisir de nouvelles photos (nouvelle séance). */
   onNewDay: (files: File[]) => void;
   choices: Choices;
+  /** Séance triée juste avant celle-ci, pour signaler une rafale coupée entre deux séances. */
+  previousRun: LastRun | null;
   onChoose: (item: MediaItem, pack: PackAnalysis, choice: Choice | null) => void;
   onComment: (item: MediaItem, comment: string) => void;
 }
@@ -24,7 +27,12 @@ interface Props {
 /** Le paquet mêle-t-il plusieurs types de photo (personnes et paysages, par exemple) ? */
 const mixed = (pack: PackAnalysis): boolean => new Set(pack.sceneOf.values()).size > 1;
 
-export function Paquets({ session, day, gap, onGap, onJoin, onNewDay, choices, onChoose, onComment }: Props) {
+const longDate = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+const dayOf = (ms: number | null) => (ms === null ? '' : new Date(ms).toDateString());
+
+export function Paquets({ session, day, gap, onGap, onJoin, onNewDay, choices, previousRun, onChoose, onComment }: Props) {
+  // Séance sur plusieurs jours : la date s'affiche au-dessus du premier paquet de chaque jour.
+  const multiDay = new Set(day.packs.map((p) => dayOf(p.pack.startAt))).size > 1;
   const [viewing, setViewing] = useState<number | null>(null);
   const numberOf = (id: string) => day.dayIndex.get(id) ?? null;
 
@@ -77,9 +85,9 @@ export function Paquets({ session, day, gap, onGap, onJoin, onNewDay, choices, o
     <main className="page">
       <header className="entete">
         <div className="entete-ligne">
-          <h2>Tri du jour</h2>
+          <h2>Tri de la séance</h2>
           <label className="nouvelle">
-            Nouvelle journée
+            Nouvelle séance
             <input
               type="file"
               accept="image/*"
@@ -123,7 +131,7 @@ export function Paquets({ session, day, gap, onGap, onJoin, onNewDay, choices, o
           </div>
           <p className="note">
             Étape 1 : touchez une photo pour la voir en grand, la feuilleter et corriger la décision. Étape 2 : onglet
-            « Dans Photos », pour les supprimer vous-même dans l’app Photos.
+            « Dans Photos », pour les supprimer d’un toucher (l’iPhone demande confirmation).
           </p>
         </section>
       )}
@@ -163,8 +171,27 @@ export function Paquets({ session, day, gap, onGap, onJoin, onNewDay, choices, o
           return state.keep && !state.review;
         }).length;
         const review = pack.pack.items.filter((item) => finalKeep(item, pack, choices).review).length;
+        const newDay = multiDay && (i === 0 || dayOf(day.packs[i - 1]!.pack.startAt) !== dayOf(pack.pack.startAt));
+        const start = pack.pack.startAt;
+        const overlaps = previousRun && start !== null && start >= previousRun.firstAt && start <= previousRun.lastAt;
+        const follows =
+          previousRun && start !== null && start > previousRun.lastAt && start - previousRun.lastAt <= gap * 1000;
         return (
-          <section className="carte" key={pack.key}>
+          <Fragment key={pack.key}>
+          {newDay && start !== null && <h3 className="jour">{longDate.format(start)}</h3>}
+          <section className="carte">
+            {overlaps && (
+              <p className="alerte">
+                Ce paquet a déjà été vu lors de la séance précédente (jusqu’à {formatShortTime(previousRun.lastAt)}) : vos
+                choix « garder / supprimer » d’alors sont repris.
+              </p>
+            )}
+            {follows && (
+              <p className="alerte">
+                Ce paquet suit de près la séance précédente (dernière photo à {formatShortTime(previousRun.lastAt)}) : une
+                rafale a peut-être été coupée en deux. Vérifiez qu’une même pose n’est pas gardée deux fois.
+              </p>
+            )}
             <div className="titre-paquet">
               <h3>
                 Paquet {i + 1} <span className="type">{mixed(pack) ? 'Mixte' : sceneLabel[pack.scene]}</span>
@@ -201,6 +228,7 @@ export function Paquets({ session, day, gap, onGap, onJoin, onNewDay, choices, o
               </div>
             ))}
           </section>
+          </Fragment>
         );
       })}
 

@@ -549,6 +549,23 @@ version.
   (empêche ce zoom automatique), `touch-action: manipulation` (pas de zoom par double toucher hors visionneuse),
   aucun débordement horizontal (vérifié sur les quatre écrans), titres et boutons un peu plus compacts.
 
+### 35. Réglage 8 : sauvegarde des goûts, séances, comparaison, apprentissage par l'image en test (19/11)
+
+Plan et audit des risques : `docs/jalon-5.md`.
+
+- **Sauvegarde** : fichier `photo-triage-gouts.json.gz` (JSON compact versionné, mesures en millièmes, empreinte
+  de l'image en base64 sur 8 bits ; gzip si disponible), enregistré par la feuille de partage d'iOS dans iCloud Drive
+  › Photo Triage. Rappel à l'accueil (20 nouveaux choix, ou 14 jours). Restauration = fusion, rien n'est effacé.
+- **Séances** : « séance » au lieu de « journée », date au-dessus de chaque jour, dernière séance rappelée à
+  l'accueil (« continuez après le … à … »), alerte si un paquet recoupe ou suit de près la séance précédente.
+- **Apprentissage par l'image, en test** : l'empreinte est enregistrée avec chaque nouveau choix. Vote des choix
+  voisins (autres paquets seulement), centré sur la pose. Aucune influence sur les décisions : le rapport donne
+  l'accord brut, l'accord **honnête** (goûts appris sans les choix du paquet évalué ; remarque de l'utilisateur :
+  le 83 % était gonflé) et l'accord simulé avec le vote de l'image, à partir de 20 choix avec empreinte.
+- **Comparer** : depuis la visionneuse, deux photos d'une même pose l'une sous l'autre, zones qui changent
+  entourées (alignement ± 6 %, écarts de couleur par case), différences mesurées en clair, et « Garder l'une,
+  supprimer l'autre » d'un toucher.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.
