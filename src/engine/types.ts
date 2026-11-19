@@ -190,7 +190,8 @@ export type DecisionCode =
   | 'plafond'
   | 'veto'
   | 'ratee'
-  | 'a-verifier';
+  | 'a-verifier'
+  | 'differente';
 
 export interface Decision {
   keep: boolean;
@@ -203,7 +204,12 @@ export interface Decision {
   pose: string;
   /** Presque aussi bonne que la meilleure : l'utilisateur tranche (gardée tant qu'il n'a rien dit). */
   review?: boolean;
+  /** Ce qui distingue cette photo de celles déjà gardées dans sa pose (photo gardée en plus de la meilleure). */
+  differences?: DifferenceKind[];
 }
+
+/** Ce qui peut distinguer deux photos d'une même pose. */
+export type DifferenceKind = 'tete' | 'expression' | 'regard' | 'geste' | 'personnes' | 'cadrage';
 
 /** Critères dont l'importance s'ajuste aux choix de l'utilisateur. Valeurs entre 0 et 1, relatives au paquet. */
 export const FEATURE_NAMES = [
@@ -288,6 +294,8 @@ export type ReasonCode =
   | 'parle'
   | 'pose'
   | 'geste'
+  | 'regard-ailleurs'
+  | 'erreur-probable'
   | 'couleurs-vives'
   | 'couleurs-ternes'
   | 'equilibree'
@@ -315,6 +323,8 @@ export interface Reason {
 
 export interface PhotoScore {
   id: string;
+  /** Photo probablement prise par erreur (pas de sujet, très floue et très penchée). */
+  accidental?: boolean;
   /** Note entre 0 et 1, relative au paquet. */
   score: number;
   /** 1 = la meilleure du paquet. */

@@ -8,6 +8,8 @@
 // Le raccourci montre ensuite les photos trouvées (aperçu) avant que l'iPhone demande la confirmation.
 
 export const SHORTCUT_NAME = 'Photo Triage';
+/** iOS bloque la suppression de 50 photos ou plus par un raccourci (réglage de protection) : lots de 49 au plus. */
+export const SHORTCUT_BATCH = 49;
 /** Demi-largeur de la fenêtre de temps autour de la prise de vue, en secondes. */
 export const SHORTCUT_WINDOW_SECONDS = 2;
 

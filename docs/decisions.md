@@ -585,6 +585,29 @@ Plan et audit des risques : `docs/jalon-5.md`.
   « À garder / À supprimer », qui ouvre une fenêtre en haut de l'écran (au-dessus du clavier) avec des raisons
   fréquentes à toucher (« Meilleur sourire », « Yeux fermés », « Main ou pied coupé »…).
 
+### 37. Réglage 9 : plusieurs photos d'une même pose, regard en groupe, photo prise par erreur, lots de 49 (19/11)
+
+Règle de l'utilisateur (19/11) : « si c'est vraiment des photos identiques, je supprime… si les personnes bougent un
+petit peu, changent de geste, apportent quelque chose de différent, alors je peux toutes les prendre, si elles sont
+bien. S'il n'y a pas des yeux fermés, s'il n'y a pas un geste indésiré ».
+
+- `src/engine/selection/difference.ts` mesure ce qui change entre deux photos d'une pose : tête (rotation), expression
+  (sourire, moue, bouche), regard, gestes voulus, personnes qui bougent ou changent de nombre, cadrage (empreinte
+  fine, ou empreinte simple à défaut). Trois niveaux : aucune, légère, nette. Seuils dans `config.selection.different`.
+- Sélection dans une pose : la meilleure est gardée. Une autre photo est gardée en plus (« différente ») si elle est
+  nettement différente de chaque photo déjà gardée, sans défaut bloquant (`config.selection.blocking` : yeux, parle,
+  visage masqué ou flou, regard ailleurs, erreur probable…) et à moins de 0,08 de la meilleure. Légèrement différente
+  et presque aussi bonne : « à vérifier ». Identique : supprimée (« trop proche »), même si sa note est égale. Une
+  image quasi identique reste « trop proche » sauf si un visage change nettement.
+- Photo de groupe : les gens doivent regarder l'objectif (poids du regard 0,3 sur les visages d'une photo de groupe,
+  raison « quelqu'un regarde ailleurs »). Une personne seule peut regarder ailleurs.
+- Photo prise par erreur (pied, sol) : aucune personne, floue, nettement penchée → note baissée, et « à vérifier »
+  si c'est la seule du paquet.
+- Objets parasites : seuls ceux détectés avec assurance (≥ 0,7) comptent (le frisbee imaginaire du rapport).
+- Raccourci : iOS refuse d'en supprimer 50 ou plus d'un coup ; l'utilisateur garde cette protection. L'écran
+  « À supprimer » envoie des lots de 49 (« Supprimer le lot 1 sur 3 »).
+- Non traité : yeux plissés (données contradictoires), geste indésiré (pas détectable de façon fiable).
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

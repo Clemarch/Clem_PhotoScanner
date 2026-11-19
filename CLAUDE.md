@@ -20,8 +20,10 @@ Décisions prises et écarts : `docs/decisions.md` — à mettre à jour à chaq
   (`src/engine/grouping/aside.ts`, `docs/decisions.md`, point 28).
 - Esprit de la sélection : jugement relatif par paquet ; seules les notes décident. Plus de quota : retiré à la
   demande de l'utilisateur (17/11, « un paquet de 2 photos peut garder les 2 »). Au moins 1 photo gardée par paquet,
-  sauf si toutes sont ratées (accord de l'utilisateur, 17/11). Une photo gardée par pose ; photos de personnes presque aussi
-  bonnes : « à vérifier », gardées tant que l'utilisateur n'a rien dit (18/11, `docs/decisions.md`, points 29 et 31).
+  sauf si toutes sont ratées (accord de l'utilisateur, 17/11). Dans une pose : la meilleure, plus celles nettement
+  différentes (tête, expression, geste, personnes, cadrage), bonnes et sans défaut ; identiques : supprimées (19/11,
+  point 37). Presque aussi bonnes et un peu différentes : « à vérifier », gardées tant que l'utilisateur n'a rien dit
+  (points 29 et 31). En groupe, tout le monde doit regarder ; seule, une personne peut regarder ailleurs.
 
 ## Utilisateur
 
@@ -74,4 +76,5 @@ Jalons 0 à 3 faits (diagnostic, paquets, visages, type de photo, poses, sélect
 Jalon 4 en cours (plan : `docs/jalon-4.md`) : onglet « Dans Photos », zoom, paquets ratés, hublot, silhouette,
 empreinte fine, classement de scène, commentaires sur les choix, gestes, captures mises de côté, « à vérifier ».
 Réglage 8 (plan : `docs/jalon-5.md`) : sauvegarde des goûts, séances, comparaison, apprentissage par l'image en test.
+Réglage 9 : plusieurs photos par pose si différentes, regard en groupe, photo prise par erreur, lots de 49.
 Modèle restant proposé : objets plus fins.

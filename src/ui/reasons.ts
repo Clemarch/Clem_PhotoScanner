@@ -1,4 +1,4 @@
-import { config, type AsideKind, type Decision, type FeatureName, type Reason, type SceneType } from '../engine';
+import { config, type AsideKind, type Decision, type DifferenceKind, type FeatureName, type Reason, type SceneType } from '../engine';
 
 /** Texte affiché pour chaque raison. `numberOf` donne le numéro d'une photo dans la journée. */
 export function reasonText(reason: Reason, numberOf: (id: string) => number | null): string {
@@ -33,6 +33,10 @@ export function reasonText(reason: Reason, numberOf: (id: string) => number | nu
       return 'Pose voulue (moue, bisou…)';
     case 'geste':
       return 'Geste voulu (V, pouce levé…)';
+    case 'regard-ailleurs':
+      return 'Photo de groupe : quelqu’un ne regarde pas l’objectif';
+    case 'erreur-probable':
+      return 'Prise par erreur ? (aucune personne, floue et très penchée)';
     case 'visage-non-analyse':
       return 'Un visage n’a pas pu être analysé (tête tournée ?)';
     case 'couleurs-vives':
@@ -73,6 +77,19 @@ function photoList(ids: readonly string[], numberOf: (id: string) => number | nu
 }
 
 /** Raison de la décision « garder » / « supprimer » de l'app, avec la comparaison qui la justifie. */
+const DIFFERENCE_LABEL: Record<DifferenceKind, string> = {
+  tete: 'position de la tête',
+  expression: 'expression',
+  regard: 'regard',
+  geste: 'geste',
+  personnes: 'personnes qui bougent',
+  cadrage: 'cadrage',
+};
+
+export function differenceText(kinds: readonly DifferenceKind[] | undefined): string {
+  return (kinds ?? []).map((k) => DIFFERENCE_LABEL[k]).join(', ') || 'détails';
+}
+
 export function decisionText(
   decision: Decision,
   numberOf: (id: string) => number | null,
@@ -89,7 +106,12 @@ export function decisionText(
       return 'La meilleure de sa pose';
     case 'aussi-bonne':
       return `Aussi bien notée que ${n}, la meilleure de sa pose (${mine} contre ${note(decision.refId ? scoreOf(decision.refId) : undefined)} sur 100)`;
+    case 'differente':
+      return `Bonne aussi, et différente de ${n} (${differenceText(decision.differences)}) : gardée en plus`;
     case 'a-verifier':
+      if (!decision.refId) return 'Peut-être prise par erreur : à vous de trancher. Sans choix de votre part, elle est gardée';
+      if (decision.differences?.length)
+        return `Un peu différente de ${n} (${differenceText(decision.differences)}) : à vous de trancher. Sans choix de votre part, elle est gardée`;
       return `Presque aussi bien notée que ${n}, la meilleure de sa pose (${mine} contre ${note(decision.refId ? scoreOf(decision.refId) : undefined)} sur 100) : à vous de trancher. Sans choix de votre part, elle est gardée`;
     case 'seule':
       return 'Seule photo de son paquet';

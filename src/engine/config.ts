@@ -93,6 +93,9 @@ export const config = {
     } as Record<string, string>,
     /** Score minimal pour retenir une détection d'objet ou de personne. */
     minObjectScore: 0.35,
+    /** Objet gênant (frisbee, ballon…) : retenu seulement au-dessus de ce score (un frisbee imaginaire à 0,45–0,64
+     *  sur des photos de randonnée, 19/11). */
+    distractionMinScore: 0.7,
     /** Un objet gênant est compté s'il touche la zone des personnes, ou s'il occupe au moins cette part de l'image. */
     largeObjectArea: 0.04,
     /** Zone des personnes autour d'un visage : largeur et hauteur en multiples de la taille du visage. */
@@ -256,10 +259,31 @@ export const config = {
     faceMove: 0.15,
   },
   selection: {
-    /** Une seule photo gardée par pose : la mieux notée (point 31 de `docs/decisions.md`). Les autres sont à
-     *  supprimer, sauf sur une photo de personnes où une autre est à moins de `reviewMargin` (sur 1) : elle est
-     *  « à vérifier » (une expression peut départager), gardée tant que l'utilisateur n'a rien dit. */
-    reviewMargin: 0.02,
+    /** Dans une pose, la meilleure photo est gardée. Une autre l'est aussi si elle est bonne (à moins de `keepMargin`
+     *  de la meilleure, sans défaut bloquant) ET nettement différente de chaque photo déjà gardée (tête, expression,
+     *  regard, geste, personnes qui bougent, cadrage) ; légèrement différente, ou un peu moins bonne (jusqu'à
+     *  `reviewMargin`), elle est « à vérifier » ; identique, elle est supprimée (utilisateur, 19/11, point 37). */
+    keepMargin: 0.08,
+    reviewMargin: 0.12,
+    /** Seuils de différence entre deux photos : « nette » (Strong) et « légère » (Light). */
+    different: {
+      headStrong: 12,
+      headLight: 6,
+      smileStrong: 0.3,
+      smileLight: 0.15,
+      eyeDirStrong: 0.4,
+      eyeDirLight: 0.25,
+      personMoveStrong: 0.08,
+      personMoveLight: 0.04,
+      /** Ressemblance d'empreinte en dessous de laquelle le cadrage a changé. */
+      similarStrong: 0.75,
+      similarLight: 0.85,
+      /** Sans empreinte fine : écart d'empreinte simple (0 = identiques). */
+      signatureStrong: 0.08,
+      signatureLight: 0.04,
+    },
+    /** Défauts qui empêchent de garder une photo en plus de la meilleure. */
+    blocking: ['parle', 'visage-masque', 'devant', 'visage-flou', 'tres-floue', 'visage-cache', 'regard-ailleurs', 'erreur-probable'] as readonly string[],
     /** Deux photos dont l'empreinte diffère de moins de ceci sont des quasi-doublons : on n'en garde qu'une.
      *  Avec l'empreinte fine : ressemblance d'au moins `nearDuplicateSimilar`. */
     nearDuplicate: 0.015,
@@ -310,6 +334,14 @@ export const config = {
     /** Note d'un visage. Le contenu d'abord : l'expression domine. Le regard compte peu,
      *  car regarder au loin peut faire une très belle photo. */
     faceWeights: { eyes: 0.15, gaze: 0.12, expression: 0.55, sharpness: 0.18 },
+    /** Photo de plusieurs personnes : tout le monde doit regarder l'objectif (utilisateur, 19/11 : « seul, on peut
+     *  regarder ailleurs ; en groupe, il faut que les gens regardent »). */
+    groupFaceWeights: { eyes: 0.15, gaze: 0.3, expression: 0.4, sharpness: 0.15 },
+    /** En groupe, un regard en dessous de ceci est signalé (« quelqu'un regarde ailleurs ») et bloque une seconde photo. */
+    groupGazeBelow: 0.6,
+    /** Photo probablement prise par erreur : pas de visage ni de personne, netteté sous `maxSharpness`, et penchée de
+     *  plus de `minTiltDeg` (pied, sol pris en marchant). Jamais supprimée d'office : « à vérifier ». */
+    accident: { maxSharpness: 250, minTiltDeg: 8, minTiltStrength: 0.03, penalty: 0.3 },
     /** Note « visages » d'une photo : le visage le plus raté pèse le plus. */
     worstFaceWeight: 0.6,
     meanFaceWeight: 0.4,

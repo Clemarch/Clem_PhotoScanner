@@ -146,7 +146,7 @@ export function scorePackDetailed(
   const typicalFaceScore = (ctx: GroupContext): number => {
     const cached = typicalFace.get(ctx);
     if (cached !== undefined) return cached;
-    const w = cfg.faceWeights;
+    const w = ctx.expected >= 2 ? cfg.groupFaceWeights : cfg.faceWeights;
     const values = ctx.items
       .map((item) => facesOf.get(item.id)!)
       .filter((faces) => faces.length > 0)
@@ -281,7 +281,7 @@ export function scorePackDetailed(
         faceScore = present >= expected ? typicalFaceScore(ctx) * (1 - cfg.unanalyzedFacePenalty) : 0;
         reasons.push(present >= expected ? { code: 'visage-non-analyse', tone: 'moins' } : { code: 'aucun-visage', tone: 'moins' });
       } else {
-        const w = cfg.faceWeights;
+        const w = expected >= 2 ? cfg.groupFaceWeights : cfg.faceWeights;
         const ratios = faces.map((face, slot) => {
           const ref =
             faces.length === expected ? ctx.slotRef[slot]! : ctx.completeCount > 0 ? ctx.slotRef[nearestSlot(ctx, face)]! : ctx.anyFaceRef;
@@ -336,6 +336,8 @@ export function scorePackDetailed(
         if (!talking && faces.some((face) => face.pout >= r.poseFrom)) reasons.push({ code: 'pose', tone: 'plus' });
         if (!talking && faces.every((face) => face.smile >= r.smileFrom)) reasons.push({ code: 'sourire', tone: 'plus' });
         if (ratios.some((ratio) => ratio < r.faceBlurBelow)) reasons.push({ code: 'visage-flou', tone: 'moins' });
+        if (expected >= 2 && faces.some((face) => face.gaze < cfg.groupGazeBelow))
+          reasons.push({ code: 'regard-ailleurs', tone: 'moins' });
       }
       // Geste voulu (V, pouce levé) : une pose, comme un sourire.
       const g = config.gestures;
@@ -409,8 +411,21 @@ export function scorePackDetailed(
     if (over > 0) reasons.push({ code: 'surexposee', tone: 'moins' });
     if (under > 0) reasons.push({ code: 'sous-exposee', tone: 'moins' });
 
+    // Photo probablement prise par erreur (pied, sol en marchant) : ni visage ni personne, floue et très penchée.
+    const ac = cfg.accident;
+    const accidental =
+      faces.length === 0 &&
+      !(item.objects ?? []).some((o) => o.label === 'person' && o.score >= 0.5) &&
+      item.sharpness !== null &&
+      item.sharpness < ac.maxSharpness &&
+      item.tiltDeg !== null &&
+      Math.abs(item.tiltDeg) >= ac.minTiltDeg &&
+      (item.tiltStrength ?? 0) >= ac.minTiltStrength;
+    if (accidental) reasons.push({ code: 'erreur-probable', tone: 'moins' });
+
     const dark = clamp01((c.darkFaceBelow - faceBrightness) / (c.darkFaceBelow - c.darkFaceFull));
     const baseScore =
+      (accidental ? 1 - ac.penalty : 1) *
       base *
       (1 - backgroundPenalty) *
       (1 - objectPenalty) *
@@ -445,6 +460,7 @@ export function scorePackDetailed(
 
     return {
       id: item.id,
+      ...(accidental ? { accidental: true } : {}),
       score: baseScore,
       rank: 0,
       vetoed,
