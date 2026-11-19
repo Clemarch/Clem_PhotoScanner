@@ -1,5 +1,5 @@
 import type { Session } from './session';
-import { asideKind, evaluateDay, embeddingSimilarity, mainFaces, photoKey, signatureDistance, type ChoiceRecord, type DayAnalysis, type Decision, type LearnedWeights, type PhotoScore, type SceneType, type Agreement } from '../engine';
+import { asideKind, config, evaluateDay, embeddingSimilarity, mainFaces, photoKey, signatureDistance, type ChoiceRecord, type DayAnalysis, type Decision, type LearnedWeights, type PhotoScore, type SceneType, type Agreement } from '../engine';
 import { formatDateTime, formatMs, formatOrientation, formatSize } from './format';
 
 const color = (c: readonly number[] | null): string => (c ? c.map((v) => Math.round(v)).join(',') : '?');
@@ -187,13 +187,13 @@ export async function copyText(text: string): Promise<boolean> {
  * Ouvre la feuille de partage d'iOS avec le texte (par exemple vers l'app Claude, Notes, Mail). Rien n'est envoyé
  * par l'app elle-même : c'est l'utilisateur qui choisit la destination. Renvoie false si le partage est indisponible.
  */
-export async function shareText(text: string, title: string): Promise<boolean> {
-  if (typeof navigator.share !== 'function') return false;
+export async function shareText(text: string, title: string): Promise<'partage' | 'annule' | 'impossible'> {
+  if (typeof navigator.share !== 'function') return 'impossible';
   try {
     await navigator.share({ title, text });
-    return true;
-  } catch {
-    return false;
+    return 'partage';
+  } catch (e) {
+    return e instanceof DOMException && e.name === 'AbortError' ? 'annule' : 'impossible';
   }
 }
 
@@ -204,6 +204,6 @@ export function agreementLine(a: Agreement): string {
   if (a.total === 0) return 'Accord avec vos choix : aucun choix sur cette séance';
   return (
     `Accord avec vos choix : brut ${ratio(a.raw, a.total)} · honnête (sans vos choix du même paquet) ${ratio(a.honest, a.total)}` +
-    ` · avec goûts de l'image, en test : ${a.withTaste === null ? `pas encore (${a.tasteChoices} choix avec empreinte, 20 nécessaires)` : `${ratio(a.withTaste, a.total)} (${a.tasteChoices} choix avec empreinte)`}`
+    ` · avec goûts de l'image, en test : ${a.withTaste === null ? `pas encore (${a.tasteChoices} choix avec empreinte, ${config.taste.minChoices} nécessaires)` : `${ratio(a.withTaste, a.total)} (${a.tasteChoices} choix avec empreinte)`}`
   );
 }

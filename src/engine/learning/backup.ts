@@ -98,6 +98,10 @@ export function mergeChoices(current: readonly ChoiceRecord[], incoming: readonl
     } else if (r.at > existing.at) {
       byKey.set(r.key, { ...r, embedding: r.embedding ?? existing.embedding, comment: r.comment ?? existing.comment });
       updated++;
+    } else if ((!existing.embedding && r.embedding) || (!existing.comment && r.comment)) {
+      // Choix local plus récent, mais la sauvegarde a une empreinte ou un commentaire qui lui manquent : on les reprend.
+      byKey.set(r.key, { ...existing, embedding: existing.embedding ?? r.embedding, comment: existing.comment ?? r.comment });
+      updated++;
     }
   }
   return { merged: [...byKey.values()], added, updated };

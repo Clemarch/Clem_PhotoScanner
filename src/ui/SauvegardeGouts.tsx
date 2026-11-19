@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ChoiceRecord } from '../engine';
 import { exportBackup, loadLastBackup, makeBackupFile, readBackupFile, saveLastBackup } from '../platform/storage/backupFile';
 import { formatDate, plural } from './format';
@@ -26,25 +26,35 @@ export function SauvegardeGouts({ records, onRestore }: Props) {
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const fresh = last ? records.filter((r) => r.at > last.at).length : records.length;
+  // Fichier préparé à l'avance : iOS n'ouvre la feuille de partage que si elle suit immédiatement le toucher
+  // (une compression faite entre les deux pourrait la faire refuser).
+  const [ready, setReady] = useState<File | null>(null);
+  useEffect(() => {
+    let alive = true;
+    setReady(null);
+    if (records.length > 0) void makeBackupFile(records).then((file) => alive && setReady(file));
+    return () => {
+      alive = false;
+    };
+  }, [records]);
   const withImage = records.filter((r) => r.embedding).length;
 
   const save = async () => {
+    if (!ready) return;
+    const file = ready;
     setBusy(true);
     setMessage(null);
     try {
-      const file = await makeBackupFile(records);
       const how = await exportBackup(file);
       if (how === 'annule') setMessage('Sauvegarde annulée.');
-      else {
+      else if (how === 'refuse') setMessage('L’iPhone a refusé d’ouvrir le menu : touchez « Sauvegarder » encore une fois.');
+      else if (how === 'partage') {
+        // Seul un partage réussi compte comme sauvegarde (sinon le rappel continue).
         const value = { at: Date.now(), count: records.length };
         saveLastBackup(value);
         setLast(value);
-        setMessage(
-          how === 'partage'
-            ? `Fichier prêt (${Math.max(1, Math.round(file.size / 1024))} Ko). Vérifiez qu’il est bien dans iCloud Drive › Photo Triage.`
-            : 'Fichier téléchargé : enregistrez-le dans iCloud Drive › Photo Triage.',
-        );
-      }
+        setMessage(`Fichier prêt (${Math.max(1, Math.round(file.size / 1024))} Ko). Vérifiez qu’il est bien dans iCloud Drive › Photo Triage.`);
+      } else setMessage('Fichier téléchargé : enregistrez-le dans iCloud Drive › Photo Triage, puis sauvegardez à nouveau depuis l’iPhone.');
     } catch {
       setMessage('La sauvegarde a échoué : réessayez.');
     } finally {
@@ -81,8 +91,8 @@ export function SauvegardeGouts({ records, onRestore }: Props) {
         de l’image (pour apprendre vos goûts sur le contenu des photos).
       </p>
       <div className="rapports-actions">
-        <button className="bouton" disabled={busy || records.length === 0} onClick={() => void save()}>
-          Sauvegarder
+        <button className="bouton" disabled={busy || !ready} onClick={() => void save()}>
+          {ready || records.length === 0 ? 'Sauvegarder' : 'Préparation…'}
         </button>
         <label className="bouton">
           Restaurer

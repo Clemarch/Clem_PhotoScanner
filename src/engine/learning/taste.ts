@@ -4,21 +4,30 @@
 
 import { config } from '../config';
 import type { ChoiceRecord } from '../types';
-import { cosine, decodeEmbedding } from './embeddingCodec';
+import { decodeEmbedding } from './embeddingCodec';
 
 export interface TasteMemory {
-  /** Choix avec empreinte décodée. */
-  items: { key: string; packKey: string; keep: boolean; embedding: Int8Array }[];
+  /** Choix avec empreinte décodée et ramenée à une longueur de 1 (la ressemblance n'est plus qu'un produit). */
+  items: { key: string; packKey: string; keep: boolean; embedding: Float32Array }[];
 }
 
-/** Choix consultés au plus : les plus récents (le calcul reste rapide sur l'iPhone quand les choix s'accumulent). */
-const MEMORY_MAX = 600;
+/** Vecteur ramené à une longueur de 1 ; null s'il est nul. */
+function unit(v: ArrayLike<number>): Float32Array | null {
+  let n = 0;
+  for (let i = 0; i < v.length; i++) n += v[i]! * v[i]!;
+  if (!(n > 0)) return null;
+  const inv = 1 / Math.sqrt(n);
+  const out = new Float32Array(v.length);
+  for (let i = 0; i < v.length; i++) out[i] = v[i]! * inv;
+  return out;
+}
 
 export function tasteMemory(records: readonly ChoiceRecord[]): TasteMemory {
   const items: TasteMemory['items'] = [];
-  const recent = records.filter((r) => r.embedding).sort((a, b) => b.at - a.at).slice(0, MEMORY_MAX);
+  const recent = records.filter((r) => r.embedding).sort((a, b) => b.at - a.at).slice(0, config.taste.memoryMax);
   for (const r of recent) {
-    const embedding = decodeEmbedding(r.embedding);
+    const decoded = decodeEmbedding(r.embedding);
+    const embedding = decoded ? unit(decoded) : null;
     if (embedding) items.push({ key: r.key, packKey: r.packKey, keep: r.choice === 'garder', embedding });
   }
   return { items };
@@ -34,13 +43,16 @@ export function tasteVote(
   excludePacks: ReadonlySet<string>,
   excludeKey?: string,
 ): number {
-  if (!embedding) return 0;
+  const e = embedding ? unit(embedding) : null;
+  if (!e) return 0;
   const c = config.taste;
   const near: { sim: number; keep: boolean }[] = [];
   for (const m of memory.items) {
     if (excludePacks.has(m.packKey) || m.key === excludeKey) continue;
-    const sim = cosine(embedding, m.embedding);
-    if (sim !== null && sim >= c.minSimilarity) near.push({ sim, keep: m.keep });
+    if (m.embedding.length !== e.length) continue;
+    let sim = 0;
+    for (let i = 0; i < e.length; i++) sim += e[i]! * m.embedding[i]!;
+    if (sim >= c.minSimilarity) near.push({ sim, keep: m.keep });
   }
   near.sort((a, b) => b.sim - a.sim);
   const top = near.slice(0, c.neighbors);

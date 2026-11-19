@@ -176,6 +176,9 @@ export function Paquets({ session, day, gap, onGap, onJoin, onNewDay, choices, p
         const overlaps = previousRun && start !== null && start >= previousRun.firstAt && start <= previousRun.lastAt;
         const follows =
           previousRun && start !== null && start > previousRun.lastAt && start - previousRun.lastAt <= gap * 1000;
+        const end = pack.pack.endAt;
+        const precedes =
+          previousRun && end !== null && end < previousRun.firstAt && previousRun.firstAt - end <= gap * 1000;
         return (
           <Fragment key={pack.key}>
           {newDay && start !== null && <h3 className="jour">{longDate.format(start)}</h3>}
@@ -190,6 +193,12 @@ export function Paquets({ session, day, gap, onGap, onJoin, onNewDay, choices, p
               <p className="alerte">
                 Ce paquet suit de près la séance précédente (dernière photo à {formatShortTime(previousRun.lastAt)}) : une
                 rafale a peut-être été coupée en deux. Vérifiez qu’une même pose n’est pas gardée deux fois.
+              </p>
+            )}
+            {precedes && (
+              <p className="alerte">
+                Ce paquet précède de peu la séance précédente (première photo à {formatShortTime(previousRun.firstAt)}) :
+                une rafale a peut-être été coupée en deux. Vérifiez qu’une même pose n’est pas gardée deux fois.
               </p>
             )}
             <div className="titre-paquet">

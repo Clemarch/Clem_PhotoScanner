@@ -13,7 +13,7 @@ import type { AnalyzeResult } from '../platform/image/types';
 import { analyzeDay, config, learnWeights, mergeChoices, measureFace, measureSegmentation, photoKey, sortChronologically, type ChoiceRecord, type MediaItem, type PackAnalysis } from '../engine';
 import { clearChoices, loadChoices, removeChoice, saveChoice } from '../platform/storage/choices';
 import { loadReports, saveReport, type SavedReport } from '../platform/storage/reports';
-import { loadLastRun, saveLastRun, type LastRun } from '../platform/storage/lastRun';
+import { loadLastRun, runSignature, saveLastRun, type LastRun } from '../platform/storage/lastRun';
 import { buildReport } from './report';
 import { formatDate } from './format';
 import { makeRecord, type Choice, type Choices } from './choices';
@@ -70,7 +70,8 @@ export function App() {
   const items = useMemo(() => session?.results.map((r) => r.item) ?? [], [session]);
   const day = useMemo(() => analyzeDay(items, gap, learned, joined), [items, gap, learned, joined]);
 
-  // Rapport de l'analyse en cours, conservé sur l'iPhone et mis à jour avec les choix (une seconde après le dernier).
+  // Rapport de l'analyse en cours, conservé sur l'iPhone et mis à jour avec les choix (4 s après le dernier, pour ne
+  // pas ralentir l'app pendant qu'on trie : le rapport recalcule l'accord honnête, qui demande un peu de calcul).
   useEffect(() => {
     if (!session || session.cancelled) return;
     const timer = window.setTimeout(() => {
@@ -83,7 +84,7 @@ export function App() {
         title: `${first ? formatDate(first) : 'Sans date'} · ${photos} photos · ${chosen} choix`,
         text: buildReport(session, day, records, learned),
       }).then(() => loadReports().then(setReports));
-    }, 1000);
+    }, 4000);
     return () => window.clearTimeout(timer);
   }, [session, day, records, learned]);
 
@@ -132,6 +133,7 @@ export function App() {
     const thumbnails = new Map<string, string>();
     const previews = new Map<string, string>();
     const startedAt = performance.now();
+    const launchedAt = Date.now();
 
     for (let i = 0; i < files.length && !cancelRef.current; i++) {
       const file = files[i]!;
@@ -222,12 +224,19 @@ export function App() {
     results.sort((a, b) => order.get(a.item.id)! - order.get(b.item.id)!);
     const dated = results.map((r) => r.item.capturedAt).filter((t): t is number => t !== null);
     if (dated.length > 0 && !cancelRef.current) {
-      const run: LastRun = { firstAt: Math.min(...dated), lastAt: Math.max(...dated), photos: results.length, doneAt: Date.now() };
+      const run: LastRun = {
+        firstAt: Math.min(...dated),
+        lastAt: Math.max(...dated),
+        photos: results.length,
+        doneAt: Date.now(),
+        signature: runSignature(results.map((r) => photoKey(r.item))),
+      };
       saveLastRun(run);
-      setRuns((r) => ({ previous: r.latest, latest: run }));
+      // La même sélection analysée une seconde fois (reprise, nouvelle version) n'est pas une nouvelle séance.
+      setRuns((r) => ({ previous: r.latest?.signature === run.signature ? r.previous : r.latest, latest: run }));
     }
     setSession({
-      id: String(Date.now()),
+      id: String(launchedAt),
       results,
       thumbnails,
       previews,

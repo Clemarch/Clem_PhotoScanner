@@ -12,8 +12,12 @@ export function RapportsEnregistres({ reports }: { reports: SavedReport[] }) {
   if (reports.length === 0) return null;
 
   const act = async (key: string, text: string, share: boolean) => {
-    const ok = share ? await shareText(text, 'Rapports Photo Triage') : await copyText(text);
-    setDone(ok ? key : `${key}-echec`);
+    if (share) {
+      const result = await shareText(text, 'Rapports Photo Triage');
+      if (result !== 'annule') setDone(result === 'partage' ? key : `${key}-echec`);
+      return;
+    }
+    setDone((await copyText(text)) ? key : `${key}-echec`);
   };
 
   return (

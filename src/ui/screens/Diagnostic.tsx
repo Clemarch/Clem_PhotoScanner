@@ -111,7 +111,8 @@ export function Diagnostic({ session, day, records, learned, reports, onRestore,
       <button
         className="bouton"
         onClick={async () => {
-          if (!(await shareText(report, 'Rapport Photo Triage'))) setCopied((await copyText(report)) ? 'oui' : 'echec');
+          const result = await shareText(report, 'Rapport Photo Triage');
+          if (result === 'impossible') setCopied((await copyText(report)) ? 'oui' : 'echec');
         }}
       >
         Partager le rapport (vers l’app Claude…)

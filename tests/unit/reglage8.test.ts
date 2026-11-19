@@ -151,3 +151,19 @@ describe('accord honnête', () => {
     expect(a.withTaste).toBeNull();
   });
 });
+
+describe('corrections de l’audit', () => {
+  it('restauration : une empreinte présente seulement dans la sauvegarde est reprise', () => {
+    const local = [record('a', 'garder', { at: 10 })];
+    const backup = [record('a', 'garder', { at: 10, embedding: encodeEmbedding([0.1, 0.2])! })];
+    const { merged, updated } = mergeChoices(local, backup);
+    expect(merged[0]!.embedding).toBe(backup[0]!.embedding);
+    expect(updated).toBe(1);
+  });
+
+  it('la même sélection analysée deux fois a la même empreinte de séance', async () => {
+    const { runSignature } = await import('../../src/platform/storage/lastRun');
+    expect(runSignature(['b|2', 'a|1'])).toBe(runSignature(['a|1', 'b|2']));
+    expect(runSignature(['a|1'])).not.toBe(runSignature(['a|1', 'b|2']));
+  });
+});

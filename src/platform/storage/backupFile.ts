@@ -49,13 +49,15 @@ export async function readBackupFile(file: Blob): Promise<DecodedBackup> {
 }
 
 /** Enregistre le fichier : feuille de partage d'iOS (« Enregistrer dans Fichiers »), sinon téléchargement direct. */
-export async function exportBackup(file: File): Promise<'partage' | 'telechargement' | 'annule'> {
+export async function exportBackup(file: File): Promise<'partage' | 'telechargement' | 'annule' | 'refuse'> {
   if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
+    // Appelé sans attente préalable : la feuille de partage suit directement le toucher.
     try {
       await navigator.share({ files: [file], title: 'Sauvegarde des goûts Photo Triage' });
       return 'partage';
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') return 'annule';
+      return 'refuse';
     }
   }
   const url = URL.createObjectURL(file);

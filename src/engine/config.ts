@@ -289,6 +289,8 @@ export const config = {
     weight: 0.05,
     /** En dessous de ce nombre de choix avec empreinte, pas de simulation. */
     minChoices: 20,
+    /** Choix consultés au plus (les plus récents) : le calcul reste rapide quand les choix s'accumulent. */
+    memoryMax: 600,
   },
   learning: {
     /** Ajustement maximal de la note apporté par l'apprentissage, et poids maximal d'un critère. */
