@@ -505,6 +505,33 @@ voyage soit bien retrouvée. Le raccourci forme la même clé avec « Obtenir le
 « Formater la date » (format yyyy-MM-dd HH:mm:ss). Si une heure ne correspond pas, la photo n'est pas trouvée, donc
 pas supprimée : l'erreur possible est toujours du côté prudent.
 
+**Complément (19/11, raccourci rapide)** : parcourir toutes les photos des 30 derniers jours était très lent (quatre
+actions par photo, plus de mille photos). Les essais ont aussi montré que le filtre « Nom » de « Rechercher des
+photos » fonctionne (il trouvait les six « IMG_0696 ») : les échecs venaient d'actions branchées sur la mauvaise
+entrée et d'un format de secondes sans zéro (« s » au lieu de « ss »). Nouveau raccourci : pour chaque nom reçu, une
+recherche par nom (quelques photos seulement), puis la vérification exacte « <nom|heure> » sur ces quelques photos.
+L'app envoie les noms un par ligne, puis toutes les clés sur la dernière ligne. Plus de limite de 14 ou 30 jours.
+
+### 33. Raccourci de suppression : une recherche par photo, nom + fenêtre de temps (19/11)
+
+Retour de l'utilisateur : bien plus de six photos portent le même nom, et parcourir les photos (même celles d'un seul
+nom) reste lent. « On tourne en rond » : il faut une solution robuste.
+
+- **Principe** : pour chaque photo à supprimer, UNE recherche dans Photos avec deux filtres à la fois : Nom est
+  « IMG_0696 », et Date de création entre « 22:29:51 » et « 22:29:55 » (±2 s autour de la prise de vue). Un même nom
+  et une même seconde à 2 s près désignent une seule photo. Plus de boucle sur la photothèque, plus de comparaison de
+  texte dans le raccourci (fini les pièges de format, comme « s » au lieu de « ss »), pas de limite de jours.
+- **Texte envoyé** : une ligne par photo, « nom|début|fin », dates « yyyy-MM-dd HH:mm:ss » dans le fuseau actuel de
+  l'iPhone (année en premier : pas d'ambiguïté jour/mois). Le raccourci les découpe avec « Scinder le texte » (|) et
+  « Obtenir l'élément de la liste ».
+- **Sécurité** : le raccourci affiche les photos trouvées (« Afficher le résultat ») avant la confirmation d'iOS ;
+  l'app dit combien il doit y en avoir. Une photo sans heure de prise de vue n'est pas envoyée (l'app le signale). La
+  liste envoyée est consultable dans l'app.
+- **Pourquoi pas la milliseconde seule** : l'heure de Photos et celle des métadonnées de la photo peuvent différer de
+  quelques millisecondes ; une égalité exacte serait fragile. Nom + fenêtre de 2 s est sûr et tolérant.
+- **Limite connue** : je ne peux pas exécuter l'app Raccourcis moi-même ; si « est entre » n'accepte pas une variable
+  texte, ajouter « Obtenir les dates depuis l'entrée » sur les éléments 2 et 3 (consigne donnée à l'utilisateur).
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

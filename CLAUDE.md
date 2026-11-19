@@ -11,7 +11,8 @@ Décisions prises et écarts : `docs/decisions.md` — à mettre à jour à chaq
 - Tout reste sur l'iPhone : aucun appel réseau après l'installation, aucune télémétrie, modèles d'IA embarqués.
 - Pas d'ordinateur côté utilisateur : tout se teste sur iPhone via l'URL GitHub Pages.
 - Aucune suppression automatique. L'écran final rend la suppression la plus simple possible : bouton qui passe la
-  liste au raccourci « Photo Triage » (app Raccourcis), iOS demande confirmation (`docs/decisions.md`, point 31).
+  liste au raccourci « Photo Triage » (app Raccourcis), une recherche par photo (nom + fenêtre de ±2 s), aperçu puis confirmation d'iOS
+  (`docs/decisions.md`, points 31 et 33).
 - Jamais de photos dans le dépôt (`tests/fixtures/` est ignoré par git).
 - Interface en français, fluide, soignée, utilisable d'une main.
 - RAW repérés et mis de côté. Vidéos plus tard (`MediaItem.kind`). Live Photos non ciblées.

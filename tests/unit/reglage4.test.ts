@@ -107,19 +107,26 @@ describe('poses (réglage 6)', () => {
 });
 
 describe('pont Raccourcis (réglage 6)', () => {
-  it('envoie « <nom|date à la seconde> » par photo au raccourci « Photo Triage » (les noms seuls ne sont pas uniques)', async () => {
-    const { shortcutUrl, shortcutDate } = await import('../../src/platform/shortcut');
-    const at = new Date(2026, 10, 18, 22, 45, 12, 640).getTime();
-    const url = shortcutUrl([
+  it('une ligne par photo : nom, puis fenêtre de ±2 s autour de la prise de vue', async () => {
+    const { shortcutUrl, shortcutCount } = await import('../../src/platform/shortcut');
+    const at = new Date(2026, 10, 18, 22, 29, 53, 640).getTime();
+    const photos = [
       { fileName: 'IMG_0696.jpeg', at },
-      { fileName: 'IMG_0697.HEIC', at: at + 1000 },
+      { fileName: 'IMG_0697.HEIC', at: at + 2000 },
       { fileName: 'IMG_0698.jpeg', at: null },
-    ]);
+    ];
+    const url = shortcutUrl(photos);
     expect(url.startsWith('shortcuts://run-shortcut?name=Photo%20Triage&input=text&text=')).toBe(true);
-    const text = decodeURIComponent(url.split('text=')[1]!);
-    expect(text).toBe('<IMG_0696|2026-11-18 22:45:12>\n<IMG_0697|2026-11-18 22:45:13>');
-    expect(shortcutDate(at)).toBe('2026-11-18 22:45:12');
-    // Une autre photo nommée IMG_0696, prise un autre jour, ne correspond pas.
-    expect(text.includes('<IMG_0696|2025-03-02 10:00:00>')).toBe(false);
+    expect(decodeURIComponent(url.split('text=')[1]!)).toBe(
+      'IMG_0696|2026-11-18 22:29:51|2026-11-18 22:29:55\nIMG_0697|2026-11-18 22:29:53|2026-11-18 22:29:57',
+    );
+    // La photo sans heure n'est pas envoyée, et l'app le sait.
+    expect(shortcutCount(photos)).toBe(2);
+  });
+
+  it('passage de minuit et de mois : la fenêtre reste juste', async () => {
+    const { shortcutText } = await import('../../src/platform/shortcut');
+    const at = new Date(2026, 10, 30, 23, 59, 59, 100).getTime();
+    expect(shortcutText([{ fileName: 'IMG_0001.jpeg', at }])).toBe('IMG_0001|2026-11-30 23:59:57|2026-12-01 00:00:01');
   });
 });
