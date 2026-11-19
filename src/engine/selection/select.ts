@@ -1,6 +1,6 @@
 // Sélection : quelles photos garder dans un paquet.
-// Seules les notes décident : pas de quota (retiré à la demande de l'utilisateur, 17/11 : un paquet de 2 photos peut
-// garder les 2). On garde au moins une photo par paquet, sauf si toutes sont ratées.
+// Pas de quota (utilisateur, 17/11). Dans une pose : la meilleure, plus les photos bonnes et nettement différentes
+// (utilisateur, 19/11). On garde au moins une photo par paquet, sauf si toutes sont ratées.
 
 /** Quasi-doublons : même photo à peu de chose près. */
 function nearDuplicate(a: MediaItem, b: MediaItem): boolean {
@@ -13,6 +13,9 @@ import { config } from '../config';
 import { signatureDistance } from '../analysis/color';
 import { embeddingSimilarity } from '../analysis/embedding';
 import type { Decision, MediaItem, PhotoScore, PoseGroup } from '../types';
+import { poseDifference, type DifferenceLevel, type PoseDifference } from './difference';
+
+const RANK: Record<DifferenceLevel, number> = { aucune: 0, legere: 1, nette: 2 };
 
 export function selectPack(
   items: readonly MediaItem[],
@@ -35,7 +38,8 @@ export function selectPack(
   }
 
   if (items.length === 1) {
-    set(items[0]!, { keep: true, code: 'seule' });
+    // Seule photo du paquet, mais probablement prise par erreur (pied, sol, flou) : l'utilisateur tranche.
+    set(items[0]!, scores.get(items[0]!.id)?.accidental ? { keep: true, review: true, code: 'a-verifier' } : { keep: true, code: 'seule' });
     return decisions;
   }
 
@@ -46,18 +50,36 @@ export function selectPack(
 
     const best = candidates[0]!;
     const groupKept = [best];
-    set(best, { keep: true, code: 'meilleure' });
+    // Photo probablement prise par erreur : jamais gardée d'office, l'utilisateur tranche.
+    if (scores.get(best.id)?.accidental) set(best, { keep: true, review: true, code: 'a-verifier' });
+    else set(best, { keep: true, code: 'meilleure' });
 
-    // Une photo par pose : l'app tranche (demande de l'utilisateur, 18/11 : « deux photos identiques, c'est à l'app
-    // d'en supprimer une »). Seule exception : une photo de personnes presque aussi bien notée est « à vérifier ».
+    // Autres photos de la pose (utilisateur, 19/11) : gardées si bonnes ET différentes de chaque photo déjà gardée ;
+    // à vérifier si légèrement différentes ou un peu moins bonnes ; supprimées si identiques ou nettement moins bonnes.
     const people = (scores.get(best.id)?.expectedFaces ?? 0) > 0;
     for (const pick of candidates.slice(1)) {
-      const twin = groupKept.find((k) => nearDuplicate(pick, k));
       const gap = scoreOf(best) - scoreOf(pick);
-      if (twin) set(pick, { keep: false, code: 'trop-proche', refId: twin.id });
-      else if (people && gap <= cfg.reviewMargin + 1e-9) {
+      // Quasi identique à l'image, sauf si un visage change nettement (un sourire bouge à peine l'empreinte).
+      const twin = groupKept.find((k) => nearDuplicate(pick, k) && poseDifference(pick, k).level !== 'nette');
+      if (twin) {
+        set(pick, { keep: false, code: 'trop-proche', refId: twin.id });
+        continue;
+      }
+      // Différence avec la photo gardée la plus proche : c'est elle qui compte.
+      let closest: { ref: MediaItem; diff: PoseDifference } | null = null;
+      for (const k of groupKept) {
+        const diff = poseDifference(pick, k);
+        if (!closest || RANK[diff.level] < RANK[closest.diff.level]) closest = { ref: k, diff };
+      }
+      const blocked = (scores.get(pick.id)?.reasons ?? []).some((r) => cfg.blocking.includes(r.code)) || scores.get(pick.id)?.accidental;
+      const diff = closest!.diff;
+      if (diff.level === 'aucune') set(pick, { keep: false, code: 'trop-proche', refId: closest!.ref.id });
+      else if (!blocked && diff.level === 'nette' && gap <= cfg.keepMargin + 1e-9) {
         groupKept.push(pick);
-        set(pick, { keep: true, review: true, code: 'a-verifier', refId: best.id });
+        set(pick, { keep: true, code: 'differente', refId: best.id, differences: diff.kinds });
+      } else if (!blocked && gap <= cfg.reviewMargin + 1e-9 && (people || diff.level === 'nette')) {
+        groupKept.push(pick);
+        set(pick, { keep: true, review: true, code: 'a-verifier', refId: best.id, differences: diff.kinds });
       } else set(pick, { keep: false, code: 'moins-bonne', refId: best.id });
     }
   }

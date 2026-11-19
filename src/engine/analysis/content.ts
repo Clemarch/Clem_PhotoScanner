@@ -96,7 +96,7 @@ export function analyzeContent(
   const detections = (objects ?? []).filter((o) => o.score >= cfg.minObjectScore);
 
   const distractions = detections
-    .filter((o) => o.label in cfg.distractingLabels)
+    .filter((o) => o.label in cfg.distractingLabels && o.score >= cfg.distractionMinScore)
     .filter((o) => area(o.box) >= cfg.largeObjectArea || zones.some((zone) => overlap(zone, o.box) > 0))
     .map((o) => o.label);
 

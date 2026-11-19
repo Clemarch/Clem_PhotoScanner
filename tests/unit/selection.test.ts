@@ -118,15 +118,14 @@ describe('sélection', () => {
     expect(d.get('20')!.keep).toBe(true);
   });
 
-  it('photo de personnes presque aussi bien notée : « à vérifier », gardée tant que l’utilisateur n’a rien dit', () => {
+  it('photos de personnes identiques (rien ne change) : seule la meilleure est gardée (utilisateur, 19/11)', () => {
     const ids = ['9', '10', '11', '12'];
-    const items = ids.map((id, i) => item(id, i * 2, { signature: sig(60 + i * 13, 120, 120) }));
+    const items = ids.map((id, i) => item(id, i * 2, { signature: sig(120 + i, 120, 120) }));
     const scores = scoresOf({ '9': 0.87, '10': 0.86, '11': 0.84, '12': 0.8 });
     for (const s of scores.values()) s.expectedFaces = 2;
     const d = selectPack(items, scores, pose(items));
     expect(d.get('9')).toMatchObject({ keep: true, code: 'meilleure' });
-    expect(d.get('10')).toMatchObject({ keep: true, review: true, code: 'a-verifier', refId: '9' });
-    for (const id of ['11', '12']) expect(d.get(id)).toMatchObject({ keep: false, code: 'moins-bonne', refId: '9' });
+    for (const id of ['10', '11', '12']) expect(d.get(id)!.keep).toBe(false);
   });
 
   it('ne garde pas une seconde photo trop moins bonne que la meilleure', () => {
@@ -134,7 +133,7 @@ describe('sélection', () => {
     const values = Object.fromEntries(items.map((it, i) => [it.id, i === 0 ? 0.95 : 0.6]));
     const d = selectPack(items, scoresOf(values), pose(items));
     expect([...d.values()].filter((x) => x.keep)).toHaveLength(1);
-    expect([...d.values()].some((x) => x.code === 'moins-bonne')).toBe(true);
+    expect([...d.values()].every((x) => x.keep || x.code === 'moins-bonne' || x.code === 'trop-proche')).toBe(true);
   });
 
   it('écarte un quasi-doublon de la meilleure', () => {

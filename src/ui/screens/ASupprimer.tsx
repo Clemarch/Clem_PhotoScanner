@@ -5,7 +5,7 @@ import { finalKeep, stateLook, type Choice, type Choices } from '../choices';
 import { dayEntries } from '../entries';
 import { formatDate, formatTime, plural } from '../format';
 import { Visionneuse } from './Visionneuse';
-import { runShortcut, shortcutCount, shortcutText, SHORTCUT_NAME } from '../../platform/shortcut';
+import { runShortcut, shortcutCount, shortcutText, SHORTCUT_BATCH, SHORTCUT_NAME } from '../../platform/shortcut';
 import { GuideRaccourci } from '../GuideRaccourci';
 
 interface Props {
@@ -39,6 +39,8 @@ export function ASupprimer({ session, day, choices, onChoose, onComment }: Props
   const [done, setDone] = useState<Set<string>>(() => loadDone());
   const [viewing, setViewing] = useState<number | null>(null);
   const [help, setHelp] = useState(false);
+  // Photos déjà envoyées au raccourci pendant cette visite (lots de 49 au plus).
+  const [sent, setSent] = useState<Set<string>>(new Set());
   useEffect(() => saveDone(done), [done]);
 
   const entries = useMemo(() => dayEntries(day), [day]);
@@ -53,10 +55,18 @@ export function ASupprimer({ session, day, choices, onChoose, onComment }: Props
   const totalRemove = todo.reduce((n, p) => n + p.remove.length, 0);
   const remaining = todo.filter((p) => !done.has(p.pack.key)).reduce((n, p) => n + p.remove.length, 0);
   const pendingPacks = todo.filter((p) => !done.has(p.pack.key));
-  const pendingPhotos = pendingPacks.flatMap((p) =>
-    p.remove.map((item) => ({ fileName: item.fileName, at: item.instant ?? item.capturedAt })),
-  );
+  const asPhoto = (item: MediaItem) => ({ fileName: item.fileName, at: item.instant ?? item.capturedAt });
+  const pendingAll = pendingPacks.flatMap((p) => p.remove).filter((item) => !sent.has(item.id));
+  // Seules les photos datées partent au raccourci ; les autres se suppriment à la main (plus bas).
+  const pendingItems = pendingAll.filter((item) => shortcutCount([asPhoto(item)]) === 1);
+  // iOS refuse qu'un raccourci supprime 50 photos ou plus d'un coup (protection gardée par l'utilisateur, 19/11) :
+  // envoi par lots de 49 au plus.
+  const batchItems = pendingItems.slice(0, SHORTCUT_BATCH);
+  const pendingPhotos = batchItems.map(asPhoto);
   const sendable = shortcutCount(pendingPhotos);
+  const totalSendable = shortcutCount(pendingItems.map(asPhoto));
+  const batchDone = Math.ceil(sent.size / SHORTCUT_BATCH);
+  const batches = batchDone + Math.ceil(pendingItems.length / SHORTCUT_BATCH);
   const toReview = day.packs.reduce((n, pack) => n + pack.pack.items.filter((it) => finalKeep(it, pack, choices).review).length, 0);
 
   return (
@@ -77,25 +87,34 @@ export function ASupprimer({ session, day, choices, onChoose, onComment }: Props
         </p>
       )}
 
-      {remaining > 0 && (
+      {pendingItems.length > 0 && (
         <section className="carte">
           <button
             className="bouton principal"
             onClick={() => {
               runShortcut(pendingPhotos);
-              setDone((set) => new Set([...set, ...pendingPacks.map((p) => p.pack.key)]));
+              const nowSent = new Set([...sent, ...batchItems.map((it) => it.id)]);
+              setSent(nowSent);
+              // Un paquet est « fait » quand toutes ses photos à supprimer sont parties.
+              setDone((set) => new Set([...set, ...pendingPacks.filter((p) => p.remove.every((it) => nowSent.has(it.id))).map((p) => p.pack.key)]));
             }}
           >
-            Supprimer les {sendable} photos
+            {batches > 1 ? `Supprimer le lot ${batchDone + 1} sur ${batches} (${sendable} photos)` : `Supprimer les ${sendable} photos`}
           </button>
+          {batches > 1 && (
+            <p className="info">
+              {totalSendable} photos à supprimer : l’iPhone n’en accepte que 49 à la fois. Après ce lot, revenez ici : le
+              bouton propose le lot suivant.
+            </p>
+          )}
           <p className="note">
             Ouvre le raccourci « {SHORTCUT_NAME} ». Il vous montre d’abord les photos trouvées : vérifiez qu’il y en a{' '}
             <strong>{sendable}</strong>, touchez « Terminé », puis confirmez la suppression. Elles restent 30 jours dans
             « Supprimés récemment ». Les paquets sont ensuite marqués « Fait » ; touchez « rouvrir » si besoin.
           </p>
-          {sendable < remaining && (
+          {totalSendable < pendingAll.length && (
             <p className="alerte">
-              {plural(remaining - sendable, 'photo')} sans heure de prise de vue : le raccourci ne peut pas la retrouver
+              {plural(pendingAll.length - totalSendable, 'photo')} sans heure de prise de vue : le raccourci ne peut pas la retrouver
               sans risque d’erreur. Supprimez-la à la main (plus bas).
             </p>
           )}
