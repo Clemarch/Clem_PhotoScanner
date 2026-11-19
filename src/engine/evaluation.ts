@@ -22,6 +22,8 @@ export interface Agreement {
   withTaste: number | null;
   /** Choix enregistrés avec empreinte. */
   tasteChoices: number;
+  /** Parmi `total`, accords silencieux (photos laissées telles quelles). */
+  implicit: number;
 }
 
 const agrees = (decision: Decision | undefined, record: ChoiceRecord): boolean =>
@@ -31,7 +33,7 @@ export function evaluateDay(day: DayAnalysis, records: readonly ChoiceRecord[]):
   const byKey = new Map(records.map((r) => [r.key, r]));
   const memory = tasteMemory(records);
   const useTaste = memory.items.length >= config.taste.minChoices;
-  const out: Agreement = { total: 0, raw: 0, honest: 0, withTaste: useTaste ? 0 : null, tasteChoices: memory.items.length };
+  const out: Agreement = { total: 0, raw: 0, honest: 0, withTaste: useTaste ? 0 : null, tasteChoices: memory.items.length, implicit: 0 };
 
   for (const pack of day.packs) {
     const keys = new Set(pack.pack.items.map(photoKey));
@@ -63,6 +65,7 @@ export function evaluateDay(day: DayAnalysis, records: readonly ChoiceRecord[]):
     for (const it of chosen) {
       const record = byKey.get(photoKey(it))!;
       out.total++;
+      if (record.implicit) out.implicit++;
       if (agrees(pack.decisions.get(it.id), record)) out.raw++;
       if (agrees(honest.get(it.id), record)) out.honest++;
       if (tasted && agrees(tasted.get(it.id), record)) out.withTaste!++;

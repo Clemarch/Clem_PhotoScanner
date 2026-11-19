@@ -56,7 +56,6 @@ export function selectPack(
 
     // Autres photos de la pose (utilisateur, 19/11) : gardées si bonnes ET différentes de chaque photo déjà gardée ;
     // à vérifier si légèrement différentes ou un peu moins bonnes ; supprimées si identiques ou nettement moins bonnes.
-    const people = (scores.get(best.id)?.expectedFaces ?? 0) > 0;
     for (const pick of candidates.slice(1)) {
       const gap = scoreOf(best) - scoreOf(pick);
       // Quasi identique à l'image, sauf si un visage change nettement (un sourire bouge à peine l'empreinte).
@@ -77,7 +76,7 @@ export function selectPack(
       else if (!blocked && diff.level === 'nette' && gap <= cfg.keepMargin + 1e-9) {
         groupKept.push(pick);
         set(pick, { keep: true, code: 'differente', refId: best.id, differences: diff.kinds });
-      } else if (!blocked && gap <= cfg.reviewMargin + 1e-9 && (people || diff.level === 'nette')) {
+      } else if (!blocked && gap <= cfg.reviewMargin + 1e-9) {
         groupKept.push(pick);
         set(pick, { keep: true, review: true, code: 'a-verifier', refId: best.id, differences: diff.kinds });
       } else set(pick, { keep: false, code: 'moins-bonne', refId: best.id });

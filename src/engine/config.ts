@@ -8,6 +8,19 @@ export const config = {
     /** Bornes du curseur de réglage dans l'écran Paquets. */
     packGapMinSeconds: 10,
     packGapMaxSeconds: 900,
+    /** Découpage selon le contenu (utilisateur, 19/11 : « ça dépend des sujets et des poses, pas du timing ») :
+     *  une photo rejoint le paquet en cours si elle ressemble à l'une de ses dernières photos (empreinte fine). */
+    byContent: {
+      /** Ressemblance minimale. Mesurée sur 106 photos de l'utilisateur : même paquet, 3 paires sur 4 au-dessus
+       *  de 0,59 ; paquets différents, 9 sur 10 sous 0,44. */
+      similar: 0.55,
+      /** Nombre de dernières photos du paquet comparées. */
+      compareLast: 4,
+      /** Rafale : photos à moins de N secondes toujours ensemble, même si le cadrage change beaucoup. */
+      burstSeconds: 10,
+      /** Au-delà, deux photos ne sont jamais réunies, même ressemblantes (même paysage revu 1 h plus tard : réunis). */
+      maxGapSeconds: 3 * 3600,
+    },
   },
   image: {
     /** Plus grand côté (pixels) de l'image réduite utilisée pour l'analyse. */
@@ -257,6 +270,11 @@ export const config = {
     gapSeconds: 20,
     /** Un visage qui se déplace de plus de cette part de l'image change la pose. */
     faceMove: 0.15,
+    /** Paysage sans personne : même pose, quel que soit l'écart de temps, si la ressemblance avec la photo précédente
+     *  et avec la première du groupe atteint ce seuil. */
+    sceneSimilar: 0.7,
+    /** Personne repérée (détecteur d'objets) à partir de ce score : la photo n'est plus un paysage. */
+    personMinScore: 0.5,
   },
   selection: {
     /** Dans une pose, la meilleure photo est gardée. Une autre l'est aussi si elle est bonne (à moins de `keepMargin`
@@ -360,6 +378,10 @@ export const config = {
     unanalyzedFacePenalty: 0.06,
     /** Veto : yeux considérés fermés sous cette note d'ouverture. */
     eyesClosedBelow: 0.3,
+    /** Ouverture habituelle (médiane sur le groupe) en dessous de laquelle une personne a les yeux plissés partout :
+     *  ses yeux « fermés » ne sont alors pas un clignement (P2 du 18/11 : médiane 0,40, photos gardées). */
+    squintUsualBelow: 0.6,
+    squintMinPhotos: 3,
     /** Photo sans personne très floue : netteté globale mesurée sous ce seuil absolu (valeur de départ, à calibrer). */
     absoluteBlurBelow: 15,
     /** Seuils des raisons affichées. */

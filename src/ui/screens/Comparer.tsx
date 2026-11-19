@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { IconFermer } from '../icons';
 import type { MediaItem, PackAnalysis } from '../../engine';
 import { diffImages, type ImageDiff } from '../../platform/image/difference';
 import { finalKeep, type Choice, type Choices } from '../choices';
@@ -99,9 +100,10 @@ export function Comparer({ item, pack, previews, thumbnails, choices, numberOf, 
     <div className="comparer" role="dialog" aria-label="Comparer deux photos">
       <header className="vis-haut">
         <button className="vis-fermer" onClick={onClose} aria-label="Fermer">
-          ✕
+          <IconFermer size={17} />
         </button>
         <span>Comparer</span>
+        <span />
       </header>
       <div className="comp-corps">
         {others.length > 1 && (

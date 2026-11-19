@@ -29,6 +29,8 @@ export interface SessionSettings {
   sessionId: string;
   gap: number;
   joined: string[];
+  /** Paquets découpés selon le contenu (absent avant le 19/11 : vrai par défaut). */
+  byContent?: boolean;
 }
 
 /** Au-delà, une séance gardée n'est plus reprise d'elle-même. */

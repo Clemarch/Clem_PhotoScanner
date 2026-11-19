@@ -25,6 +25,10 @@ function layoutChanged(a: MediaItem, b: MediaItem): boolean {
   return fa.some((p, i) => Math.hypot(p.x - fb[i]!.x, p.y - fb[i]!.y) > config.poses.faceMove);
 }
 
+/** Ni visage ni personne : paysage, coucher de soleil, objet. */
+const scenery = (item: MediaItem): boolean =>
+  mainFaces(item.faces).length === 0 && !(item.objects ?? []).some((o) => o.label === 'person' && o.score >= config.poses.personMinScore);
+
 /** Les photos doivent être dans l'ordre chronologique (celui d'un paquet). */
 export function groupPoses(items: readonly MediaItem[]): PoseGroup[] {
   const cfg = config.poses;
@@ -49,7 +53,10 @@ export function groupPoses(items: readonly MediaItem[]): PoseGroup[] {
       similar =
         (fromPrevious === Infinity || fromPrevious <= cfg.fromPrevious) && (fromFirst === Infinity || fromFirst <= cfg.fromFirst);
     }
-    if (current && previous && sameTime && similar && !layoutChanged(previous, item)) current.push(item);
+    // Paysage sans personne : la même vue reprise plus tard (zoom, autre cadrage) reste la même pose (utilisateur, 19/11).
+    const sameView =
+      previous !== undefined && scenery(previous) && scenery(item) && (simPrevious ?? 0) >= cfg.sceneSimilar && (simFirst ?? 0) >= cfg.sceneSimilar;
+    if (current && previous && ((sameTime && similar) || sameView) && !layoutChanged(previous, item)) current.push(item);
     else groups.push([item]);
   }
   return groups.map((list, i) => ({ id: `pose-${i + 1}`, label: label(i), items: list }));

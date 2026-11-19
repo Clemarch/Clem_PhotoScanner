@@ -5,6 +5,7 @@ import { formatTime } from '../format';
 import { asideLabel, decisionText, reasonText, sceneLabel } from '../reasons';
 import { Comparer } from './Comparer';
 import { Commentaire } from '../Commentaire';
+import { IconCoche, IconCroix, IconFermer } from '../icons';
 
 export interface ViewerEntry {
   item: MediaItem;
@@ -39,6 +40,7 @@ export function Visionneuse({ entries, start, previews, originals, thumbnails, c
   const [comparing, setComparing] = useState(false);
   const [commenting, setCommenting] = useState(false);
   const area = useRef<HTMLDivElement | null>(null);
+  const strip = useRef<HTMLDivElement | null>(null);
   const gesture = useRef<{
     mode: 'swipe' | 'pan' | 'pinch';
     x: number;
@@ -61,8 +63,11 @@ export function Visionneuse({ entries, start, previews, originals, thumbnails, c
   const zoomed = zoom.s > 1.01;
   const go = (step: number) => setIndex((i) => Math.min(entries.length - 1, Math.max(0, i + step)));
 
-  // Changer de photo remet le zoom à zéro.
-  useEffect(() => setZoom({ s: 1, x: 0, y: 0 }), [index]);
+  // Changer de photo remet le zoom à zéro, et centre la miniature dans la bande du paquet.
+  useEffect(() => {
+    setZoom({ s: 1, x: 0, y: 0 });
+    strip.current?.querySelector('.actuelle')?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+  }, [index]);
 
   // Photo d'origine en pleine définition, seulement pendant le zoom (une seule à la fois en mémoire).
   useEffect(() => {
@@ -116,11 +121,14 @@ export function Visionneuse({ entries, start, previews, originals, thumbnails, c
     <div className="visionneuse" role="dialog" aria-label="Photo en grand">
       <header className="vis-haut">
         <button className="vis-fermer" onClick={onClose} aria-label="Fermer">
-          ✕
+          <IconFermer size={17} />
         </button>
         <span>
-          {index + 1} / {entries.length}
+          {entry.packNumber !== null && pack
+            ? `Paquet ${entry.packNumber} · ${pack.pack.items.indexOf(item) + 1} sur ${pack.pack.items.length}`
+            : `${index + 1} / ${entries.length}`}
         </span>
+        <span className="vis-haut-vide" />
       </header>
 
       <div
@@ -247,6 +255,30 @@ export function Visionneuse({ entries, start, previews, originals, thumbnails, c
       </div>
 
       <section className="vis-infos">
+        {pack && pack.pack.items.length > 1 && (
+          <div className="bande" ref={strip} role="list" aria-label="Photos du paquet">
+            {pack.pack.items.map((it) => {
+              const st = finalKeep(it, pack, choices);
+              const look = st.review ? 'verifier' : st.keep ? 'garder' : 'supprimer';
+              const src = thumbnails.get(it.id);
+              return (
+                <button
+                  key={it.id}
+                  role="listitem"
+                  className={`bande-photo ${look}${it.id === item.id ? ' actuelle' : ''}`}
+                  onClick={() => {
+                    const at = entries.findIndex((e) => e.item.id === it.id);
+                    if (at >= 0) setIndex(at);
+                  }}
+                  aria-label={`Photo n° ${numberOf(it.id) ?? ''}`}
+                >
+                  {src && <img src={src} alt="" decoding="async" />}
+                  <span className={`bande-etat ${look}`}>{st.review ? '?' : st.keep ? <IconCoche size={9} /> : <IconCroix size={8} />}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
         <p className="vis-titre">
           {number !== null ? `Photo n° ${number}` : entry.aside ? 'Mise de côté' : 'Photo sans date'}
           {item.capturedAt !== null && ` · ${formatTime(item.capturedAt)}`}
@@ -289,16 +321,16 @@ export function Visionneuse({ entries, start, previews, originals, thumbnails, c
         {pack && state && (
           <div className="vis-choix">
             <button
-              className={`bouton ${state.keep ? 'choisi-garder' : ''}`}
+              className={`bouton ${state.keep && !state.review ? 'choisi-garder' : ''}`}
               onClick={() => onChoose(entry, state.byUser && state.keep ? null : 'garder')}
             >
-              ✓ À garder
+              <IconCoche size={16} /> Garder
             </button>
             <button
               className={`bouton ${!state.keep ? 'choisi-supprimer' : ''}`}
               onClick={() => onChoose(entry, state.byUser && !state.keep ? null : 'supprimer')}
             >
-              ✕ À supprimer
+              <IconCroix size={15} /> Supprimer
             </button>
           </div>
         )}
@@ -311,11 +343,8 @@ export function Visionneuse({ entries, start, previews, originals, thumbnails, c
         )}
         {pack && (pack.poses.find((p) => p.items.some((it) => it.id === item.id))?.items.length ?? 0) > 1 && (
           <button className="bouton vis-comparer" onClick={() => setComparing(true)}>
-            Comparer avec la même pose
+            Comparer avec la pose
           </button>
-        )}
-        {pack && state && (
-          <p className="note centre">Rien n’est supprimé ici : la suppression se fait dans l’onglet « 2. Dans Photos ».</p>
         )}
         {state?.byUser && (
           <button className="lien" onClick={() => onChoose(entry, null)}>

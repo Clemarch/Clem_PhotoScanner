@@ -7,6 +7,8 @@ import { formatDate, formatTime, plural } from '../format';
 import { Visionneuse } from './Visionneuse';
 import { runShortcut, shortcutCount, shortcutText, SHORTCUT_BATCH, SHORTCUT_NAME } from '../../platform/shortcut';
 import { GuideRaccourci } from '../GuideRaccourci';
+import { IconCoche, IconCorbeille, IconCroix } from '../icons';
+import { useScrolled } from '../useScrolled';
 
 interface Props {
   session: Session;
@@ -14,6 +16,10 @@ interface Props {
   choices: Choices;
   onChoose: (item: MediaItem, pack: PackAnalysis, choice: Choice | null) => void;
   onComment: (item: MediaItem, comment: string) => void;
+  /** Paquets traités : les photos laissées telles quelles comptent comme accords avec l'app. */
+  onConfirm: (packs: PackAnalysis[]) => void;
+  /** Paquets rouverts : leurs accords silencieux sont retirés. */
+  onUnconfirm: (packs: PackAnalysis[]) => void;
 }
 
 const DONE_KEY = 'photo-triage.faits';
@@ -34,13 +40,17 @@ function saveDone(done: Set<string>): void {
   }
 }
 
-/** Écran « À supprimer » : une carte de chaque paquet, dans l'ordre de l'app Photos, à reproduire avec « Sélectionner ». */
-export function ASupprimer({ session, day, choices, onChoose, onComment }: Props) {
+const asPhoto = (item: MediaItem) => ({ fileName: item.fileName, at: item.instant ?? item.capturedAt });
+/** Le raccourci retrouve la photo (nom et heure connus) ? */
+const findable = (item: MediaItem) => shortcutCount([asPhoto(item)]) === 1;
+
+/** Écran « Supprimer » : envoie la liste au raccourci « Photo Triage », par lots de 49 au plus. */
+export function ASupprimer({ session, day, choices, onChoose, onComment, onConfirm, onUnconfirm }: Props) {
   const [done, setDone] = useState<Set<string>>(() => loadDone());
   const [viewing, setViewing] = useState<number | null>(null);
-  const [help, setHelp] = useState(false);
   // Photos déjà envoyées au raccourci pendant cette visite (lots de 49 au plus).
   const [sent, setSent] = useState<Set<string>>(new Set());
+  const scrolled = useScrolled();
   useEffect(() => saveDone(done), [done]);
 
   const entries = useMemo(() => dayEntries(day), [day]);
@@ -53,163 +63,204 @@ export function ASupprimer({ session, day, choices, onChoose, onComment }: Props
   });
   const todo = packs.filter((p) => p.remove.length > 0);
   const totalRemove = todo.reduce((n, p) => n + p.remove.length, 0);
-  const remaining = todo.filter((p) => !done.has(p.pack.key)).reduce((n, p) => n + p.remove.length, 0);
   const pendingPacks = todo.filter((p) => !done.has(p.pack.key));
-  const asPhoto = (item: MediaItem) => ({ fileName: item.fileName, at: item.instant ?? item.capturedAt });
   const pendingAll = pendingPacks.flatMap((p) => p.remove).filter((item) => !sent.has(item.id));
   // Seules les photos datées partent au raccourci ; les autres se suppriment à la main (plus bas).
-  const pendingItems = pendingAll.filter((item) => shortcutCount([asPhoto(item)]) === 1);
+  const pendingItems = pendingAll.filter(findable);
+  const manual = pendingAll.filter((item) => !findable(item));
   // iOS refuse qu'un raccourci supprime 50 photos ou plus d'un coup (protection gardée par l'utilisateur, 19/11) :
   // envoi par lots de 49 au plus.
   const batchItems = pendingItems.slice(0, SHORTCUT_BATCH);
   const pendingPhotos = batchItems.map(asPhoto);
   const sendable = shortcutCount(pendingPhotos);
-  const totalSendable = shortcutCount(pendingItems.map(asPhoto));
   const batchDone = Math.ceil(sent.size / SHORTCUT_BATCH);
   const batches = batchDone + Math.ceil(pendingItems.length / SHORTCUT_BATCH);
-  const toReview = day.packs.reduce((n, pack) => n + pack.pack.items.filter((it) => finalKeep(it, pack, choices).review).length, 0);
+
+  const markDone = (keys: string[]) => {
+    const fresh = keys.filter((key) => !done.has(key));
+    if (fresh.length === 0) return;
+    setDone((set) => new Set([...set, ...fresh]));
+    onConfirm(day.packs.filter((p) => fresh.includes(p.key)));
+  };
+
+  const send = () => {
+    runShortcut(pendingPhotos);
+    const nowSent = new Set([...sent, ...batchItems.map((it) => it.id)]);
+    setSent(nowSent);
+    // Un paquet est « fait » quand toutes ses photos à supprimer sont parties. S'il en reste à supprimer à la main
+    // (sans date), il attend que l'utilisateur touche « Fait ».
+    markDone(pendingPacks.filter((p) => p.remove.every((it) => nowSent.has(it.id))).map((p) => p.pack.key));
+  };
+
+  const reopen = (keys: string[]) => {
+    setDone((set) => new Set([...set].filter((key) => !keys.includes(key))));
+    onUnconfirm(day.packs.filter((p) => keys.includes(p.key)));
+  };
+
+  const allSent = totalRemove > 0 && pendingItems.length === 0 && manual.length === 0;
+  const onlyManual = totalRemove > 0 && pendingItems.length === 0 && manual.length > 0;
 
   return (
     <main className="page">
-      <header className="entete">
-        <h2>Dans Photos</h2>
-        <p className="doux">
-          {totalRemove === 0
-            ? 'Rien à supprimer.'
-            : `${plural(totalRemove, 'photo')} à supprimer vous-même dans l’app Photos, ${plural(todo.length, 'paquet')}${remaining < totalRemove ? ` · encore ${remaining}` : ''}`}
-        </p>
+      <div className={`barre-haut${scrolled ? ' visible' : ''}`} aria-hidden={!scrolled}>
+        <strong>Supprimer</strong>
+      </div>
+      <header className="grand-titre">
+        <h1>Supprimer</h1>
+        <p className="sous-titre">Dans l’app Photos, par votre raccourci « {SHORTCUT_NAME} ».</p>
       </header>
 
-      {toReview > 0 && (
+      {totalRemove === 0 ? (
+        <section className="carte heros">
+          <span className="heros-icone vert">
+            <IconCoche size={30} />
+          </span>
+          <h2>Rien à supprimer</h2>
+          <p className="doux">Toutes les photos de la séance sont gardées.</p>
+        </section>
+      ) : allSent ? (
+        <section className="carte heros">
+          <span className="heros-icone vert">
+            <IconCoche size={30} />
+          </span>
+          <h2>C’est fait</h2>
+          <p className="doux">
+            {sent.size > 0
+              ? `${plural(sent.size, 'photo')} envoyée${sent.size > 1 ? 's' : ''} au raccourci. `
+              : 'Tous les paquets sont marqués « Fait ». '}
+            Les photos supprimées restent 30 jours dans Photos › Albums › « Supprimés récemment ».
+          </p>
+          <button
+            className="lien"
+            onClick={() => {
+              setSent(new Set());
+              reopen(todo.map((p) => p.pack.key));
+            }}
+          >
+            Recommencer l’envoi
+          </button>
+        </section>
+      ) : onlyManual ? (
+        <section className="carte heros">
+          <span className="heros-icone rouge">
+            <IconCorbeille size={30} />
+          </span>
+          <p className="heros-chiffre">{manual.length}</p>
+          <p className="doux">photo{manual.length > 1 ? 's' : ''} à supprimer à la main</p>
+          <p className="note">Le raccourci ne peut pas les retrouver : ouvrez « Détail par paquet » plus bas.</p>
+        </section>
+      ) : (
+        <section className="carte heros">
+          <span className="heros-icone rouge">
+            <IconCorbeille size={30} />
+          </span>
+          <p className="heros-chiffre">{pendingItems.length}</p>
+          <p className="doux">photo{pendingItems.length > 1 ? 's' : ''} à supprimer</p>
+          {batches > 1 && (
+            <div className="lots" aria-label={`Lot ${batchDone + 1} sur ${batches}`}>
+              {Array.from({ length: batches }, (_, k) => (
+                <span key={k} className={k < batchDone ? 'fait' : k === batchDone ? 'actuel' : ''} />
+              ))}
+            </div>
+          )}
+          <button className="bouton danger" onClick={send}>
+            {batches > 1 ? `Supprimer le lot ${batchDone + 1} sur ${batches} (${sendable})` : `Supprimer ${plural(sendable, 'photo')}`}
+          </button>
+          <p className="note">
+            Le raccourci montre d’abord les photos trouvées : vérifiez qu’il y en a <strong>{sendable}</strong>, touchez
+            « Terminé », puis confirmez.
+            {batches > 1 && ' L’iPhone n’en accepte que 49 à la fois : revenez ici après chaque lot.'}
+          </p>
+          <details className="note">
+            <summary>Liste envoyée (pour vérifier)</summary>
+            <pre className="liste-envoyee">{shortcutText(pendingPhotos)}</pre>
+          </details>
+        </section>
+      )}
+
+      {manual.length > 0 && (
         <p className="alerte">
-          Encore {plural(toReview, 'photo')} « à vérifier » (pastille bleue <span className="bleu">?</span>) : tranchez-les
-          d’abord dans l’onglet « 1. Trier ». Sans choix de votre part, elles sont gardées.
+          {plural(manual.length, 'photo')} sans heure de prise de vue : le raccourci ne peut pas la retrouver sans risque
+          d’erreur. Supprimez-la à la main (plus bas, « À la main »).
         </p>
       )}
 
-      {pendingItems.length > 0 && (
-        <section className="carte">
-          <button
-            className="bouton principal"
-            onClick={() => {
-              runShortcut(pendingPhotos);
-              const nowSent = new Set([...sent, ...batchItems.map((it) => it.id)]);
-              setSent(nowSent);
-              // Un paquet est « fait » quand toutes ses photos à supprimer sont parties.
-              setDone((set) => new Set([...set, ...pendingPacks.filter((p) => p.remove.every((it) => nowSent.has(it.id))).map((p) => p.pack.key)]));
-            }}
-          >
-            {batches > 1 ? `Supprimer le lot ${batchDone + 1} sur ${batches} (${sendable} photos)` : `Supprimer les ${sendable} photos`}
-          </button>
-          {batches > 1 && (
-            <p className="info">
-              {totalSendable} photos à supprimer : l’iPhone n’en accepte que 49 à la fois. Après ce lot, revenez ici : le
-              bouton propose le lot suivant.
-            </p>
-          )}
+      <section className="groupe">
+        <GuideRaccourci />
+      </section>
+
+      {todo.length > 0 && (
+        <details className="groupe repli">
+          <summary>
+            <span>Détail par paquet</span>
+            <span className="doux">{plural(todo.length, 'paquet')}</span>
+          </summary>
           <p className="note">
-            Ouvre le raccourci « {SHORTCUT_NAME} ». Il vous montre d’abord les photos trouvées : vérifiez qu’il y en a{' '}
-            <strong>{sendable}</strong>, touchez « Terminé », puis confirmez la suppression. Elles restent 30 jours dans
-            « Supprimés récemment ». Les paquets sont ensuite marqués « Fait » ; touchez « rouvrir » si besoin.
+            À la main (photos d’un autre appareil, GoPro, ou sans date) : dans Photos, touchez « Sélectionner », touchez les
+            photos marquées <span className="rouge">✕</span> ci-dessous (même ordre), puis la corbeille. Revenez ensuite
+            toucher « Fait ».
           </p>
-          {totalSendable < pendingAll.length && (
-            <p className="alerte">
-              {plural(pendingAll.length - totalSendable, 'photo')} sans heure de prise de vue : le raccourci ne peut pas la retrouver
-              sans risque d’erreur. Supprimez-la à la main (plus bas).
-            </p>
-          )}
-          <details className="note">
-            <summary>Liste envoyée au raccourci (pour vérifier)</summary>
-            <pre className="liste-envoyee">{shortcutText(pendingPhotos)}</pre>
-          </details>
-          <GuideRaccourci />
-        </section>
-      )}
-
-      {totalRemove > 0 && (
-        <section className="carte mode-emploi">
-          <button className="titre-aide" onClick={() => setHelp((h) => !h)} aria-expanded={help}>
-            <h3>Ou à la main, dans Photos</h3>
-            <span>{help ? '▾' : '▸'}</span>
-          </button>
-          {help && (
-            <>
-              <ol>
-                <li>Ouvrez l’app Photos et faites défiler jusqu’au jour et à l’heure du paquet (indiqués ci-dessous).</li>
-                <li>
-                  Touchez <strong>Sélectionner</strong> en haut à droite, puis touchez les photos marquées{' '}
-                  <span className="rouge">✕</span> ici : elles sont dans le même ordre que dans Photos.
-                </li>
-                <li>
-                  Touchez la <strong>corbeille</strong> en bas à droite, puis confirmez.
-                </li>
-                <li>
-                  Revenez ici et touchez <strong>Fait dans Photos</strong> : le paquet se range.
-                </li>
-              </ol>
-              <p className="note">
-                Cette app ne supprime jamais rien : c’est vous qui supprimez, dans Photos. Les photos supprimées restent
-                30 jours dans l’album « Supprimés récemment ».
-              </p>
-            </>
-          )}
-        </section>
-      )}
-
-      {todo.map(({ pack, number, remove }) => {
-        const isDone = done.has(pack.key);
-        const keep = pack.pack.items.length - remove.length;
-        return (
-          <section className={`carte carte-supprimer${isDone ? ' fait' : ''}`} key={pack.key}>
-            <div className="titre-paquet">
-              <h3>Paquet {number}</h3>
-              <span>
-                {formatDate(pack.pack.startAt)} · {formatTime(pack.pack.startAt)}
-                {pack.pack.endAt !== pack.pack.startAt && ` → ${formatTime(pack.pack.endAt)}`}
-              </span>
-            </div>
-            <p className="resume">
-              <strong className="rouge">{remove.length} à supprimer</strong> · {keep} à garder
-              {keep === 0 && ' (toutes ratées)'}
-            </p>
-            {!isDone && (
-              <div className="grille carte-ordre">
-                {pack.pack.items.map((item) => {
-                  const state = finalKeep(item, pack, choices);
-                  const del = !state.keep;
-                  const look = stateLook(state);
-                  const url = session.thumbnails.get(item.id);
-                  return (
-                    <button
-                      key={item.id}
-                      className={`vignette ${del ? 'a-supprimer' : 'a-garder'}`}
-                      onClick={() => setViewing(positionOf.get(item.id) ?? 0)}
-                    >
-                      {url ? <img src={url} alt="" loading="lazy" decoding="async" /> : <span className="vide">{item.format}</span>}
-                      <span className="numero">{numberOf(item.id)}</span>
-                      <span className={`etat ${look.css}`}>{look.mark}</span>
-                      <span className="heure">{formatTime(item.capturedAt)}</span>
-                    </button>
-                  );
-                })}
+          {todo.map(({ pack, number, remove }) => {
+            const isDone = done.has(pack.key);
+            const keep = pack.pack.items.length - remove.length;
+            return (
+              <div className={`detail-paquet${isDone ? ' fait' : ''}`} key={pack.key}>
+                <div className="paquet-tete">
+                  <div>
+                    <h3>Paquet {number}</h3>
+                    <p className="paquet-meta">
+                      {formatDate(pack.pack.startAt)} · {formatTime(pack.pack.startAt)}
+                      {pack.pack.endAt !== pack.pack.startAt && ` → ${formatTime(pack.pack.endAt)}`}
+                    </p>
+                  </div>
+                  <button
+                    className={`capsule petite${isDone ? ' vert' : ''}`}
+                    onClick={() => {
+                      if (isDone) reopen([pack.key]);
+                      else markDone([pack.key]);
+                    }}
+                  >
+                    {isDone ? (
+                      <>
+                        <IconCoche size={12} /> Fait
+                      </>
+                    ) : (
+                      'Fait'
+                    )}
+                  </button>
+                </div>
+                <p className="paquet-meta">
+                  <span className="rouge">{remove.length} à supprimer</span> · {keep} à garder
+                  {keep === 0 && ' (toutes ratées)'}
+                </p>
+                {!isDone && (
+                  <div className="grille">
+                    {pack.pack.items.map((item) => {
+                      const state = finalKeep(item, pack, choices);
+                      const look = stateLook(state);
+                      const url = session.thumbnails.get(item.id);
+                      return (
+                        <button
+                          key={item.id}
+                          className={`vignette ${look.css}`}
+                          onClick={() => setViewing(positionOf.get(item.id) ?? 0)}
+                        >
+                          {url ? <img src={url} alt="" loading="lazy" decoding="async" /> : <span className="vide">{item.format}</span>}
+                          <span className="numero">{numberOf(item.id)}</span>
+                          <span className={`etat ${look.css}`}>
+                            {state.review ? '?' : state.keep ? <IconCoche size={12} /> : <IconCroix size={11} />}
+                          </span>
+                          <span className="heure">{formatTime(item.capturedAt)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            )}
-            <button
-              className={`bouton ${isDone ? 'discret' : 'fait-bouton'}`}
-              onClick={() =>
-                setDone((set) => {
-                  const next = new Set(set);
-                  if (next.has(pack.key)) next.delete(pack.key);
-                  else next.add(pack.key);
-                  return next;
-                })
-              }
-            >
-              {isDone ? 'Fait ✓ · rouvrir' : 'Fait dans Photos'}
-            </button>
-          </section>
-        );
-      })}
+            );
+          })}
+        </details>
+      )}
 
       {viewing !== null && entries[viewing] && (
         <Visionneuse

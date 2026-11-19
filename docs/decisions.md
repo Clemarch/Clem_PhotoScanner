@@ -608,6 +608,44 @@ bien. S'il n'y a pas des yeux fermés, s'il n'y a pas un geste indésiré ».
   « À supprimer » envoie des lots de 49 (« Supprimer le lot 1 sur 3 »).
 - Non traité : yeux plissés (données contradictoires), geste indésiré (pas détectable de façon fiable).
 
+### 38. Réglage 10 : nouvelle présentation, paquets selon le contenu, accords silencieux, yeux plissés (19/11)
+
+Demandes de l'utilisateur après le réglage 9, validées point par point avant de coder :
+
+- **Paquets selon ce que montrent les photos** (« ça dépend des sujets et des poses, pas du timing »). Une photo
+  rejoint le paquet en cours si elle ressemble (empreinte fine ≥ 0,55) à l'une de ses 4 dernières photos, ou si elle
+  suit de moins de 10 s (rafale) ; jamais au-delà de 3 h. Sans empreinte : écart de temps, comme avant. Seuil mesuré
+  sur les 106 photos de sa sauvegarde : même paquet, 3 paires sur 4 au-dessus de 0,59 ; paquets différents, 9 sur 10
+  sous 0,44. Le curseur de temps passe dans Réglages (interrupteur « Selon ce que montrent les photos »).
+  Cas réel : même paysage photographié à 1 h 10 d'écart, plus zoomé la 2e fois : désormais un seul paquet.
+- **« À vérifier » laissé dans son paquet** : plus de section en haut, plus d'encadré rouge dans l'onglet de
+  suppression. Le paquet est souligné en bleu, avec une phrase d'explication ; la visionneuse montre une bande de
+  miniatures du paquet pour comparer.
+- **Accords silencieux** (« quand je clique pas c'est que je suis d'accord ») : quand un paquet part au raccourci (ou
+  est marqué « Fait »), chaque photo non touchée est enregistrée comme un choix « laissé tel quel »
+  (`ChoiceRecord.implicit`). L'apprentissage et l'accord honnête en tiennent compte : avant, seules les corrections
+  comptaient, et l'accord affiché (0/6 au rapport du 19/11) ne mesurait que les désaccords. Ces choix ne sont pas
+  affichés comme « votre choix ». Sauvegarde : une 10e colonne, les anciennes sauvegardes se lisent toujours.
+- **Yeux plissés jugés par personne** (soleil de face : tout le monde plisse les yeux). Ouverture habituelle de chaque
+  personne = médiane sur sa pose (3 photos au moins) ; en dessous de 0,6, des yeux « fermés » ne sont pas un
+  clignement (raison « yeux plissés », pas de veto). Un vrai clignement (yeux grands ouverts ailleurs) reste un défaut.
+- **Sauvegarde** : nom daté (« Photo Triage 2026-11-19 19h20 (182 choix) ») ; le nom du dernier fichier est affiché ;
+  alerte à l'accueil si l'iPhone a moins de choix qu'à la dernière sauvegarde. Rappel : une mise à jour de l'app
+  n'efface pas les choix.
+- **Présentation** façon Apple : trois onglets à icônes (Trier, Supprimer, Réglages), grands titres et barre compacte
+  en défilant, résumé en trois cases, meilleure photo de chaque pose en grand avec une étoile, bouton flottant vers la
+  suppression, écran de suppression centré sur un seul bouton avec la progression des lots. Le Diagnostic, la
+  sauvegarde, les rapports, le guide du raccourci et « Oublier mes choix » (double confirmation, rubrique « Avancé »)
+  sont dans Réglages ; le détail par photo du diagnostic est replié. La suppression à la main est repliée dans
+  « Détail par paquet » (GoPro, autre appareil, photos sans date). Mode sombre seulement : les photos s'y jugent mieux
+  et la barre d'état de l'iPhone reste lisible (texte blanc).
+- Non retenu pour l'instant : « Supprimer tout le paquet » (l'utilisateur verra plus tard).
+- Audit du 19/11 (corrigé) : un paquet n'est « Fait » que si toutes ses photos sont parties au raccourci (les photos
+  sans date restent à supprimer à la main) ; rouvrir un paquet efface ses accords silencieux ; yeux habituels =
+  médiane sur les autres photos de la personne (deux clignements sur quatre restent des défauts) ; à la
+  restauration, un vrai choix l'emporte toujours sur un accord silencieux ; l'alerte « goûts perdus » ne compte que
+  les vrais choix et se remet à zéro après « Oublier mes choix » ; l'interrupteur des paquets est gardé sur l'iPhone.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

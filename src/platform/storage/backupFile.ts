@@ -3,7 +3,6 @@
 
 import { decodeBackup, encodeBackup, type ChoiceRecord, type DecodedBackup } from '../../engine';
 
-export const BACKUP_NAME = 'photo-triage-gouts';
 const LAST_KEY = 'photo-triage.derniere-sauvegarde';
 
 async function gzip(text: string): Promise<Blob | null> {
@@ -21,13 +20,23 @@ async function gunzip(blob: Blob): Promise<string> {
   return await new Response(stream).text();
 }
 
-/** Fichier prêt à enregistrer : « photo-triage-gouts.json.gz » (ou .json si la compression manque). */
-export async function makeBackupFile(records: readonly ChoiceRecord[]): Promise<File> {
-  const text = JSON.stringify(encodeBackup(records, Date.now()));
+const pad = (n: number) => String(n).padStart(2, '0');
+
+/** Nom daté, pour reconnaître la dernière sauvegarde d'un coup d'œil (rangés par nom, le plus récent est en dernier) :
+ *  « Photo Triage 2026-11-19 19h20 (182 choix) ». Heure de l'iPhone. */
+export function backupName(at: number, count: number): string {
+  const d = new Date(at);
+  return `Photo Triage ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}h${pad(d.getMinutes())} (${count} choix)`;
+}
+
+/** Fichier prêt à enregistrer (« ….json.gz », ou « .json » si la compression manque). */
+export async function makeBackupFile(records: readonly ChoiceRecord[], at = Date.now()): Promise<File> {
+  const text = JSON.stringify(encodeBackup(records, at));
   const packed = await gzip(text);
+  const name = backupName(at, records.length);
   return packed
-    ? new File([packed], `${BACKUP_NAME}.json.gz`, { type: 'application/gzip' })
-    : new File([text], `${BACKUP_NAME}.json`, { type: 'application/json' });
+    ? new File([packed], `${name}.json.gz`, { type: 'application/gzip' })
+    : new File([text], `${name}.json`, { type: 'application/json' });
 }
 
 /** Lit un fichier de sauvegarde (compressé ou non). Lève une erreur lisible en cas de problème. */
@@ -72,6 +81,16 @@ export async function exportBackup(file: File): Promise<'partage' | 'telechargem
 export interface LastBackup {
   at: number;
   count: number;
+  /** Nom du fichier enregistré (absent pour les sauvegardes d'avant le 19/11). */
+  name?: string;
+  /** Parmi `count`, vrais choix (hors accords silencieux) ; absent pour les sauvegardes d'avant le 19/11. */
+  explicit?: number;
+}
+
+/** Après « Oublier mes choix » : la dernière sauvegarde ne compte plus comme des choix perdus. */
+export function forgetLastBackupCount(): void {
+  const last = loadLastBackup();
+  if (last) saveLastBackup({ ...last, count: 0, explicit: 0 });
 }
 
 export function loadLastBackup(): LastBackup | null {

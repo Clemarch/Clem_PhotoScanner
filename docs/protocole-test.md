@@ -10,21 +10,27 @@ Claude complète la partie « Ce test-ci » à chaque mise à jour.
    en tout ; une connexion faible peut la faire échouer, l'ancienne version reste alors en place). Puis la fermer
    complètement, la rouvrir deux fois, et vérifier la version écrite en bas de l'écran d'accueil.
 3. Choisir les photos d'une journée et lancer l'analyse.
-4. Pour chaque paquet, ouvrir les photos et les feuilleter en glissant le doigt.
-   - Quand l'app se trompe, toucher **✓ À garder** ou **✕ À supprimer** (ces boutons marquent la photo, ils ne suppriment rien).
+4. Onglet **Trier** : pour chaque paquet, ouvrir les photos et les feuilleter (glisser le doigt, ou toucher les
+   miniatures du paquet en bas de l'écran).
+   - Quand l'app se trompe, toucher **Garder** ou **Supprimer** (ces boutons marquent la photo, ils ne suppriment rien).
+     Ce qu'on ne touche pas compte comme un accord avec l'app, au moment de l'envoi au raccourci.
+   - Les photos avec une pastille bleue **?** sont à départager dans leur paquet.
    - Faire au moins **un « À garder » et un « À supprimer » dans un même paquet** : c'est cette paire qui permet à
      l'app d'apprendre.
    - Après un choix, écrire en quelques mots **pourquoi** dans la zone « Pourquoi ? » : le commentaire arrive dans
      le rapport.
-5. Onglet **2. Dans Photos** : reproduire la suppression dans Photos pour au moins un paquet, et dire si c'était simple.
-6. Onglet **Diagnostic** → **Partager le rapport**, puis choisir l'app Claude (ou **Copier le rapport** et le coller). Les 10 derniers rapports restent aussi sur l'iPhone (« Rapports enregistrés », à l'accueil et dans Diagnostic) : on peut les envoyer tous d'un coup.
+5. Onglet **Supprimer** : toucher le grand bouton rouge (lots de 49 au plus), vérifier l'aperçu du raccourci, confirmer.
+6. Onglet **Réglages** → « Rapport de cette séance » → **Partager**, puis choisir l'app Claude (ou **Copier** et
+   coller). Les 10 derniers rapports restent sur l'iPhone (Réglages › « Rapports enregistrés ») : on peut les envoyer
+   tous d'un coup.
+7. Réglages › « Mes goûts » → **Sauvegarder** quand l'app le propose (bouton jaune).
 
 ## Ce qu'il faut écrire à Claude avec le rapport
 
 Quelques lignes suffisent, avec les numéros affichés sur les photos :
 
 - **Paquets mal découpés** : « les n° 12 à 15 devraient être un paquet à part », ou « bien découpés ».
-  Pour réunir deux paquets d'une même série, utilisez le lien « les réunir » sous le titre du paquet.
+  Pour réunir deux paquets d'une même scène, utilisez le lien « réunir » sous le paquet.
 - **Erreurs graves** : une photo que vous gardez absolument et que l'app voulait supprimer (numéro, et pourquoi
   vous la gardez en quelques mots).
 - **Raisons fausses** : une raison affichée qui ne correspond pas à la photo (numéro + raison).

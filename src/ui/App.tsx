@@ -15,6 +15,7 @@ import { clearChoices, loadChoices, removeChoice, saveChoice } from '../platform
 import { loadReports, saveReport, type SavedReport } from '../platform/storage/reports';
 import { loadLastRun, runSignature, saveLastRun, type LastRun } from '../platform/storage/lastRun';
 import { clearSession, loadSession, saveSession, saveSessionSettings } from '../platform/storage/sessionStore';
+import { forgetLastBackupCount } from '../platform/storage/backupFile';
 import type { DeviceReport } from '../platform/device';
 import { buildReport } from './report';
 import { formatDate } from './format';
@@ -36,12 +37,15 @@ import { createAnalyzer } from '../platform/worker/analyzer';
 import type { Session } from './session';
 import { Accueil } from './screens/Accueil';
 import { Analyse } from './screens/Analyse';
-import { Diagnostic } from './screens/Diagnostic';
+import { Reglages } from './screens/Reglages';
+import { IconCorbeille, IconReglages, IconTrier } from './icons';
 import { Paquets } from './screens/Paquets';
 import { ASupprimer } from './screens/ASupprimer';
 import { finalKeep } from './choices';
 
-type Tab = 'paquets' | 'supprimer' | 'diagnostic';
+type Tab = 'paquets' | 'supprimer' | 'reglages';
+
+const BY_CONTENT_KEY = 'photo-triage.paquets-selon-contenu';
 
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -51,6 +55,25 @@ export function App() {
   const cancelRef = useRef(false);
   const [gap, setGap] = useState<number>(config.grouping.packGapSeconds);
   const [records, setRecords] = useState<ChoiceRecord[]>([]);
+  const [recordsLoaded, setRecordsLoaded] = useState(false);
+  // Paquets découpés selon ce que montrent les photos (utilisateur, 19/11), ou selon le temps seulement.
+  // Gardé sur l'iPhone, même choisi depuis l'accueil (sans séance).
+  const [byContent, setByContent] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(BY_CONTENT_KEY) !== 'non';
+    } catch {
+      return true;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(BY_CONTENT_KEY, byContent ? 'oui' : 'non');
+    } catch {
+      // Mémoire seulement.
+    }
+  }, [byContent]);
+  // Réglages ouverts par-dessus l'accueil.
+  const [settingsOpen, setSettingsOpen] = useState(false);
   // Paquets rattachés à la main au paquet précédent (pour cette journée).
   const [joined, setJoined] = useState<Set<string>>(new Set());
   const [reports, setReports] = useState<SavedReport[]>([]);
@@ -60,7 +83,10 @@ export function App() {
   useEffect(() => {
     setInterrupted(readInterruptedRun());
     clearProgress();
-    void loadChoices().then(setRecords);
+    void loadChoices().then((list) => {
+      setRecords(list);
+      setRecordsLoaded(true);
+    });
     void loadReports().then(setReports);
     // Séance en cours reprise si iOS a fermé l'app en arrière-plan (passage dans une autre app, mémoire).
     void loadSession().then((saved) => {
@@ -86,6 +112,7 @@ export function App() {
       );
       if (settings) {
         setGap(settings.gap);
+        if (typeof settings.byContent === 'boolean') setByContent(settings.byContent);
         setJoined(new Set(settings.joined));
       }
     });
@@ -97,7 +124,7 @@ export function App() {
   const choices = useMemo<Choices>(() => ({ byKey: new Map(records.map((r) => [r.key, r])) }), [records]);
   const learned = useMemo(() => learnWeights(records), [records]);
   const items = useMemo(() => session?.results.map((r) => r.item) ?? [], [session]);
-  const day = useMemo(() => analyzeDay(items, gap, learned, joined), [items, gap, learned, joined]);
+  const day = useMemo(() => analyzeDay(items, gap, learned, joined, byContent), [items, gap, learned, joined, byContent]);
 
   // Rapport de l'analyse en cours, conservé sur l'iPhone et mis à jour avec les choix (4 s après le dernier, pour ne
   // pas ralentir l'app pendant qu'on trie : le rapport recalcule l'accord honnête, qui demande un peu de calcul).
@@ -119,8 +146,8 @@ export function App() {
 
   // Réglages de la séance (écart entre paquets, paquets réunis) gardés avec elle.
   useEffect(() => {
-    if (session) void saveSessionSettings({ sessionId: session.id, gap, joined: [...joined] });
-  }, [session, gap, joined]);
+    if (session) void saveSessionSettings({ sessionId: session.id, gap, joined: [...joined], byContent });
+  }, [session, gap, joined, byContent]);
 
   const start = async (files: File[]) => {
     void clearSession();
@@ -307,6 +334,29 @@ export function App() {
       void saveChoice(record);
     }
   };
+  // Paquets traités (envoyés au raccourci ou marqués « Fait ») : chaque photo laissée telle quelle compte comme un accord
+  // avec l'app (utilisateur, 19/11 : « quand je clique pas c'est que je suis d'accord »).
+  const confirmPacks = (packs: PackAnalysis[]) => {
+    const known = new Set(records.map((r) => r.key));
+    const fresh: ChoiceRecord[] = [];
+    for (const pack of packs)
+      for (const item of pack.pack.items) {
+        if (known.has(photoKey(item))) continue;
+        const state = finalKeep(item, pack, choices);
+        fresh.push(makeRecord(item, pack, state.keep ? 'garder' : 'supprimer', true));
+      }
+    if (fresh.length === 0) return;
+    setRecords((list) => [...list.filter((r) => !fresh.some((f) => f.key === r.key)), ...fresh]);
+    for (const record of fresh) void saveChoice(record);
+  };
+  // Paquet rouvert (« Fait » retiré, envoi recommencé) : ses accords silencieux sont oubliés, les vrais choix restent.
+  const unconfirmPacks = (packs: PackAnalysis[]) => {
+    const keys = new Set(packs.flatMap((pack) => pack.pack.items.map(photoKey)));
+    const gone = records.filter((r) => r.implicit && keys.has(r.key));
+    if (gone.length === 0) return;
+    setRecords((list) => list.filter((r) => !(r.implicit && keys.has(r.key))));
+    for (const record of gone) void removeChoice(record.key);
+  };
   const comment = (item: MediaItem, text: string) => {
     const key = photoKey(item);
     const record = records.find((r) => r.key === key);
@@ -330,8 +380,46 @@ export function App() {
     );
   }
 
-  if (!session)
-    return <Accueil onFiles={start} interrupted={interrupted} reports={reports} lastRun={runs.latest} records={records} onRestore={restore} />;
+  const settings = (onClose?: () => void) => (
+    <Reglages
+      session={session}
+      day={session ? day : null}
+      records={records}
+      learned={learned}
+      reports={reports}
+      onRestore={restore}
+      onForget={() => {
+        setRecords([]);
+        void clearChoices();
+        forgetLastBackupCount();
+      }}
+      gap={gap}
+      onGap={setGap}
+      byContent={byContent}
+      onByContent={setByContent}
+      onClose={onClose}
+    />
+  );
+
+  if (!session) {
+    if (settingsOpen) return settings(() => setSettingsOpen(false));
+    return (
+      <Accueil
+        onFiles={start}
+        interrupted={interrupted}
+        lastRun={runs.latest}
+        records={records}
+        recordsLoaded={recordsLoaded}
+        onRestore={restore}
+        onSettings={() => setSettingsOpen(true)}
+      />
+    );
+  }
+
+  const goTab = (next: Tab) => {
+    setTab(next);
+    window.scrollTo({ top: 0 });
+  };
 
   return (
     <>
@@ -340,7 +428,6 @@ export function App() {
           session={session}
           day={day}
           gap={gap}
-          onGap={setGap}
           onJoin={(key, join) =>
             setJoined((set) => {
               const next = new Set(set);
@@ -354,32 +441,28 @@ export function App() {
           onNewDay={(files) => void start(files)}
           onChoose={choose}
           onComment={comment}
+          onGoDelete={() => goTab('supprimer')}
         />
       ) : tab === 'supprimer' ? (
-        <ASupprimer session={session} day={day} choices={choices} onChoose={choose} onComment={comment} />
+        <ASupprimer session={session} day={day} choices={choices} onChoose={choose} onComment={comment} onConfirm={confirmPacks} onUnconfirm={unconfirmPacks} />
       ) : (
-        <Diagnostic
-          session={session}
-          day={day}
-          records={records}
-          learned={learned}
-          reports={reports}
-          onRestore={restore}
-          onForget={() => {
-            setRecords([]);
-            void clearChoices();
-          }}
-        />
+        settings()
       )}
       <nav className="onglets">
-        <button className={tab === 'paquets' ? 'actif' : ''} onClick={() => setTab('paquets')}>
-          1. Trier
+        <button className={tab === 'paquets' ? 'actif' : ''} onClick={() => goTab('paquets')}>
+          <IconTrier />
+          <span>Trier</span>
         </button>
-        <button className={tab === 'supprimer' ? 'actif' : ''} onClick={() => setTab('supprimer')}>
-          2. Dans Photos{toRemove > 0 && <span className="pastille">{toRemove}</span>}
+        <button className={tab === 'supprimer' ? 'actif' : ''} onClick={() => goTab('supprimer')}>
+          <span className="onglet-icone">
+            <IconCorbeille />
+            {toRemove > 0 && <span className="pastille">{toRemove}</span>}
+          </span>
+          <span>Supprimer</span>
         </button>
-        <button className={tab === 'diagnostic' ? 'actif' : ''} onClick={() => setTab('diagnostic')}>
-          Diagnostic
+        <button className={tab === 'reglages' ? 'actif' : ''} onClick={() => goTab('reglages')}>
+          <IconReglages />
+          <span>Réglages</span>
         </button>
       </nav>
     </>

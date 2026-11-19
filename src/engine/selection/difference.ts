@@ -69,7 +69,7 @@ export function poseDifference(a: MediaItem, b: MediaItem): PoseDifference {
   if (INTENDED(a) !== INTENDED(b)) strong.add('geste');
 
   // Personnes repérées (même de dos, de loin) : déplacement de chacune.
-  const persons = (it: MediaItem) => (it.objects ?? []).filter((o) => o.label === 'person' && o.score >= 0.5);
+  const persons = (it: MediaItem) => (it.objects ?? []).filter((o) => o.label === 'person' && o.score >= config.poses.personMinScore);
   const pa = persons(a);
   const pb = persons(b);
   if (pa.length !== pb.length) light.add('personnes');
@@ -86,6 +86,10 @@ export function poseDifference(a: MediaItem, b: MediaItem): PoseDifference {
     const d = signatureDistance(a.signature, b.signature);
     if (Number.isFinite(d)) mark('cadrage', d, t.signatureStrong, t.signatureLight);
   }
+
+  // Paysage (personne sur les deux photos) : deux vues d'une même scène ne font pas deux photos à garder ; un autre
+  // cadrage reste au plus une différence légère, à départager par l'utilisateur (même paysage revu 1 h plus tard, 19/11).
+  if (fa.length === 0 && fb.length === 0 && pa.length === 0 && pb.length === 0 && strong.delete('cadrage')) light.add('cadrage');
 
   for (const k of strong) light.delete(k);
   if (strong.size > 0) return { level: 'nette', kinds: [...strong, ...light] };
