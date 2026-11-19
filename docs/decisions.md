@@ -532,6 +532,12 @@ nom) reste lent. « On tourne en rond » : il faut une solution robuste.
 - **Limite connue** : je ne peux pas exécuter l'app Raccourcis moi-même ; si « est entre » n'accepte pas une variable
   texte, ajouter « Obtenir les dates depuis l'entrée » sur les éléments 2 et 3 (consigne donnée à l'utilisateur).
 
+**Validé sur l'iPhone le 19/11** : suppression réussie et rapide (3 photos de test). Points appris pendant la
+construction : une variable se met dans un champ de date par un appui long, puis « Sélectionner la variable » ; les
+sorties de « Obtenir l'élément de la liste » portent toutes le même nom, d'où « Définir la variable » (Nom photo,
+Début, Fin) pour éviter toute confusion ; l'ordre des blocs compte. Le guide dans l'app reprend exactement cette
+version.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

@@ -77,7 +77,7 @@ export function Accueil({ onFiles, interrupted }: Props) {
             }}
           />
         </label>
-        <p className="note">Version de test · jalon 4 · réglage 6 septies (raccourci : nom + fenêtre de 2 s)</p>
+        <p className="note">Version de test · jalon 4 · réglage 6 octies (raccourci validé)</p>
       </div>
     </main>
   );
