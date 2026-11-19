@@ -1,6 +1,6 @@
 // Décision finale d'une photo : le choix de l'utilisateur s'il en a fait un, sinon celui de l'app.
 
-import { FEATURES_VERSION, photoKey, type ChoiceRecord, type MediaItem, type PackAnalysis } from '../engine';
+import { FEATURES_VERSION, encodeEmbedding, photoKey, type ChoiceRecord, type MediaItem, type PackAnalysis } from '../engine';
 
 export type Choice = 'garder' | 'supprimer';
 
@@ -30,5 +30,6 @@ export function stateLook(state: FinalState): { css: string; mark: string; label
 
 export function makeRecord(item: MediaItem, pack: PackAnalysis, choice: Choice): ChoiceRecord {
   const score = pack.scores.get(item.id)!;
-  return { key: photoKey(item), packKey: pack.key, choice, features: score.features, baseScore: score.baseScore, at: Date.now(), v: FEATURES_VERSION };
+  const embedding = encodeEmbedding(item.embedding);
+  return { key: photoKey(item), packKey: pack.key, choice, features: score.features, baseScore: score.baseScore, at: Date.now(), v: FEATURES_VERSION, ...(embedding ? { embedding } : {}) };
 }

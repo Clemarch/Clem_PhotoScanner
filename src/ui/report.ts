@@ -1,5 +1,5 @@
 import type { Session } from './session';
-import { asideKind, embeddingSimilarity, mainFaces, photoKey, signatureDistance, type ChoiceRecord, type DayAnalysis, type Decision, type LearnedWeights, type PhotoScore, type SceneType } from '../engine';
+import { asideKind, config, evaluateDay, embeddingSimilarity, mainFaces, photoKey, signatureDistance, type ChoiceRecord, type DayAnalysis, type Decision, type LearnedWeights, type PhotoScore, type SceneType, type Agreement } from '../engine';
 import { formatDateTime, formatMs, formatOrientation, formatSize } from './format';
 
 const color = (c: readonly number[] | null): string => (c ? c.map((v) => Math.round(v)).join(',') : '?');
@@ -118,6 +118,7 @@ export function buildReport(session: Session, day: DayAnalysis, records: readonl
     lines.length - 2,
     0,
     `Paquets : ${day.packs.map((p, i) => `P${i + 1} ${new Set(p.sceneOf.values()).size > 1 ? `mixte (${[...new Set(p.sceneOf.values())].join('+')})` : p.scene} (${p.pack.items.length} photos, ${p.poses.length} pose${p.poses.length > 1 ? 's' : ''}, ${[...p.decisions.values()].filter((d) => d.keep && !d.review).length} gardées par l'app${[...p.decisions.values()].some((d) => d.review) ? `, ${[...p.decisions.values()].filter((d) => d.review).length} à vérifier` : ''})`).join(' · ') || '—'}`,
+    agreementLine(evaluateDay(day, records)),
     `Vos choix enregistrés : ${records.length} · goûts appris : ${
       Object.entries(learned)
         .map(([k, v]) => `${k} ${v >= 0 ? '+' : ''}${v.toFixed(2)}`)
@@ -180,4 +181,29 @@ export async function copyText(text: string): Promise<boolean> {
     area.remove();
     return ok;
   }
+}
+
+/**
+ * Ouvre la feuille de partage d'iOS avec le texte (par exemple vers l'app Claude, Notes, Mail). Rien n'est envoyé
+ * par l'app elle-même : c'est l'utilisateur qui choisit la destination. Renvoie false si le partage est indisponible.
+ */
+export async function shareText(text: string, title: string): Promise<'partage' | 'annule' | 'impossible'> {
+  if (typeof navigator.share !== 'function') return 'impossible';
+  try {
+    await navigator.share({ title, text });
+    return 'partage';
+  } catch (e) {
+    return e instanceof DOMException && e.name === 'AbortError' ? 'annule' : 'impossible';
+  }
+}
+
+const ratio = (n: number, total: number) => `${n}/${total} (${total ? Math.round((n / total) * 100) : 0} %)`;
+
+/** Accord entre l'app et vos choix : brut (gonflé), honnête, et avec les goûts de l'image (simulation). */
+export function agreementLine(a: Agreement): string {
+  if (a.total === 0) return 'Accord avec vos choix : aucun choix sur cette séance';
+  return (
+    `Accord avec vos choix : brut ${ratio(a.raw, a.total)} · honnête (sans vos choix du même paquet) ${ratio(a.honest, a.total)}` +
+    ` · avec goûts de l'image, en test : ${a.withTaste === null ? `pas encore (${a.tasteChoices} choix avec empreinte, ${config.taste.minChoices} nécessaires)` : `${ratio(a.withTaste, a.total)} (${a.tasteChoices} choix avec empreinte)`}`
+  );
 }

@@ -18,3 +18,7 @@ export { groupPoses } from './grouping/poses';
 export { selectPack } from './selection/select';
 export { learnWeights, learnedAdjustment, meanFeatures, preferencePairs } from './learning/preferences';
 export { analyzeDay, photoKey, type DayAnalysis, type PackAnalysis } from './pipeline';
+export { encodeEmbedding, decodeEmbedding, cosine } from './learning/embeddingCodec';
+export { tasteMemory, tasteVote, type TasteMemory } from './learning/taste';
+export { evaluateDay, type Agreement } from './evaluation';
+export { encodeBackup, decodeBackup, mergeChoices, BACKUP_FORMAT, BACKUP_VERSION, type BackupFile, type DecodedBackup } from './learning/backup';

@@ -10,8 +10,12 @@ import {
   type InterruptedRun,
 } from '../platform/device';
 import type { AnalyzeResult } from '../platform/image/types';
-import { analyzeDay, config, learnWeights, measureFace, measureSegmentation, photoKey, sortChronologically, type ChoiceRecord, type MediaItem, type PackAnalysis } from '../engine';
+import { analyzeDay, config, learnWeights, mergeChoices, measureFace, measureSegmentation, photoKey, sortChronologically, type ChoiceRecord, type MediaItem, type PackAnalysis } from '../engine';
 import { clearChoices, loadChoices, removeChoice, saveChoice } from '../platform/storage/choices';
+import { loadReports, saveReport, type SavedReport } from '../platform/storage/reports';
+import { loadLastRun, runSignature, saveLastRun, type LastRun } from '../platform/storage/lastRun';
+import { buildReport } from './report';
+import { formatDate } from './format';
 import { makeRecord, type Choice, type Choices } from './choices';
 import { createFaceDetector, type FaceDetector } from '../platform/vision/faceDetector';
 import { createObjectDetector, type ObjectDetector } from '../platform/vision/objectDetector';
@@ -47,11 +51,15 @@ export function App() {
   const [records, setRecords] = useState<ChoiceRecord[]>([]);
   // Paquets rattachés à la main au paquet précédent (pour cette journée).
   const [joined, setJoined] = useState<Set<string>>(new Set());
+  const [reports, setReports] = useState<SavedReport[]>([]);
+  // Séance précédente (pour reprendre au bon endroit) et séance en cours.
+  const [runs, setRuns] = useState<{ previous: LastRun | null; latest: LastRun | null }>(() => ({ previous: null, latest: loadLastRun() }));
 
   useEffect(() => {
     setInterrupted(readInterruptedRun());
     clearProgress();
     void loadChoices().then(setRecords);
+    void loadReports().then(setReports);
     // Protège les choix enregistrés contre l'effacement automatique de Safari.
     void requestPersistentStorage();
   }, []);
@@ -61,6 +69,24 @@ export function App() {
   const learned = useMemo(() => learnWeights(records), [records]);
   const items = useMemo(() => session?.results.map((r) => r.item) ?? [], [session]);
   const day = useMemo(() => analyzeDay(items, gap, learned, joined), [items, gap, learned, joined]);
+
+  // Rapport de l'analyse en cours, conservé sur l'iPhone et mis à jour avec les choix (4 s après le dernier, pour ne
+  // pas ralentir l'app pendant qu'on trie : le rapport recalcule l'accord honnête, qui demande un peu de calcul).
+  useEffect(() => {
+    if (!session || session.cancelled) return;
+    const timer = window.setTimeout(() => {
+      const photos = session.results.length;
+      const first = session.results.find((r) => r.item.capturedAt !== null)?.item.capturedAt ?? null;
+      const chosen = session.results.filter((r) => records.some((c) => c.key === photoKey(r.item))).length;
+      void saveReport({
+        id: session.id,
+        at: Date.now(),
+        title: `${first ? formatDate(first) : 'Sans date'} · ${photos} photos · ${chosen} choix`,
+        text: buildReport(session, day, records, learned),
+      }).then(() => loadReports().then(setReports));
+    }, 4000);
+    return () => window.clearTimeout(timer);
+  }, [session, day, records, learned]);
 
   const start = async (files: File[]) => {
     setJoined(new Set());
@@ -107,6 +133,7 @@ export function App() {
     const thumbnails = new Map<string, string>();
     const previews = new Map<string, string>();
     const startedAt = performance.now();
+    const launchedAt = Date.now();
 
     for (let i = 0; i < files.length && !cancelRef.current; i++) {
       const file = files[i]!;
@@ -195,7 +222,21 @@ export function App() {
     // Ordre de la journée : le numéro d'une photo est le même dans les deux onglets.
     const order = new Map(sortChronologically(results.map((r) => r.item)).map((item, i) => [item.id, i]));
     results.sort((a, b) => order.get(a.item.id)! - order.get(b.item.id)!);
+    const dated = results.map((r) => r.item.capturedAt).filter((t): t is number => t !== null);
+    if (dated.length > 0 && !cancelRef.current) {
+      const run: LastRun = {
+        firstAt: Math.min(...dated),
+        lastAt: Math.max(...dated),
+        photos: results.length,
+        doneAt: Date.now(),
+        signature: runSignature(results.map((r) => photoKey(r.item))),
+      };
+      saveLastRun(run);
+      // La même sélection analysée une seconde fois (reprise, nouvelle version) n'est pas une nouvelle séance.
+      setRuns((r) => ({ previous: r.latest?.signature === run.signature ? r.previous : r.latest, latest: run }));
+    }
     setSession({
+      id: String(launchedAt),
       results,
       thumbnails,
       previews,
@@ -211,6 +252,15 @@ export function App() {
     });
     setProgress(null);
     setTab('paquets');
+  };
+
+  // Restauration d'une sauvegarde : fusion, rien n'est effacé ; le choix le plus récent l'emporte.
+  const restore = async (incoming: ChoiceRecord[]) => {
+    const { merged, added, updated } = mergeChoices(records, incoming);
+    const before = new Map(records.map((r) => [r.key, r]));
+    for (const r of merged) if (before.get(r.key) !== r) await saveChoice(r);
+    setRecords(merged);
+    return { added, updated };
   };
 
   const choose = (item: MediaItem, pack: PackAnalysis, choice: Choice | null) => {
@@ -247,7 +297,8 @@ export function App() {
     );
   }
 
-  if (!session) return <Accueil onFiles={start} interrupted={interrupted} />;
+  if (!session)
+    return <Accueil onFiles={start} interrupted={interrupted} reports={reports} lastRun={runs.latest} records={records} onRestore={restore} />;
 
   return (
     <>
@@ -266,6 +317,7 @@ export function App() {
             })
           }
           choices={choices}
+          previousRun={runs.previous}
           onNewDay={(files) => void start(files)}
           onChoose={choose}
           onComment={comment}
@@ -278,6 +330,8 @@ export function App() {
           day={day}
           records={records}
           learned={learned}
+          reports={reports}
+          onRestore={restore}
           onForget={() => {
             setRecords([]);
             void clearChoices();

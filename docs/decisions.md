@@ -532,6 +532,40 @@ nom) reste lent. « On tourne en rond » : il faut une solution robuste.
 - **Limite connue** : je ne peux pas exécuter l'app Raccourcis moi-même ; si « est entre » n'accepte pas une variable
   texte, ajouter « Obtenir les dates depuis l'entrée » sur les éléments 2 et 3 (consigne donnée à l'utilisateur).
 
+**Validé sur l'iPhone le 19/11** : suppression réussie et rapide (3 photos de test). Points appris pendant la
+construction : une variable se met dans un champ de date par un appui long, puis « Sélectionner la variable » ; les
+sorties de « Obtenir l'élément de la liste » portent toutes le même nom, d'où « Définir la variable » (Nom photo,
+Début, Fin) pour éviter toute confusion ; l'ordre des blocs compte. Le guide dans l'app reprend exactement cette
+version.
+
+### 34. Rapports conservés, affichage mieux calibré (19/11)
+
+- **Rapports** : chaque analyse enregistre son rapport sur l'iPhone (IndexedDB, base passée en version 2), mis à jour
+  une seconde après chaque choix ; on garde les 10 derniers, 30 jours au plus. Liste à l'accueil et dans Diagnostic,
+  avec « Partager » (feuille de partage d'iOS, vers l'app Claude par exemple) et « Copier » un ou tous les rapports.
+  L'app n'envoie toujours rien elle-même : c'est l'utilisateur qui choisit de partager.
+- **Affichage trop zoomé** : Safari zoome sur un champ de texte dont la police fait moins de 16 px (la case
+  « Pourquoi ? » faisait 15 px) et reste zoomé ensuite. Corrigé : 16 px, `maximum-scale=1` dans la balise viewport
+  (empêche ce zoom automatique), `touch-action: manipulation` (pas de zoom par double toucher hors visionneuse),
+  aucun débordement horizontal (vérifié sur les quatre écrans), titres et boutons un peu plus compacts.
+
+### 35. Réglage 8 : sauvegarde des goûts, séances, comparaison, apprentissage par l'image en test (19/11)
+
+Plan et audit des risques : `docs/jalon-5.md`.
+
+- **Sauvegarde** : fichier `photo-triage-gouts.json.gz` (JSON compact versionné, mesures en millièmes, empreinte
+  de l'image en base64 sur 8 bits ; gzip si disponible), enregistré par la feuille de partage d'iOS dans iCloud Drive
+  › Photo Triage. Rappel à l'accueil (20 nouveaux choix, ou 14 jours). Restauration = fusion, rien n'est effacé.
+- **Séances** : « séance » au lieu de « journée », date au-dessus de chaque jour, dernière séance rappelée à
+  l'accueil (« continuez après le … à … »), alerte si un paquet recoupe ou suit de près la séance précédente.
+- **Apprentissage par l'image, en test** : l'empreinte est enregistrée avec chaque nouveau choix. Vote des choix
+  voisins (autres paquets seulement), centré sur la pose. Aucune influence sur les décisions : le rapport donne
+  l'accord brut, l'accord **honnête** (goûts appris sans les choix du paquet évalué ; remarque de l'utilisateur :
+  le 83 % était gonflé) et l'accord simulé avec le vote de l'image, à partir de 20 choix avec empreinte.
+- **Comparer** : depuis la visionneuse, deux photos d'une même pose l'une sous l'autre, zones qui changent
+  entourées (alignement ± 6 %, écarts de couleur par case), différences mesurées en clair, et « Garder l'une,
+  supprimer l'autre » d'un toucher.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

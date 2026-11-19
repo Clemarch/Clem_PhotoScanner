@@ -17,7 +17,7 @@ Claude complète la partie « Ce test-ci » à chaque mise à jour.
    - Après un choix, écrire en quelques mots **pourquoi** dans la zone « Pourquoi ? » : le commentaire arrive dans
      le rapport.
 5. Onglet **2. Dans Photos** : reproduire la suppression dans Photos pour au moins un paquet, et dire si c'était simple.
-6. Onglet **Diagnostic** → **Copier le rapport** (après les choix, pour qu'il les contienne), et le coller à Claude.
+6. Onglet **Diagnostic** → **Partager le rapport**, puis choisir l'app Claude (ou **Copier le rapport** et le coller). Les 10 derniers rapports restent aussi sur l'iPhone (« Rapports enregistrés », à l'accueil et dans Diagnostic) : on peut les envoyer tous d'un coup.
 
 ## Ce qu'il faut écrire à Claude avec le rapport
 
