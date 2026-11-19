@@ -14,6 +14,8 @@ import { analyzeDay, config, learnWeights, mergeChoices, measureFace, measureSeg
 import { clearChoices, loadChoices, removeChoice, saveChoice } from '../platform/storage/choices';
 import { loadReports, saveReport, type SavedReport } from '../platform/storage/reports';
 import { loadLastRun, runSignature, saveLastRun, type LastRun } from '../platform/storage/lastRun';
+import { clearSession, loadSession, saveSession, saveSessionSettings } from '../platform/storage/sessionStore';
+import type { DeviceReport } from '../platform/device';
 import { buildReport } from './report';
 import { formatDate } from './format';
 import { makeRecord, type Choice, type Choices } from './choices';
@@ -60,6 +62,33 @@ export function App() {
     clearProgress();
     void loadChoices().then(setRecords);
     void loadReports().then(setReports);
+    // Séance en cours reprise si iOS a fermé l'app en arrière-plan (passage dans une autre app, mémoire).
+    void loadSession().then((saved) => {
+      if (!saved) return;
+      const { session: s, settings } = saved;
+      const thumbnails = new Map<string, string>();
+      const previews = new Map<string, string>();
+      for (const r of s.results) {
+        if (r.thumbnail) thumbnails.set(r.item.id, URL.createObjectURL(r.thumbnail));
+        if (r.preview) previews.set(r.item.id, URL.createObjectURL(r.preview));
+      }
+      setSession((current) =>
+        current ?? {
+          id: s.sessionId,
+          results: s.results.map((r) => ({ ...r, frame: null })),
+          thumbnails,
+          previews,
+          originals: new Map(),
+          ...s.meta,
+          device: s.meta.device as DeviceReport,
+          restored: true,
+        },
+      );
+      if (settings) {
+        setGap(settings.gap);
+        setJoined(new Set(settings.joined));
+      }
+    });
     // Protège les choix enregistrés contre l'effacement automatique de Safari.
     void requestPersistentStorage();
   }, []);
@@ -88,7 +117,13 @@ export function App() {
     return () => window.clearTimeout(timer);
   }, [session, day, records, learned]);
 
+  // Réglages de la séance (écart entre paquets, paquets réunis) gardés avec elle.
+  useEffect(() => {
+    if (session) void saveSessionSettings({ sessionId: session.id, gap, joined: [...joined] });
+  }, [session, gap, joined]);
+
   const start = async (files: File[]) => {
+    void clearSession();
     setJoined(new Set());
     session?.thumbnails.forEach((url) => URL.revokeObjectURL(url));
     session?.previews.forEach((url) => URL.revokeObjectURL(url));
@@ -235,12 +270,7 @@ export function App() {
       // La même sélection analysée une seconde fois (reprise, nouvelle version) n'est pas une nouvelle séance.
       setRuns((r) => ({ previous: r.latest?.signature === run.signature ? r.previous : r.latest, latest: run }));
     }
-    setSession({
-      id: String(launchedAt),
-      results,
-      thumbnails,
-      previews,
-      originals,
+    const meta = {
       totalMs: performance.now() - startedAt,
       cancelled: cancelRef.current,
       wakeLock: wakeActive,
@@ -249,7 +279,10 @@ export function App() {
       heapAfterMB: readJsHeapMB(),
       device,
       faceError,
-    });
+    };
+    setSession({ id: String(launchedAt), results, thumbnails, previews, originals, ...meta });
+    // Gardée sur l'iPhone : reprise si iOS ferme l'app pendant qu'on est dans une autre app.
+    void saveSession(String(launchedAt), results, meta);
     setProgress(null);
     setTab('paquets');
   };

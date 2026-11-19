@@ -4,6 +4,7 @@ import { finalKeep, type Choice, type Choices } from '../choices';
 import { formatTime } from '../format';
 import { asideLabel, decisionText, reasonText, sceneLabel } from '../reasons';
 import { Comparer } from './Comparer';
+import { Commentaire } from '../Commentaire';
 
 export interface ViewerEntry {
   item: MediaItem;
@@ -36,6 +37,7 @@ export function Visionneuse({ entries, start, previews, originals, thumbnails, c
   const [zoom, setZoom] = useState({ s: 1, x: 0, y: 0 });
   const [fullUrl, setFullUrl] = useState<string | null>(null);
   const [comparing, setComparing] = useState(false);
+  const [commenting, setCommenting] = useState(false);
   const area = useRef<HTMLDivElement | null>(null);
   const gesture = useRef<{
     mode: 'swipe' | 'pan' | 'pinch';
@@ -300,23 +302,20 @@ export function Visionneuse({ entries, start, previews, originals, thumbnails, c
             </button>
           </div>
         )}
+        {state?.byUser && (
+          <button className="bouton commentaire-bouton" onClick={() => setCommenting(true)}>
+            {choices.byKey.get(photoKey(item))?.comment
+              ? `💬 « ${choices.byKey.get(photoKey(item))!.comment} »`
+              : '💬 Pourquoi ? Ajouter un commentaire'}
+          </button>
+        )}
         {pack && (pack.poses.find((p) => p.items.some((it) => it.id === item.id))?.items.length ?? 0) > 1 && (
           <button className="bouton vis-comparer" onClick={() => setComparing(true)}>
-            Comparer avec une photo de la même pose
+            Comparer avec la même pose
           </button>
         )}
         {pack && state && (
-          <p className="note centre">Ces boutons marquent la photo. Rien n’est supprimé ici : vous le faites dans Photos.</p>
-        )}
-        {state?.byUser && (
-          <textarea
-            key={item.id}
-            className="commentaire"
-            rows={2}
-            placeholder="Pourquoi ? (facultatif) Ex. : la main est coupée en bas"
-            defaultValue={choices.byKey.get(photoKey(item))?.comment ?? ''}
-            onBlur={(e) => onComment(entry, e.target.value.trim())}
-          />
+          <p className="note centre">Rien n’est supprimé ici : la suppression se fait dans l’onglet « 2. Dans Photos ».</p>
         )}
         {state?.byUser && (
           <button className="lien" onClick={() => onChoose(entry, null)}>
@@ -324,6 +323,14 @@ export function Visionneuse({ entries, start, previews, originals, thumbnails, c
           </button>
         )}
       </section>
+      {commenting && (
+        <Commentaire
+          initial={choices.byKey.get(photoKey(item))?.comment ?? ''}
+          title={`Photo n° ${number ?? '?'}`}
+          onSave={(text) => onComment(entry, text)}
+          onClose={() => setCommenting(false)}
+        />
+      )}
       {comparing && pack && (
         <Comparer
           item={item}

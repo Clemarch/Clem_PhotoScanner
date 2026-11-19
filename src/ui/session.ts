@@ -22,4 +22,6 @@ export interface Session {
   device: DeviceReport;
   /** Message d'erreur si la recherche de visages n'a pas pu démarrer (l'app continue alors sans). */
   faceError: string | null;
+  /** Séance reprise après une fermeture de l'app par iOS (les photos d'origine ne sont plus accessibles). */
+  restored?: boolean;
 }

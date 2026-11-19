@@ -1,5 +1,7 @@
 import type { Session } from './session';
 import { asideKind, config, evaluateDay, embeddingSimilarity, mainFaces, photoKey, signatureDistance, type ChoiceRecord, type DayAnalysis, type Decision, type LearnedWeights, type PhotoScore, type SceneType, type Agreement } from '../engine';
+import { choiceStorage } from '../platform/storage/choices';
+import { lastDbError } from '../platform/storage/db';
 import { formatDateTime, formatMs, formatOrientation, formatSize } from './format';
 
 const color = (c: readonly number[] | null): string => (c ? c.map((v) => Math.round(v)).join(',') : '?');
@@ -81,7 +83,7 @@ export function buildReport(session: Session, day: DayAnalysis, records: readonl
     `Appareil : ${d.userAgent}`,
     `Écran : ${d.screen} · cœurs : ${d.cores ?? '?'} · installée : ${d.installed ? 'oui' : 'non'} · hors ligne prêt : ${d.offlineReady ? 'oui' : 'non'}`,
     `Fonctions : ${Object.entries(d.support).map(([k, v]) => `${k} ${v ? 'oui' : 'NON'}`).join(', ')}`,
-    `Stockage : ${d.storageUsedMB?.toFixed(1) ?? '?'} / ${d.storageQuotaMB?.toFixed(0) ?? '?'} Mo · durable : ${d.persisted === null ? '?' : d.persisted ? 'oui' : 'NON'}`,
+    `Stockage : ${d.storageUsedMB?.toFixed(1) ?? '?'} / ${d.storageQuotaMB?.toFixed(0) ?? '?'} Mo · durable : ${d.persisted === null ? '?' : d.persisted ? 'oui' : 'NON'} · base des choix : ${choiceStorage.database}${lastDbError ? ` (${lastDbError})` : ''} · repris de la copie de secours : ${choiceStorage.recoveredFromMirror} · séance reprise après fermeture : ${session.restored ? 'oui' : 'non'}`,
     '',
     `Fichiers : ${s.total} · avec date : ${s.withDate} · SANS date : ${s.withoutDate} · RAW mis de côté : ${s.raw} · erreurs : ${s.errors}`,
     `Mis de côté : ${counts(Object.fromEntries([...day.setAside.reduce((m, it) => m.set(asideKind(it) ?? '?', (m.get(asideKind(it) ?? '?') ?? 0) + 1), new Map<string, number>())]))}`,
