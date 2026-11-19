@@ -98,7 +98,9 @@ export function mergeChoices(current: readonly ChoiceRecord[], incoming: readonl
     if (!existing) {
       byKey.set(r.key, r);
       added++;
-    } else if (r.at > existing.at) {
+    } else if ((r.at > existing.at && !(r.implicit && !existing.implicit)) || (existing.implicit && !r.implicit)) {
+      // Le plus récent l'emporte, mais un vrai choix n'est jamais remplacé par un accord silencieux, et l'emporte
+      // toujours sur lui (choix perdus sur l'iPhone, accords silencieux enregistrés, puis sauvegarde restaurée).
       byKey.set(r.key, { ...r, embedding: r.embedding ?? existing.embedding, comment: r.comment ?? existing.comment });
       updated++;
     } else if ((!existing.embedding && r.embedding) || (!existing.comment && r.comment)) {

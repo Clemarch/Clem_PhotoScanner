@@ -273,6 +273,8 @@ export const config = {
     /** Paysage sans personne : même pose, quel que soit l'écart de temps, si la ressemblance avec la photo précédente
      *  et avec la première du groupe atteint ce seuil. */
     sceneSimilar: 0.7,
+    /** Personne repérée (détecteur d'objets) à partir de ce score : la photo n'est plus un paysage. */
+    personMinScore: 0.5,
   },
   selection: {
     /** Dans une pose, la meilleure photo est gardée. Une autre l'est aussi si elle est bonne (à moins de `keepMargin`

@@ -640,6 +640,11 @@ Demandes de l'utilisateur après le réglage 9, validées point par point avant 
   « Détail par paquet » (GoPro, autre appareil, photos sans date). Mode sombre seulement : les photos s'y jugent mieux
   et la barre d'état de l'iPhone reste lisible (texte blanc).
 - Non retenu pour l'instant : « Supprimer tout le paquet » (l'utilisateur verra plus tard).
+- Audit du 19/11 (corrigé) : un paquet n'est « Fait » que si toutes ses photos sont parties au raccourci (les photos
+  sans date restent à supprimer à la main) ; rouvrir un paquet efface ses accords silencieux ; yeux habituels =
+  médiane sur les autres photos de la personne (deux clignements sur quatre restent des défauts) ; à la
+  restauration, un vrai choix l'emporte toujours sur un accord silencieux ; l'alerte « goûts perdus » ne compte que
+  les vrais choix et se remet à zéro après « Oublier mes choix » ; l'interrupteur des paquets est gardé sur l'iPhone.
 
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 

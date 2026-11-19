@@ -71,7 +71,10 @@ function RestoreButton({ onRestore, onMessage, primary = false }: { onRestore: R
 export function AlerteGoutsPerdus({ records, loaded, onRestore }: Props & { loaded: boolean }) {
   const [message, setMessage] = useState<string | null>(null);
   const last = loadLastBackup();
-  if (!loaded || !last || (records.length >= last.count && !message)) return null;
+  // Vrais choix seulement : les accords silencieux d'une nouvelle séance ne doivent pas masquer une perte.
+  const have = last?.explicit !== undefined ? records.filter((r) => !r.implicit).length : records.length;
+  const had = last ? (last.explicit ?? last.count) : 0;
+  if (!loaded || !last || (have >= had && !message)) return null;
   return (
     <section className="alerte alerte-bloc">
       {message ? (
@@ -79,8 +82,8 @@ export function AlerteGoutsPerdus({ records, loaded, onRestore }: Props & { load
       ) : (
         <>
           <p>
-            <strong>Vos goûts semblent perdus</strong> : {plural(records.length, 'choix', 'choix')} sur cet iPhone, contre{' '}
-            {last.count} à la dernière sauvegarde. Rechargez la sauvegarde la plus récente
+            <strong>Vos goûts semblent perdus</strong> : {plural(have, 'choix', 'choix')} sur cet iPhone, contre{' '}
+            {had} à la dernière sauvegarde. Rechargez la sauvegarde la plus récente
             {last.name ? ` (« ${last.name} »)` : ''}, dans iCloud Drive › Photo Triage.
           </p>
           <RestoreButton onRestore={onRestore} onMessage={setMessage} primary />
@@ -121,7 +124,7 @@ export function SauvegardeGouts({ records, onRestore }: Props) {
       else {
         // Seul un partage réussi (ou un téléchargement) compte comme sauvegarde : sinon le rappel continue.
         const name = file.name.replace(/\.json(\.gz)?$/, '');
-        const value = { at: Date.now(), count: records.length, name };
+        const value = { at: Date.now(), count: records.length, explicit: records.filter((r) => !r.implicit).length, name };
         saveLastBackup(value);
         setLast(value);
         setMessage(

@@ -69,7 +69,7 @@ export function poseDifference(a: MediaItem, b: MediaItem): PoseDifference {
   if (INTENDED(a) !== INTENDED(b)) strong.add('geste');
 
   // Personnes repérées (même de dos, de loin) : déplacement de chacune.
-  const persons = (it: MediaItem) => (it.objects ?? []).filter((o) => o.label === 'person' && o.score >= 0.5);
+  const persons = (it: MediaItem) => (it.objects ?? []).filter((o) => o.label === 'person' && o.score >= config.poses.personMinScore);
   const pa = persons(a);
   const pb = persons(b);
   if (pa.length !== pb.length) light.add('personnes');

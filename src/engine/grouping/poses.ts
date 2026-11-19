@@ -27,7 +27,7 @@ function layoutChanged(a: MediaItem, b: MediaItem): boolean {
 
 /** Ni visage ni personne : paysage, coucher de soleil, objet. */
 const scenery = (item: MediaItem): boolean =>
-  mainFaces(item.faces).length === 0 && !(item.objects ?? []).some((o) => o.label === 'person' && o.score >= 0.5);
+  mainFaces(item.faces).length === 0 && !(item.objects ?? []).some((o) => o.label === 'person' && o.score >= config.poses.personMinScore);
 
 /** Les photos doivent être dans l'ordre chronologique (celui d'un paquet). */
 export function groupPoses(items: readonly MediaItem[]): PoseGroup[] {

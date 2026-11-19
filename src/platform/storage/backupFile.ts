@@ -83,6 +83,14 @@ export interface LastBackup {
   count: number;
   /** Nom du fichier enregistré (absent pour les sauvegardes d'avant le 19/11). */
   name?: string;
+  /** Parmi `count`, vrais choix (hors accords silencieux) ; absent pour les sauvegardes d'avant le 19/11. */
+  explicit?: number;
+}
+
+/** Après « Oublier mes choix » : la dernière sauvegarde ne compte plus comme des choix perdus. */
+export function forgetLastBackupCount(): void {
+  const last = loadLastBackup();
+  if (last) saveLastBackup({ ...last, count: 0, explicit: 0 });
 }
 
 export function loadLastBackup(): LastBackup | null {

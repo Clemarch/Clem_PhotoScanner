@@ -18,6 +18,8 @@ interface Props {
   onComment: (item: MediaItem, comment: string) => void;
   /** Paquets traités : les photos laissées telles quelles comptent comme accords avec l'app. */
   onConfirm: (packs: PackAnalysis[]) => void;
+  /** Paquets rouverts : leurs accords silencieux sont retirés. */
+  onUnconfirm: (packs: PackAnalysis[]) => void;
 }
 
 const DONE_KEY = 'photo-triage.faits';
@@ -43,7 +45,7 @@ const asPhoto = (item: MediaItem) => ({ fileName: item.fileName, at: item.instan
 const findable = (item: MediaItem) => shortcutCount([asPhoto(item)]) === 1;
 
 /** Écran « Supprimer » : envoie la liste au raccourci « Photo Triage », par lots de 49 au plus. */
-export function ASupprimer({ session, day, choices, onChoose, onComment, onConfirm }: Props) {
+export function ASupprimer({ session, day, choices, onChoose, onComment, onConfirm, onUnconfirm }: Props) {
   const [done, setDone] = useState<Set<string>>(() => loadDone());
   const [viewing, setViewing] = useState<number | null>(null);
   // Photos déjà envoyées au raccourci pendant cette visite (lots de 49 au plus).
@@ -85,11 +87,18 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
     runShortcut(pendingPhotos);
     const nowSent = new Set([...sent, ...batchItems.map((it) => it.id)]);
     setSent(nowSent);
-    // Un paquet est « fait » quand toutes ses photos à supprimer sont parties.
-    markDone(pendingPacks.filter((p) => p.remove.every((it) => nowSent.has(it.id) || !findable(it))).map((p) => p.pack.key));
+    // Un paquet est « fait » quand toutes ses photos à supprimer sont parties. S'il en reste à supprimer à la main
+    // (sans date), il attend que l'utilisateur touche « Fait ».
+    markDone(pendingPacks.filter((p) => p.remove.every((it) => nowSent.has(it.id))).map((p) => p.pack.key));
   };
 
-  const allSent = totalRemove > 0 && pendingItems.length === 0;
+  const reopen = (keys: string[]) => {
+    setDone((set) => new Set([...set].filter((key) => !keys.includes(key))));
+    onUnconfirm(day.packs.filter((p) => keys.includes(p.key)));
+  };
+
+  const allSent = totalRemove > 0 && pendingItems.length === 0 && manual.length === 0;
+  const onlyManual = totalRemove > 0 && pendingItems.length === 0 && manual.length > 0;
 
   return (
     <main className="page">
@@ -116,18 +125,29 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
           </span>
           <h2>C’est fait</h2>
           <p className="doux">
-            {plural(totalRemove - manual.length, 'photo')} envoyée{totalRemove - manual.length > 1 ? 's' : ''} au raccourci.
-            Elles restent 30 jours dans Photos › Albums › « Supprimés récemment ».
+            {sent.size > 0
+              ? `${plural(sent.size, 'photo')} envoyée${sent.size > 1 ? 's' : ''} au raccourci. `
+              : 'Tous les paquets sont marqués « Fait ». '}
+            Les photos supprimées restent 30 jours dans Photos › Albums › « Supprimés récemment ».
           </p>
           <button
             className="lien"
             onClick={() => {
               setSent(new Set());
-              setDone((set) => new Set([...set].filter((key) => !todo.some((p) => p.pack.key === key))));
+              reopen(todo.map((p) => p.pack.key));
             }}
           >
             Recommencer l’envoi
           </button>
+        </section>
+      ) : onlyManual ? (
+        <section className="carte heros">
+          <span className="heros-icone rouge">
+            <IconCorbeille size={30} />
+          </span>
+          <p className="heros-chiffre">{manual.length}</p>
+          <p className="doux">photo{manual.length > 1 ? 's' : ''} à supprimer à la main</p>
+          <p className="note">Le raccourci ne peut pas les retrouver : ouvrez « Détail par paquet » plus bas.</p>
         </section>
       ) : (
         <section className="carte heros">
@@ -196,12 +216,7 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
                   <button
                     className={`capsule petite${isDone ? ' vert' : ''}`}
                     onClick={() => {
-                      if (isDone)
-                        setDone((set) => {
-                          const next = new Set(set);
-                          next.delete(pack.key);
-                          return next;
-                        });
+                      if (isDone) reopen([pack.key]);
                       else markDone([pack.key]);
                     }}
                   >

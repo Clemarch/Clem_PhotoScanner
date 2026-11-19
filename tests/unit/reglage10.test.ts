@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeDay, decodeBackup, encodeBackup, groupIntoPacks, scorePack, type ChoiceRecord, type FaceMetrics, type MediaItem } from '../../src/engine';
+import { analyzeDay, decodeBackup, encodeBackup, groupIntoPacks, mergeChoices, scorePack, type ChoiceRecord, type FaceMetrics, type MediaItem } from '../../src/engine';
 import { backupName } from '../../src/platform/storage/backupFile';
 
 const face = (x: number, over: Partial<FaceMetrics> = {}): FaceMetrics =>
@@ -95,6 +95,11 @@ describe('yeux plissés jugés par personne (soleil de face, 19/11)', () => {
     expect(scores.get('p2')!.vetoed).toBe(true);
     expect(scores.get('p2')!.reasons.some((r) => r.code === 'yeux-fermes')).toBe(true);
   });
+  it('deux vrais clignements sur quatre photos restent des défauts (audit du 19/11)', () => {
+    const scores = group([0.9, 0.1, 0.1, 0.9]);
+    expect(scores.get('p1')!.vetoed).toBe(true);
+    expect(scores.get('p2')!.vetoed).toBe(true);
+  });
   it('avec moins de 3 photos de la personne, pas d’exception', () => {
     const scores = group([0.1, 0.2]);
     expect([...scores.values()].every((s) => s.vetoed)).toBe(true);
@@ -115,6 +120,12 @@ describe('accords silencieux et sauvegarde (19/11)', () => {
     const back = decodeBackup(JSON.parse(JSON.stringify(encodeBackup([record('a', true), record('b', false)], 5)))).records;
     expect(back.find((r) => r.key === 'a')!.implicit).toBe(true);
     expect(back.find((r) => r.key === 'b')!.implicit).toBeUndefined();
+  });
+  it('restauration : un vrai choix l’emporte toujours sur un accord silencieux, même plus récent', () => {
+    const explicitOld = { ...record('a', false), choice: 'garder' as const, at: 1 };
+    const implicitNew = { ...record('a', true), at: 99 };
+    expect(mergeChoices([implicitNew], [explicitOld]).merged[0]!.choice).toBe('garder');
+    expect(mergeChoices([explicitOld], [implicitNew]).merged[0]!.choice).toBe('garder');
   });
   it('une ancienne sauvegarde (9 colonnes) se lit toujours', () => {
     const file = encodeBackup([record('a', false)], 5);

@@ -15,6 +15,7 @@ import { clearChoices, loadChoices, removeChoice, saveChoice } from '../platform
 import { loadReports, saveReport, type SavedReport } from '../platform/storage/reports';
 import { loadLastRun, runSignature, saveLastRun, type LastRun } from '../platform/storage/lastRun';
 import { clearSession, loadSession, saveSession, saveSessionSettings } from '../platform/storage/sessionStore';
+import { forgetLastBackupCount } from '../platform/storage/backupFile';
 import type { DeviceReport } from '../platform/device';
 import { buildReport } from './report';
 import { formatDate } from './format';
@@ -44,6 +45,8 @@ import { finalKeep } from './choices';
 
 type Tab = 'paquets' | 'supprimer' | 'reglages';
 
+const BY_CONTENT_KEY = 'photo-triage.paquets-selon-contenu';
+
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number; name: string } | null>(null);
@@ -54,7 +57,21 @@ export function App() {
   const [records, setRecords] = useState<ChoiceRecord[]>([]);
   const [recordsLoaded, setRecordsLoaded] = useState(false);
   // Paquets découpés selon ce que montrent les photos (utilisateur, 19/11), ou selon le temps seulement.
-  const [byContent, setByContent] = useState(true);
+  // Gardé sur l'iPhone, même choisi depuis l'accueil (sans séance).
+  const [byContent, setByContent] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(BY_CONTENT_KEY) !== 'non';
+    } catch {
+      return true;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(BY_CONTENT_KEY, byContent ? 'oui' : 'non');
+    } catch {
+      // Mémoire seulement.
+    }
+  }, [byContent]);
   // Réglages ouverts par-dessus l'accueil.
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Paquets rattachés à la main au paquet précédent (pour cette journée).
@@ -329,8 +346,16 @@ export function App() {
         fresh.push(makeRecord(item, pack, state.keep ? 'garder' : 'supprimer', true));
       }
     if (fresh.length === 0) return;
-    setRecords((list) => [...list, ...fresh]);
+    setRecords((list) => [...list.filter((r) => !fresh.some((f) => f.key === r.key)), ...fresh]);
     for (const record of fresh) void saveChoice(record);
+  };
+  // Paquet rouvert (« Fait » retiré, envoi recommencé) : ses accords silencieux sont oubliés, les vrais choix restent.
+  const unconfirmPacks = (packs: PackAnalysis[]) => {
+    const keys = new Set(packs.flatMap((pack) => pack.pack.items.map(photoKey)));
+    const gone = records.filter((r) => r.implicit && keys.has(r.key));
+    if (gone.length === 0) return;
+    setRecords((list) => list.filter((r) => !(r.implicit && keys.has(r.key))));
+    for (const record of gone) void removeChoice(record.key);
   };
   const comment = (item: MediaItem, text: string) => {
     const key = photoKey(item);
@@ -366,6 +391,7 @@ export function App() {
       onForget={() => {
         setRecords([]);
         void clearChoices();
+        forgetLastBackupCount();
       }}
       gap={gap}
       onGap={setGap}
@@ -418,7 +444,7 @@ export function App() {
           onGoDelete={() => goTab('supprimer')}
         />
       ) : tab === 'supprimer' ? (
-        <ASupprimer session={session} day={day} choices={choices} onChoose={choose} onComment={comment} onConfirm={confirmPacks} />
+        <ASupprimer session={session} day={day} choices={choices} onChoose={choose} onComment={comment} onConfirm={confirmPacks} onUnconfirm={unconfirmPacks} />
       ) : (
         settings()
       )}
