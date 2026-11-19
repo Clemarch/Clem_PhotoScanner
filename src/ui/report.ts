@@ -181,3 +181,17 @@ export async function copyText(text: string): Promise<boolean> {
     return ok;
   }
 }
+
+/**
+ * Ouvre la feuille de partage d'iOS avec le texte (par exemple vers l'app Claude, Notes, Mail). Rien n'est envoyé
+ * par l'app elle-même : c'est l'utilisateur qui choisit la destination. Renvoie false si le partage est indisponible.
+ */
+export async function shareText(text: string, title: string): Promise<boolean> {
+  if (typeof navigator.share !== 'function') return false;
+  try {
+    await navigator.share({ title, text });
+    return true;
+  } catch {
+    return false;
+  }
+}

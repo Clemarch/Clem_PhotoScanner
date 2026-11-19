@@ -2,13 +2,16 @@ import { useEffect, useState } from 'react';
 import { isInstalled, type InterruptedRun } from '../../platform/device';
 import { watchUpdate, type UpdateStatus } from '../../platform/update';
 import { GuideRaccourci } from '../GuideRaccourci';
+import { RapportsEnregistres } from '../RapportsEnregistres';
+import type { SavedReport } from '../../platform/storage/reports';
 
 interface Props {
   onFiles: (files: File[]) => void;
   interrupted: InterruptedRun | null;
+  reports: SavedReport[];
 }
 
-export function Accueil({ onFiles, interrupted }: Props) {
+export function Accueil({ onFiles, interrupted, reports }: Props) {
   const [update, setUpdate] = useState<UpdateStatus>(null);
   useEffect(() => watchUpdate(setUpdate), []);
   const installed = isInstalled();
@@ -55,6 +58,8 @@ export function Accueil({ onFiles, interrupted }: Props) {
         <GuideRaccourci />
       </section>
 
+      <RapportsEnregistres reports={reports} />
+
       {interrupted && (
         <p className="alerte">
           La dernière analyse s’est arrêtée brutalement à la photo {interrupted.done} sur {interrupted.total}.
@@ -77,7 +82,7 @@ export function Accueil({ onFiles, interrupted }: Props) {
             }}
           />
         </label>
-        <p className="note">Version de test · jalon 4 · réglage 6 octies (raccourci validé)</p>
+        <p className="note">Version de test · jalon 4 · réglage 7 (rapports conservés, affichage calibré)</p>
       </div>
     </main>
   );

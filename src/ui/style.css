@@ -13,11 +13,11 @@
   -webkit-text-size-adjust: 100%;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; background: var(--fond); color: var(--texte); overscroll-behavior-y: none; }
+html, body { margin: 0; background: var(--fond); color: var(--texte); overscroll-behavior-y: none; overflow-x: hidden; touch-action: manipulation; }
 body { min-height: 100dvh; font-size: 16px; line-height: 1.4; }
 h1, h2, h3, p { margin: 0; }
-h1 { font-size: 34px; letter-spacing: -0.02em; }
-h2 { font-size: 30px; letter-spacing: -0.02em; }
+h1 { font-size: 30px; letter-spacing: -0.02em; }
+h2 { font-size: 26px; letter-spacing: -0.02em; }
 h3 { font-size: 17px; }
 button, label.bouton, .onglets label { font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; }
 .doux { color: var(--doux); }
@@ -31,7 +31,7 @@ button, label.bouton, .onglets label { font: inherit; color: inherit; cursor: po
 .alerte { color: var(--alerte); background: rgba(255, 138, 107, 0.1); border-radius: 12px; padding: 12px 14px; font-size: 14px; }
 
 .bouton {
-  display: flex; align-items: center; justify-content: center; width: 100%; min-height: 54px;
+  display: flex; align-items: center; justify-content: center; width: 100%; min-height: 50px;
   border: 1px solid var(--trait); border-radius: 16px; background: var(--carte); font-weight: 600; font-size: 17px;
   transition: transform 0.12s ease, opacity 0.12s ease;
 }
@@ -215,4 +215,9 @@ dd { margin: 0; text-align: right; overflow-wrap: anywhere; font-variant-numeric
 
 .note.centre { text-align: center; }
 
-.commentaire { width: 100%; background: #0b0c0e; color: var(--texte); border: 1px solid var(--trait); border-radius: 12px; padding: 10px 12px; font: inherit; font-size: 15px; resize: none; }
+.commentaire { width: 100%; background: #0b0c0e; color: var(--texte); border: 1px solid var(--trait); border-radius: 12px; padding: 10px 12px; font: inherit; font-size: 16px; resize: none; }
+.rapports summary { font-weight: 600; cursor: pointer; }
+.rapports-actions { display: flex; gap: 8px; margin-top: 10px; }
+.rapports-actions .bouton { min-height: 44px; font-size: 15px; }
+.rapports-liste { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.rapports-liste li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }

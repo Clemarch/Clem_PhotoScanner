@@ -538,6 +538,17 @@ sorties de « Obtenir l'élément de la liste » portent toutes le même nom, d'
 Début, Fin) pour éviter toute confusion ; l'ordre des blocs compte. Le guide dans l'app reprend exactement cette
 version.
 
+### 34. Rapports conservés, affichage mieux calibré (19/11)
+
+- **Rapports** : chaque analyse enregistre son rapport sur l'iPhone (IndexedDB, base passée en version 2), mis à jour
+  une seconde après chaque choix ; on garde les 10 derniers, 30 jours au plus. Liste à l'accueil et dans Diagnostic,
+  avec « Partager » (feuille de partage d'iOS, vers l'app Claude par exemple) et « Copier » un ou tous les rapports.
+  L'app n'envoie toujours rien elle-même : c'est l'utilisateur qui choisit de partager.
+- **Affichage trop zoomé** : Safari zoome sur un champ de texte dont la police fait moins de 16 px (la case
+  « Pourquoi ? » faisait 15 px) et reste zoomé ensuite. Corrigé : 16 px, `maximum-scale=1` dans la balise viewport
+  (empêche ce zoom automatique), `touch-action: manipulation` (pas de zoom par double toucher hors visionneuse),
+  aucun débordement horizontal (vérifié sur les quatre écrans), titres et boutons un peu plus compacts.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

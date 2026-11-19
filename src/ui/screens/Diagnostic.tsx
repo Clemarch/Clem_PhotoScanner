@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react';
 import { FEATURE_NAMES, preferencePairs, type ChoiceRecord, type DayAnalysis, type LearnedWeights } from '../../engine';
 import type { Session } from '../session';
 import { featureLabel } from '../reasons';
-import { buildReport, copyText, summarize } from '../report';
+import { buildReport, copyText, shareText, summarize } from '../report';
+import { RapportsEnregistres } from '../RapportsEnregistres';
+import type { SavedReport } from '../../platform/storage/reports';
 import { formatDateTime, formatMs, formatOrientation, formatSize } from '../format';
 
 interface Props {
@@ -10,10 +12,11 @@ interface Props {
   day: DayAnalysis;
   records: ChoiceRecord[];
   learned: LearnedWeights;
+  reports: SavedReport[];
   onForget: () => void;
 }
 
-export function Diagnostic({ session, day, records, learned, onForget }: Props) {
+export function Diagnostic({ session, day, records, learned, reports, onForget }: Props) {
   const summary = useMemo(() => summarize(session), [session]);
   const report = useMemo(() => buildReport(session, day, records, learned), [session, day, records, learned]);
   const pairs = useMemo(() => preferencePairs(records).length, [records]);
@@ -101,6 +104,15 @@ export function Diagnostic({ session, day, records, learned, onForget }: Props) 
       >
         {copied === 'oui' ? 'Rapport copié ✓' : 'Copier le rapport'}
       </button>
+      <button
+        className="bouton"
+        onClick={async () => {
+          if (!(await shareText(report, 'Rapport Photo Triage'))) setCopied((await copyText(report)) ? 'oui' : 'echec');
+        }}
+      >
+        Partager le rapport (vers l’app Claude…)
+      </button>
+      <RapportsEnregistres reports={reports} />
       {copied === 'echec' && (
         <p className="alerte">Copie impossible : sélectionnez le texte ci-dessous à la main.</p>
       )}

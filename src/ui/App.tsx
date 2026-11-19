@@ -12,6 +12,9 @@ import {
 import type { AnalyzeResult } from '../platform/image/types';
 import { analyzeDay, config, learnWeights, measureFace, measureSegmentation, photoKey, sortChronologically, type ChoiceRecord, type MediaItem, type PackAnalysis } from '../engine';
 import { clearChoices, loadChoices, removeChoice, saveChoice } from '../platform/storage/choices';
+import { loadReports, saveReport, type SavedReport } from '../platform/storage/reports';
+import { buildReport } from './report';
+import { formatDate } from './format';
 import { makeRecord, type Choice, type Choices } from './choices';
 import { createFaceDetector, type FaceDetector } from '../platform/vision/faceDetector';
 import { createObjectDetector, type ObjectDetector } from '../platform/vision/objectDetector';
@@ -47,11 +50,13 @@ export function App() {
   const [records, setRecords] = useState<ChoiceRecord[]>([]);
   // Paquets rattachés à la main au paquet précédent (pour cette journée).
   const [joined, setJoined] = useState<Set<string>>(new Set());
+  const [reports, setReports] = useState<SavedReport[]>([]);
 
   useEffect(() => {
     setInterrupted(readInterruptedRun());
     clearProgress();
     void loadChoices().then(setRecords);
+    void loadReports().then(setReports);
     // Protège les choix enregistrés contre l'effacement automatique de Safari.
     void requestPersistentStorage();
   }, []);
@@ -61,6 +66,23 @@ export function App() {
   const learned = useMemo(() => learnWeights(records), [records]);
   const items = useMemo(() => session?.results.map((r) => r.item) ?? [], [session]);
   const day = useMemo(() => analyzeDay(items, gap, learned, joined), [items, gap, learned, joined]);
+
+  // Rapport de l'analyse en cours, conservé sur l'iPhone et mis à jour avec les choix (une seconde après le dernier).
+  useEffect(() => {
+    if (!session || session.cancelled) return;
+    const timer = window.setTimeout(() => {
+      const photos = session.results.length;
+      const first = session.results.find((r) => r.item.capturedAt !== null)?.item.capturedAt ?? null;
+      const chosen = session.results.filter((r) => records.some((c) => c.key === photoKey(r.item))).length;
+      void saveReport({
+        id: session.id,
+        at: Date.now(),
+        title: `${first ? formatDate(first) : 'Sans date'} · ${photos} photos · ${chosen} choix`,
+        text: buildReport(session, day, records, learned),
+      }).then(() => loadReports().then(setReports));
+    }, 1000);
+    return () => window.clearTimeout(timer);
+  }, [session, day, records, learned]);
 
   const start = async (files: File[]) => {
     setJoined(new Set());
@@ -196,6 +218,7 @@ export function App() {
     const order = new Map(sortChronologically(results.map((r) => r.item)).map((item, i) => [item.id, i]));
     results.sort((a, b) => order.get(a.item.id)! - order.get(b.item.id)!);
     setSession({
+      id: String(Date.now()),
       results,
       thumbnails,
       previews,
@@ -247,7 +270,7 @@ export function App() {
     );
   }
 
-  if (!session) return <Accueil onFiles={start} interrupted={interrupted} />;
+  if (!session) return <Accueil onFiles={start} interrupted={interrupted} reports={reports} />;
 
   return (
     <>
@@ -278,6 +301,7 @@ export function App() {
           day={day}
           records={records}
           learned={learned}
+          reports={reports}
           onForget={() => {
             setRecords([]);
             void clearChoices();

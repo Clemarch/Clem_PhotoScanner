@@ -3,6 +3,8 @@ import type { AnalyzeResult } from '../platform/image/types';
 
 /** Résultat d'une analyse complète (une journée de photos). */
 export interface Session {
+  /** Identifiant de l'analyse (heure de lancement), pour conserver son rapport. */
+  id: string;
   results: AnalyzeResult[];
   /** Adresse locale de chaque miniature (jamais envoyée nulle part). */
   thumbnails: Map<string, string>;
