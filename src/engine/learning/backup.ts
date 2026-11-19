@@ -7,8 +7,9 @@ import { FEATURE_NAMES, type ChoiceRecord, type Features } from '../types';
 export const BACKUP_FORMAT = 'photo-triage-gouts';
 export const BACKUP_VERSION = 1;
 
-/** Une ligne : [clé, paquet, 1 garder / 0 supprimer, date ms, note de base ×1000, mesures ×1000, commentaire, version des critères, empreinte]. */
-type Row = [string, string, 0 | 1, number, number, (number | null)[], string | null, number | null, string | null];
+/** Une ligne : [clé, paquet, 1 garder / 0 supprimer, date ms, note de base ×1000, mesures ×1000, commentaire, version des critères,
+ *  empreinte, 1 si accord silencieux]. La dernière colonne, ajoutée le 19/11, manque dans les anciennes sauvegardes. */
+type Row = [string, string, 0 | 1, number, number, (number | null)[], string | null, number | null, string | null, (0 | 1 | null)?];
 
 export interface BackupFile {
   format: typeof BACKUP_FORMAT;
@@ -37,6 +38,7 @@ export function encodeBackup(records: readonly ChoiceRecord[], now: number): Bac
       r.comment ?? null,
       r.v ?? null,
       r.embedding ?? null,
+      r.implicit ? 1 : null,
     ]),
   };
 }
@@ -59,7 +61,7 @@ export function decodeBackup(data: unknown): DecodedBackup {
   let skipped = 0;
   for (const row of Array.isArray(file.choices) ? file.choices : []) {
     try {
-      const [key, packKey, keep, at, base, values, comment, v, embedding] = row as Row;
+      const [key, packKey, keep, at, base, values, comment, v, embedding, implicit] = row as Row;
       if (typeof key !== 'string' || typeof packKey !== 'string' || (keep !== 0 && keep !== 1) || typeof at !== 'number')
         throw new Error('ligne');
       const features: Partial<Features> = {};
@@ -77,6 +79,7 @@ export function decodeBackup(data: unknown): DecodedBackup {
         ...(typeof comment === 'string' && comment ? { comment } : {}),
         ...(typeof v === 'number' ? { v } : {}),
         ...(typeof embedding === 'string' && embedding ? { embedding } : {}),
+        ...(implicit === 1 ? { implicit: true } : {}),
       });
     } catch {
       skipped++;

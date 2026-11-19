@@ -1,0 +1,215 @@
+import { useMemo, useState } from 'react';
+import { config, FEATURE_NAMES, evaluateDay, preferencePairs, type ChoiceRecord, type DayAnalysis, type LearnedWeights } from '../../engine';
+import type { Session } from '../session';
+import { featureLabel } from '../reasons';
+import { agreementLine, buildReport, copyText, shareText, summarize } from '../report';
+import { RapportsEnregistres } from '../RapportsEnregistres';
+import { SauvegardeGouts } from '../SauvegardeGouts';
+import { GuideRaccourci } from '../GuideRaccourci';
+import type { SavedReport } from '../../platform/storage/reports';
+import { formatDateTime, formatGap, formatMs, formatOrientation, formatSize } from '../format';
+import { IconFermer, IconPartager } from '../icons';
+import { useScrolled } from '../useScrolled';
+import { APP_VERSION } from '../version';
+
+interface Props {
+  /** Séance en cours (absente depuis l'accueil). */
+  session: Session | null;
+  day: DayAnalysis | null;
+  records: ChoiceRecord[];
+  learned: LearnedWeights;
+  reports: SavedReport[];
+  onRestore: (records: ChoiceRecord[]) => Promise<{ added: number; updated: number }>;
+  onForget: () => void;
+  gap: number;
+  onGap: (seconds: number) => void;
+  byContent: boolean;
+  onByContent: (value: boolean) => void;
+  /** Ouvert par-dessus l'accueil : bouton de fermeture. */
+  onClose?: () => void;
+}
+
+/** Réglages : sauvegarde des goûts, découpage en paquets, raccourci, rapports, diagnostic et effacement (caché). */
+export function Reglages({ session, day, records, learned, reports, onRestore, onForget, gap, onGap, byContent, onByContent, onClose }: Props) {
+  const scrolled = useScrolled();
+  return (
+    <main className={`page${onClose ? ' par-dessus' : ''}`}>
+      <div className={`barre-haut${scrolled ? ' visible' : ''}`} aria-hidden={!scrolled}>
+        <strong>Réglages</strong>
+      </div>
+      <header className="grand-titre">
+        <div className="grand-titre-ligne">
+          <h1>Réglages</h1>
+          {onClose && (
+            <button className="rond" onClick={onClose} aria-label="Fermer">
+              <IconFermer size={16} />
+            </button>
+          )}
+        </div>
+      </header>
+
+      <h2 className="titre-groupe">Mes goûts</h2>
+      <SauvegardeGouts records={records} onRestore={onRestore} />
+
+      <h2 className="titre-groupe">Paquets</h2>
+      <section className="groupe">
+        <label className="ligne-reglage">
+          <span>
+            Selon ce que montrent les photos
+            <span className="note bloc">
+              Un nouveau paquet commence quand la scène change. Le même paysage revu plus tard reste dans le même paquet.
+            </span>
+          </span>
+          <input type="checkbox" className="interrupteur" checked={byContent} onChange={(e) => onByContent(e.target.checked)} />
+        </label>
+        {!byContent && (
+          <div className="ligne-reglage colonne">
+            <label htmlFor="ecart">
+              Nouveau paquet après <strong>{formatGap(gap)}</strong> sans photo
+            </label>
+            <input
+              id="ecart"
+              type="range"
+              min={config.grouping.packGapMinSeconds}
+              max={config.grouping.packGapMaxSeconds}
+              step={10}
+              value={gap}
+              onChange={(event) => onGap(Number(event.target.value))}
+            />
+          </div>
+        )}
+      </section>
+
+      <h2 className="titre-groupe">Raccourci de suppression</h2>
+      <section className="groupe">
+        <GuideRaccourci />
+      </section>
+
+      {session && day && <RapportEtDiagnostic session={session} day={day} records={records} learned={learned} />}
+      <h2 className="titre-groupe">Rapports enregistrés</h2>
+      <RapportsEnregistres reports={reports} />
+
+      <details className="groupe repli avance">
+        <summary>
+          <span>Avancé</span>
+        </summary>
+        <p className="note">
+          Efface tous vos choix de cet iPhone : l’app oublie vos goûts et revient à ses réglages de départ. Votre fichier
+          de sauvegarde dans iCloud Drive n’est pas touché.
+        </p>
+        <button
+          className="bouton discret rouge"
+          disabled={records.length === 0}
+          onClick={() => {
+            if (!window.confirm(`Oublier vos ${records.length} choix ?`)) return;
+            if (!window.confirm('Vraiment ? Sans sauvegarde, ils seront perdus.')) return;
+            onForget();
+          }}
+        >
+          Oublier mes choix
+        </button>
+      </details>
+
+      <p className="note centre">Photo Triage · {APP_VERSION}</p>
+    </main>
+  );
+}
+
+function RapportEtDiagnostic({ session, day, records, learned }: { session: Session; day: DayAnalysis; records: ChoiceRecord[]; learned: LearnedWeights }) {
+  const summary = useMemo(() => summarize(session), [session]);
+  const report = useMemo(() => buildReport(session, day, records, learned), [session, day, records, learned]);
+  const pairs = useMemo(() => preferencePairs(records).length, [records]);
+  const agreement = useMemo(() => evaluateDay(day, records), [day, records]);
+  const learnedList = FEATURE_NAMES.filter((name) => learned[name] !== undefined).sort((a, b) => Math.abs(learned[b]!) - Math.abs(learned[a]!));
+  const [copied, setCopied] = useState<'non' | 'oui' | 'echec'>('non');
+  const dateOk = summary.withoutDate === 0 && summary.withDate > 0;
+
+  return (
+    <>
+      <h2 className="titre-groupe">Rapport de cette séance</h2>
+      <section className="groupe">
+        <p className="note">{agreementLine(agreement)}</p>
+        <div className="rapports-actions">
+          <button
+            className="bouton principal"
+            onClick={async () => {
+              const result = await shareText(report, 'Rapport Photo Triage');
+              if (result === 'impossible') setCopied((await copyText(report)) ? 'oui' : 'echec');
+            }}
+          >
+            <IconPartager size={17} /> Partager
+          </button>
+          <button className="bouton" onClick={async () => setCopied((await copyText(report)) ? 'oui' : 'echec')}>
+            {copied === 'oui' ? 'Copié ✓' : 'Copier'}
+          </button>
+        </div>
+        {copied === 'echec' && <p className="alerte">Copie impossible : ouvrez « Rapport complet » plus bas et sélectionnez le texte.</p>}
+        <p className="note">Texte seulement (noms, dates, mesures), aucune image. « Partager », puis choisissez l’app Claude.</p>
+      </section>
+
+      <details className="groupe repli">
+        <summary>
+          <span>Diagnostic</span>
+          <span className={dateOk ? 'vert' : 'rouge'}>{dateOk ? 'tout va bien' : 'dates manquantes'}</span>
+        </summary>
+        <p>
+          {summary.withDate} avec date · {summary.withoutDate} sans date · {summary.errors} erreur{summary.errors > 1 ? 's' : ''} de
+          décodage · {formatMs(session.totalMs)} au total · décodage moyen {formatMs(summary.avgDecodeMs)}
+        </p>
+        <p className="note">
+          {records.length} choix enregistrés sur cet iPhone ({records.filter((r) => r.implicit).length} laissés tels quels),{' '}
+          {pairs} comparaison{pairs > 1 ? 's' : ''} utilisable{pairs > 1 ? 's' : ''}.
+        </p>
+        {learnedList.length > 0 && (
+          <ul className="gouts">
+            {learnedList.map((name) => (
+              <li key={name} className={learned[name]! > 0 ? 'plus' : 'moins'}>
+                {learned[name]! > 0 ? 'Compte plus pour vous : ' : 'Compte moins pour vous : '}
+                {featureLabel[name]}
+              </li>
+            ))}
+          </ul>
+        )}
+        <details className="sous-repli">
+          <summary>Détail par photo</summary>
+          <ul className="fiches">
+            {session.results.map(({ item, diagnostic }, i) => (
+              <li key={item.id} className={item.capturedAt === null || diagnostic.error ? 'probleme' : ''}>
+                <div className="fiche-titre">
+                  <span className="numero-fiche">{i + 1}</span>
+                  <span className="tronque">{item.fileName}</span>
+                  <span className="etiquette">{item.format}</span>
+                </div>
+                <dl>
+                  <dt>Prise de vue</dt>
+                  <dd>{item.capturedAt === null ? '⚠ absente' : formatDateTime(item.capturedAt)}</dd>
+                  <dt>Taille</dt>
+                  <dd>
+                    {formatSize(item.sizeBytes)}
+                    {item.width && item.height ? ` · ${item.width}×${item.height}` : ''}
+                  </dd>
+                  <dt>Orientation</dt>
+                  <dd>{formatOrientation(item.orientation)}</dd>
+                  <dt>Décodage</dt>
+                  <dd>
+                    {diagnostic.decodeMs === null ? (item.isRaw ? 'mis de côté (RAW)' : '—') : `${formatMs(diagnostic.decodeMs)} · ${diagnostic.decodeMethod}`}
+                  </dd>
+                  {diagnostic.error && (
+                    <>
+                      <dt>Erreur</dt>
+                      <dd>{diagnostic.error}</dd>
+                    </>
+                  )}
+                </dl>
+              </li>
+            ))}
+          </ul>
+        </details>
+        <details className="sous-repli">
+          <summary>Rapport complet</summary>
+          <textarea className="rapport" readOnly value={report} rows={10} />
+        </details>
+      </details>
+    </>
+  );
+}

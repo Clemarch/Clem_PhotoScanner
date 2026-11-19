@@ -121,7 +121,7 @@ export function buildReport(session: Session, day: DayAnalysis, records: readonl
     0,
     `Paquets : ${day.packs.map((p, i) => `P${i + 1} ${new Set(p.sceneOf.values()).size > 1 ? `mixte (${[...new Set(p.sceneOf.values())].join('+')})` : p.scene} (${p.pack.items.length} photos, ${p.poses.length} pose${p.poses.length > 1 ? 's' : ''}, ${[...p.decisions.values()].filter((d) => d.keep && !d.review).length} gardées par l'app${[...p.decisions.values()].some((d) => d.review) ? `, ${[...p.decisions.values()].filter((d) => d.review).length} à vérifier` : ''})`).join(' · ') || '—'}`,
     agreementLine(evaluateDay(day, records)),
-    `Vos choix enregistrés : ${records.length} · goûts appris : ${
+    `Vos choix enregistrés : ${records.length}${records.some((r) => r.implicit) ? ` (dont ${records.filter((r) => r.implicit).length} laissés tels quels)` : ''} · goûts appris : ${
       Object.entries(learned)
         .map(([k, v]) => `${k} ${v >= 0 ? '+' : ''}${v.toFixed(2)}`)
         .join(', ') || 'aucun'
@@ -205,7 +205,7 @@ const ratio = (n: number, total: number) => `${n}/${total} (${total ? Math.round
 export function agreementLine(a: Agreement): string {
   if (a.total === 0) return 'Accord avec vos choix : aucun choix sur cette séance';
   return (
-    `Accord avec vos choix : brut ${ratio(a.raw, a.total)} · honnête (sans vos choix du même paquet) ${ratio(a.honest, a.total)}` +
+    `Accord avec vos choix${a.implicit ? ` (dont ${a.implicit} laissés tels quels, ${a.total - a.implicit} corrigés ou tranchés)` : ''} : brut ${ratio(a.raw, a.total)} · honnête (sans vos choix du même paquet) ${ratio(a.honest, a.total)}` +
     ` · avec goûts de l'image, en test : ${a.withTaste === null ? `pas encore (${a.tasteChoices} choix avec empreinte, ${config.taste.minChoices} nécessaires)` : `${ratio(a.withTaste, a.total)} (${a.tasteChoices} choix avec empreinte)`}`
   );
 }

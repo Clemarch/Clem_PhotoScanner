@@ -9,7 +9,12 @@ const joinReports = (list: readonly SavedReport[]): string => list.map((r) => r.
 /** Rapports conservés sur l'iPhone : les copier ou les partager d'un coup, pour les donner à Claude. */
 export function RapportsEnregistres({ reports }: { reports: SavedReport[] }) {
   const [done, setDone] = useState<string | null>(null);
-  if (reports.length === 0) return null;
+  if (reports.length === 0)
+    return (
+      <section className="groupe">
+        <p className="note">Aucun rapport pour l’instant : il s’en crée un à chaque analyse.</p>
+      </section>
+    );
 
   const act = async (key: string, text: string, share: boolean) => {
     if (share) {
@@ -21,8 +26,10 @@ export function RapportsEnregistres({ reports }: { reports: SavedReport[] }) {
   };
 
   return (
-    <details className="info rapports">
-      <summary>Rapports enregistrés ({reports.length})</summary>
+    <details className="groupe repli">
+      <summary>
+        <span>Les {reports.length} dernières analyses</span>
+      </summary>
       <p className="note">
         Les {REPORTS_KEPT} dernières analyses ({REPORTS_MAX_DAYS} jours au plus), mises à jour avec vos choix. Texte
         seulement, aucune image. « Partager » ouvre le menu de l’iPhone : choisissez l’app Claude pour me les envoyer.

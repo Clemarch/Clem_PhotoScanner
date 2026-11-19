@@ -43,7 +43,10 @@ propre à ce test.
 - Mémoire iOS : une photo décodée à la fois, réduite à 1536 px, `close()` et canvas remis à zéro après usage.
 - Notation : le contenu (expression, masquage, arrière-plan, objets, cadrage, couleurs selon le type de photo) classe ;
   la technique (netteté, yeux) ne sert qu'à repérer des défauts. Voir `docs/decisions.md`, points 14 à 17.
-- Enchaînement d'une journée : `src/engine/pipeline.ts` (paquets → notes → poses → sélection).
+- Enchaînement d'une journée : `src/engine/pipeline.ts` (paquets → notes → poses → sélection). Paquets selon le
+  contenu par défaut (`config.grouping.byContent`), selon le temps en option (Réglages).
+- Interface : `src/ui/style.css` (style d'Apple, mode sombre), icônes dans `src/ui/icons.tsx`, version affichée dans
+  `src/ui/version.ts`. Photos non touchées enregistrées comme accords (`ChoiceRecord.implicit`) à l'envoi au raccourci.
 - Choix de l'utilisateur : IndexedDB (`src/platform/storage/choices.ts`), mesures et empreinte d'image (8 bits),
   jamais d'image. Apprentissage : `src/engine/learning/preferences.ts` ; goûts par l'image, en test :
   `src/engine/learning/taste.ts` ; accord honnête : `src/engine/evaluation.ts`.
@@ -77,4 +80,6 @@ Jalon 4 en cours (plan : `docs/jalon-4.md`) : onglet « Dans Photos », zoom, pa
 empreinte fine, classement de scène, commentaires sur les choix, gestes, captures mises de côté, « à vérifier ».
 Réglage 8 (plan : `docs/jalon-5.md`) : sauvegarde des goûts, séances, comparaison, apprentissage par l'image en test.
 Réglage 9 : plusieurs photos par pose si différentes, regard en groupe, photo prise par erreur, lots de 49.
+Réglage 10 : nouvelle présentation (onglets Trier, Supprimer, Réglages), paquets selon le contenu, accords
+silencieux (photos non touchées = d'accord), yeux plissés jugés par personne, sauvegarde datée (point 38).
 Modèle restant proposé : objets plus fins.

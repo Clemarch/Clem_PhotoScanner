@@ -52,8 +52,10 @@ export function analyzeDay(
   gapSeconds: number,
   learned: LearnedWeights = {},
   joinWithPrevious: ReadonlySet<string> = new Set(),
+  /** Paquets découpés selon ce que montrent les photos (vrai) ou selon le temps seulement (faux). */
+  byContent = false,
 ): DayAnalysis {
-  const day = groupIntoPacks(items, gapSeconds);
+  const day = groupIntoPacks(items, gapSeconds, byContent);
   const packs = joinPacks(day.packs, joinWithPrevious).map(({ pack, joined }): PackAnalysis => {
     const poses = groupPoses(pack.items);
     const { scene, sceneOf, scores } = scorePackDetailed(

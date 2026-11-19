@@ -5,6 +5,8 @@ export function reasonText(reason: Reason, numberOf: (id: string) => number | nu
   switch (reason.code) {
     case 'yeux-fermes':
       return 'Yeux fermés';
+    case 'yeux-plisses':
+      return 'Yeux plissés, comme sur ses autres photos (soleil, sourire) : pas compté comme fermés';
     case 'visage-coupe':
       return 'Visage coupé par le bord';
     case 'visage-cache':

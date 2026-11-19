@@ -254,6 +254,9 @@ export interface ChoiceRecord {
   /** Empreinte de l'image (8 bits par valeur, base64), pour apprendre les goûts sur le contenu de l'image.
    *  Absente pour les choix d'avant le 19/11. */
   embedding?: string;
+  /** Accord silencieux (utilisateur, 19/11 : « quand je clique pas c'est que je suis d'accord ») : la photo est partie
+   *  à la suppression, ou est restée, sans que l'utilisateur touche à la décision de l'app. */
+  implicit?: boolean;
 }
 
 /** À augmenter quand le sens d'un critère change (pas quand on en ajoute un : il vaut alors 0,5 dans les anciens). */
@@ -279,6 +282,7 @@ export interface DayGrouping {
 
 export type ReasonCode =
   | 'yeux-fermes'
+  | 'yeux-plisses'
   | 'visage-coupe'
   | 'visage-cache'
   | 'visage-masque'

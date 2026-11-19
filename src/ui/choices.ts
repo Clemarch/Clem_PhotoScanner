@@ -17,7 +17,7 @@ export interface FinalState {
 
 export function finalKeep(item: MediaItem, pack: PackAnalysis, choices: Choices): FinalState {
   const record = choices.byKey.get(photoKey(item));
-  if (record) return { keep: record.choice === 'garder', byUser: true, review: false };
+  if (record) return { keep: record.choice === 'garder', byUser: !record.implicit, review: false };
   const decision = pack.decisions.get(item.id);
   return { keep: decision?.keep ?? true, byUser: false, review: decision?.review === true };
 }
@@ -28,8 +28,9 @@ export function stateLook(state: FinalState): { css: string; mark: string; label
   return state.keep ? { css: 'garder', mark: '✓', label: 'à garder' } : { css: 'supprimer', mark: '✕', label: 'à supprimer' };
 }
 
-export function makeRecord(item: MediaItem, pack: PackAnalysis, choice: Choice): ChoiceRecord {
+/** `implicit` : accord silencieux avec l'app (photo laissée telle quelle, puis envoyée à la suppression). */
+export function makeRecord(item: MediaItem, pack: PackAnalysis, choice: Choice, implicit = false): ChoiceRecord {
   const score = pack.scores.get(item.id)!;
   const embedding = encodeEmbedding(item.embedding);
-  return { key: photoKey(item), packKey: pack.key, choice, features: score.features, baseScore: score.baseScore, at: Date.now(), v: FEATURES_VERSION, ...(embedding ? { embedding } : {}) };
+  return { key: photoKey(item), packKey: pack.key, choice, features: score.features, baseScore: score.baseScore, at: Date.now(), v: FEATURES_VERSION, ...(embedding ? { embedding } : {}), ...(implicit ? { implicit: true } : {}) };
 }

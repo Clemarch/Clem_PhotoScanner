@@ -59,6 +59,9 @@ interface GroupContext {
   completeCount: number;
   slotRef: number[];
   slotX: number[];
+  /** Ouverture habituelle des yeux de chaque personne dans ce groupe (médiane) : soleil de face ou grand sourire,
+   *  certains ont les yeux plissés sur toutes les photos. */
+  slotEyes: number[];
   changesOf: Map<string, { occlusion: number[]; front: number[]; brightness: number[] }>;
   knownSubjects: ReturnType<typeof subjectPersons>;
   sharpest: MediaItem | null;
@@ -128,7 +131,19 @@ export function scorePackDetailed(
         null,
       ),
       bestAesthetic: 0,
+      slotEyes: [],
     };
+    const eyesBySlot: number[][] = Array.from({ length: expected }, () => []);
+    for (const item of group) {
+      const faces = facesOf.get(item.id)!;
+      if (expected === 0 || faces.length === 0 || (faces.length !== expected && completeItems.length === 0)) continue;
+      faces.forEach((face, i) => eyesBySlot[faces.length === expected ? i : nearestSlot(ctx, face)]!.push(face.eyesOpen));
+    }
+    ctx.slotEyes = eyesBySlot.map((values) => {
+      const sorted = [...values].sort((a, b) => a - b);
+      // Il faut assez de photos de la personne pour connaître ses yeux « habituels ».
+      return sorted.length >= cfg.squintMinPhotos ? sorted[Math.floor((sorted.length - 1) / 2)]! : 1;
+    });
     contexts.push(ctx);
     for (const item of group) contextOf.set(item.id, ctx);
   }
@@ -320,10 +335,16 @@ export function scorePackDetailed(
           if (hidden > 0) reasons.push({ code: 'visage-cache', tone: 'moins', count: faces.length, expected });
           if (unanalyzed > 0) reasons.push({ code: 'visage-non-analyse', tone: 'moins' });
         }
-        if (faces.some((face) => face.eyesOpen < cfg.eyesClosedBelow)) {
+        // Yeux fermés jugés par personne (utilisateur, 19/11 : soleil de face, tout le monde plisse les yeux) :
+        // quelqu'un qui a les yeux plissés sur la plupart des photos n'est pas compté comme ayant cligné.
+        const usualEyes = (face: FaceMetrics, i: number): number =>
+          ctx.slotEyes[faces.length === expected ? i : nearestSlot(ctx, face)] ?? 1;
+        const shut = faces.map((face) => face.eyesOpen < cfg.eyesClosedBelow);
+        const squinter = faces.map((face, i) => usualEyes(face, i) < cfg.squintUsualBelow);
+        if (shut.some((closed, i) => closed && !squinter[i])) {
           vetoed = true;
           reasons.push({ code: 'yeux-fermes', tone: 'veto' });
-        }
+        } else if (shut.some(Boolean)) reasons.push({ code: 'yeux-plisses', tone: 'moins' });
         if (faces.some((face) => face.cut)) {
           vetoed = true;
           reasons.push({ code: 'visage-coupe', tone: 'veto' });

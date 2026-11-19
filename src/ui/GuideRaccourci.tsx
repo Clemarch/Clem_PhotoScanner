@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { SHORTCUT_NAME } from '../platform/shortcut';
+import { IconChevron } from './icons';
 
 /**
  * Marche à suivre, une seule fois, pour créer le raccourci qui supprime les photos (app Raccourcis d'Apple).
@@ -10,9 +11,9 @@ export function GuideRaccourci({ open = false }: { open?: boolean }) {
   const [shown, setShown] = useState(open);
   return (
     <>
-      <button className="titre-aide" onClick={() => setShown((v) => !v)} aria-expanded={shown}>
-        <h3>Créer le raccourci de suppression (une fois)</h3>
-        <span>{shown ? '▾' : '▸'}</span>
+      <button className={`titre-aide${shown ? ' ouvert' : ''}`} onClick={() => setShown((v) => !v)} aria-expanded={shown}>
+        <span>Créer le raccourci (une seule fois)</span>
+        <IconChevron size={14} className="chevron" />
       </button>
       {shown && (
         <>
