@@ -56,7 +56,10 @@ export function groupPoses(items: readonly MediaItem[]): PoseGroup[] {
     // Paysage sans personne : la même vue reprise plus tard (zoom, autre cadrage) reste la même pose (utilisateur, 19/11).
     const sameView =
       previous !== undefined && scenery(previous) && scenery(item) && (simPrevious ?? 0) >= cfg.sceneSimilar && (simFirst ?? 0) >= cfg.sceneSimilar;
-    if (current && previous && ((sameTime && similar) || sameView) && !layoutChanged(previous, item)) current.push(item);
+    // Rafale très ressemblante : même pose, même si le cadrage bouge et déplace les visages dans l'image.
+    const dated = previous?.capturedAt != null && item.capturedAt !== null;
+    const steadyBurst = dated && gapMs <= cfg.burstSeconds * 1000 && simPrevious !== null && simPrevious >= cfg.similarPrevious;
+    if (current && previous && ((sameTime && similar) || sameView) && (steadyBurst || !layoutChanged(previous, item))) current.push(item);
     else groups.push([item]);
   }
   return groups.map((list, i) => ({ id: `pose-${i + 1}`, label: label(i), items: list }));

@@ -298,12 +298,16 @@ dd { margin: 0; text-align: right; overflow-wrap: anywhere; font-variant-numeric
 .vis-fleche { position: absolute; top: 50%; transform: translateY(-50%); width: 34px; height: 56px; border: 0; background: rgba(0, 0, 0, 0.3); color: var(--texte); font-size: 26px; }
 .vis-fleche.gauche { left: 0; border-radius: 0 12px 12px 0; }
 .vis-fleche.droite { right: 0; border-radius: 12px 0 0 12px; }
-.vis-infos {
+.vis-panneau {
+  flex: none; display: flex; flex-direction: column; max-height: 54dvh; padding-top: 12px;
   background: rgba(28, 28, 30, 0.94); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px);
-  border-radius: 22px 22px 0 0; padding: 12px 16px calc(env(safe-area-inset-bottom) + 12px); display: flex; flex-direction: column; gap: 10px;
-  max-height: 50dvh; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y;
+  border-radius: 22px 22px 0 0;
 }
-.bande { display: flex; gap: 4px; overflow-x: auto; margin: 0 -16px; padding: 2px 16px 4px; scrollbar-width: none; touch-action: pan-x; }
+.vis-infos {
+  min-height: 0; padding: 10px 16px calc(env(safe-area-inset-bottom) + 12px); display: flex; flex-direction: column; gap: 10px;
+  overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y;
+}
+.bande { flex: none; display: flex; gap: 4px; overflow-x: auto; padding: 2px 16px 4px; scrollbar-width: none; touch-action: pan-x; }
 .bande::-webkit-scrollbar { display: none; }
 .bande-photo { position: relative; flex: none; width: 46px; height: 46px; padding: 0; border: 0; border-radius: 8px; overflow: hidden; background: var(--carte-2); transition: transform 0.15s ease; }
 .bande-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -366,3 +370,35 @@ dd { margin: 0; text-align: right; overflow-wrap: anywhere; font-variant-numeric
 /* Carte simple (comparaison) */
 .carte { background: var(--carte); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
 .heros.carte { padding: 26px 18px 18px; border-radius: 22px; align-items: center; }
+
+/* Comparaison côte à côte */
+.comp-duo { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.comp-photo { min-width: 0; }
+.comp-cote { align-self: flex-start; font-size: 13px; font-weight: 700; padding: 3px 10px; border-radius: 10px; }
+.comp-photo.gauche .comp-cote { background: rgba(255, 214, 10, 0.18); color: var(--accent); }
+.comp-photo.droite .comp-cote { background: rgba(10, 132, 255, 0.2); color: #64b5ff; }
+.comp-photo.gauche .comp-image { box-shadow: inset 0 0 0 2px rgba(255, 214, 10, 0.6); }
+.comp-photo.droite .comp-image { box-shadow: inset 0 0 0 2px rgba(10, 132, 255, 0.7); }
+.comp-note { font-size: 13px; color: var(--doux); }
+.comp-note strong { font-size: 26px; font-weight: 700; color: var(--texte); font-variant-numeric: tabular-nums; }
+.comp-note strong.vert { color: var(--ok); }
+.comp-etat { font-size: 13px; color: var(--doux); margin-top: -4px; }
+.comp-tableau { display: flex; flex-direction: column; font-size: 15px; }
+.comp-ligne { display: grid; grid-template-columns: 1fr 64px 64px; gap: 8px; padding: 7px 0; border-top: 0.5px solid var(--trait); align-items: center; }
+.comp-ligne > span:not(:first-child) { text-align: center; font-variant-numeric: tabular-nums; color: var(--doux); border-radius: 8px; padding: 2px 0; }
+.comp-ligne > span.gagne { color: var(--ok); font-weight: 700; background: rgba(48, 209, 88, 0.14); }
+.comp-ligne.entete { border-top: 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--doux); }
+.comp-ligne.entete > span:nth-child(2) { color: var(--accent); }
+.comp-ligne.entete > span:nth-child(3) { color: #64b5ff; }
+
+/* Légende des pastilles */
+.legende { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--doux); padding: 0 4px; }
+.legende span { display: inline-flex; align-items: center; gap: 5px; }
+.legende i { width: 16px; height: 16px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-style: normal; font-size: 10px; font-weight: 800; color: #fff; }
+.legende i.etoile-l { background: var(--accent); color: #000; }
+.legende i.garder { background: var(--ok); }
+.legende i.verifier { background: var(--verifier); }
+.legende i.supprimer { background: var(--alerte); }
+.avantage { font-weight: 600; }
+.avantage.gauche { color: var(--accent); }
+.avantage.droite { color: #64b5ff; }

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { IconFermer } from '../icons';
-import type { MediaItem, PackAnalysis } from '../../engine';
+import { mainFaces, type MediaItem, type PackAnalysis } from '../../engine';
 import { diffImages, type ImageDiff } from '../../platform/image/difference';
 import { finalKeep, type Choice, type Choices } from '../choices';
-import { describeDifferences } from '../compare';
-import { reasonText } from '../reasons';
+import { describeDifferences, scoreFactors } from '../compare';
+import { featureLabel, reasonText } from '../reasons';
 
 interface Props {
   item: MediaItem;
@@ -18,8 +18,9 @@ interface Props {
 }
 
 /**
- * Comparaison de deux photos d'une même pose : l'une au-dessus de l'autre, zones qui changent entourées, et liste des
- * différences mesurées. Un toucher sur une photo la montre en grand, un autre bascule vers l'autre au même endroit.
+ * Comparaison de deux photos d'une même pose, côte à côte (gauche / droite, utilisateur, 19/11) : zones qui changent
+ * entourées, tableau des critères de la note (le meilleur en vert), et différences mesurées. Un toucher sur une photo
+ * la montre en grand, un autre bascule vers l'autre au même endroit.
  */
 export function Comparer({ item, pack, previews, thumbnails, choices, numberOf, onChoose, onClose }: Props) {
   const pose = pack.poses.find((p) => p.items.some((it) => it.id === item.id));
@@ -45,7 +46,10 @@ export function Comparer({ item, pack, previews, thumbnails, choices, numberOf, 
   }, [item.id, other?.id]);
 
   const differences = useMemo(
-    () => (other ? describeDifferences(item, other, pack.scores.get(item.id), pack.scores.get(other.id), label(item), label(other)) : []),
+    () =>
+      other
+        ? describeDifferences(item, other, pack.scores.get(item.id), pack.scores.get(other.id), `la gauche (${label(item)})`, `la droite (${label(other)})`)
+        : [],
     [item, other, pack],
   );
 
@@ -70,19 +74,34 @@ export function Comparer({ item, pack, previews, thumbnails, choices, numberOf, 
           />
         ))
       : null;
+  const sa = pack.scores.get(item.id);
+  const sb = pack.scores.get(other.id);
+  const withFaces = mainFaces(item.faces).length > 0 || mainFaces(other.faces).length > 0;
+  const factors = sa && sb ? scoreFactors(sa, sb, withFaces) : [];
+  const note = (it: MediaItem) => Math.round(scoreOf(it) * 100);
+  const side = (which: 'a' | 'b') => (which === 'a' ? 'Gauche' : 'Droite');
+  const fmt = (feature: string, v: number) => (feature === 'gouts' ? `${v >= 0 ? '+' : '−'}${Math.round(Math.abs(v) * 100)}` : String(Math.round(v * 100)));
+
   const card = (it: MediaItem, which: 'a' | 'b') => {
     const state = finalKeep(it, pack, choices);
     const twin = which === 'a' ? other : item;
+    const best = note(it) > note(twin);
     return (
-      <figure className="comp-photo">
+      <figure className={`comp-photo ${which === 'a' ? 'gauche' : 'droite'}`}>
+        <span className="comp-cote">
+          {side(which)} · {label(it)}
+        </span>
         <button className="comp-image" onClick={() => setBig(which)} aria-label={`Voir la ${label(it)} en grand`}>
           <img src={url(it.id)} alt="" />
           {zones(which)}
         </button>
-        <figcaption>
-          <strong>{label(it)}</strong> · {state.review ? 'à vérifier' : state.keep ? 'à garder' : 'à supprimer'}
-          {state.byUser ? ' (votre choix)' : ''}
-        </figcaption>
+        <p className="comp-note">
+          <strong className={best ? 'vert' : ''}>{note(it)}</strong> / 100
+        </p>
+        <p className="comp-etat">
+          {state.review ? 'à vérifier' : state.keep ? 'à garder' : 'à supprimer'}
+          {state.byUser ? ' · votre choix' : ''}
+        </p>
         <button
           className="bouton petit"
           onClick={() => {
@@ -90,12 +109,13 @@ export function Comparer({ item, pack, previews, thumbnails, choices, numberOf, 
             onChoose(twin, pack, 'supprimer');
           }}
         >
-          Garder la {label(it)}, supprimer la {label(twin)}
+          Garder celle-ci
         </button>
       </figure>
     );
   };
 
+  const gap = note(item) - note(other);
   return (
     <div className="comparer" role="dialog" aria-label="Comparer deux photos">
       <header className="vis-haut">
@@ -108,7 +128,7 @@ export function Comparer({ item, pack, previews, thumbnails, choices, numberOf, 
       <div className="comp-corps">
         {others.length > 1 && (
           <div className="comp-choix">
-            <span className="note">Comparer la {label(item)} avec :</span>
+            <span className="note">À droite :</span>
             {others.map((it) => (
               <button key={it.id} className={`puce ${it.id === otherId ? 'active' : ''}`} onClick={() => setOtherId(it.id)}>
                 {label(it)}
@@ -116,10 +136,49 @@ export function Comparer({ item, pack, previews, thumbnails, choices, numberOf, 
             ))}
           </div>
         )}
-        {card(item, 'a')}
-        {card(other, 'b')}
+        <div className="comp-duo">
+          {card(item, 'a')}
+          {card(other, 'b')}
+        </div>
+        <p className="note centre">« Garder celle-ci » garde cette photo et supprime l’autre. Touchez une photo pour la voir en grand.</p>
+
         <section className="carte">
-          <h3>Différences</h3>
+          <h3>Pourquoi ces notes</h3>
+          <p className="doux">
+            {gap === 0
+              ? 'Notes égales.'
+              : `${gap > 0 ? `La gauche (${label(item)})` : `La droite (${label(other)})`} a la meilleure note : ${Math.max(note(item), note(other))} contre ${Math.min(note(item), note(other))}.`}
+          </p>
+          {factors.length > 0 ? (
+            <div className="comp-tableau" role="table">
+              <div className="comp-ligne entete" role="row">
+                <span role="columnheader">Critère</span>
+                <span role="columnheader">Gauche</span>
+                <span role="columnheader">Droite</span>
+              </div>
+              {factors.map((f) => (
+                <div className="comp-ligne" role="row" key={f.feature}>
+                  <span role="cell">{f.feature === 'gouts' ? 'vos goûts appris' : featureLabel[f.feature]}</span>
+                  <span role="cell" className={f.favours === 'a' ? 'gagne' : ''}>
+                    {fmt(f.feature, f.a)}
+                  </span>
+                  <span role="cell" className={f.favours === 'b' ? 'gagne' : ''}>
+                    {fmt(f.feature, f.b)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="note">Aucun critère ne diffère nettement.</p>
+          )}
+          <p className="note">
+            Sur 100, la meilleure valeur en vert. Pour les défauts (visage masqué, objet devant, photo penchée…), moins
+            c’est mieux. Les visages comptent bien plus que le reste : expression d’abord, puis netteté des visages.
+          </p>
+        </section>
+
+        <section className="carte">
+          <h3>Ce qui change</h3>
           {diff === null ? (
             <p className="note">Recherche des zones qui changent…</p>
           ) : diff.comparable ? (
@@ -134,19 +193,22 @@ export function Comparer({ item, pack, previews, thumbnails, choices, numberOf, 
             <p className="note">Cadrages trop différents pour comparer pixel à pixel.</p>
           )}
           <ul className="raisons">
-            {differences.map((d, i) => (
-              <li key={i} className={d.favours ? 'plus' : ''}>
-                {d.text}
-              </li>
-            ))}
+            {differences
+              .filter((d) => !d.text.startsWith('Note :'))
+              .map((d, i) => (
+                <li key={i} className={d.favours ? 'plus' : ''}>
+                  {d.text}
+                  {d.favours && <strong className={d.favours === 'a' ? 'avantage gauche' : 'avantage droite'}> · avantage {d.favours === 'a' ? 'gauche' : 'droite'}</strong>}
+                </li>
+              ))}
             {reasonsOnly(item, other).map((r) => (
               <li key={`a-${r.code}`} className={r.tone}>
-                {label(item)} seulement : {reasonText(r, numberOf)}
+                Gauche seulement : {reasonText(r, numberOf)}
               </li>
             ))}
             {reasonsOnly(other, item).map((r) => (
               <li key={`b-${r.code}`} className={r.tone}>
-                {label(other)} seulement : {reasonText(r, numberOf)}
+                Droite seulement : {reasonText(r, numberOf)}
               </li>
             ))}
           </ul>
@@ -156,7 +218,7 @@ export function Comparer({ item, pack, previews, thumbnails, choices, numberOf, 
         <button className="comp-grand" onClick={() => setBig(big === 'a' ? 'b' : 'a')} aria-label="Basculer vers l'autre photo">
           <img src={url(big === 'a' ? item.id : other.id)} alt="" />
           <span className="comp-etiquette">
-            {label(big === 'a' ? item : other)} · touchez pour voir la {label(big === 'a' ? other : item)}
+            {side(big)} · {label(big === 'a' ? item : other)} — touchez pour voir la {big === 'a' ? 'droite' : 'gauche'}
           </span>
           <span
             className="comp-fermer"

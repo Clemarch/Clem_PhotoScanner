@@ -19,11 +19,12 @@ export function measureSegmentation(
   const band = Math.max(1, Math.round(Math.min(width, height) * config.segmentation.band));
   let edge = 0;
   let edgeSkin = 0;
-  for (let y = 0; y < height; y++) {
+  // Bords gauche et droit seulement, sans le bas de l'image : des jambes coupées par le bas sont le cadre naturel.
+  const lastRow = Math.max(1, Math.round(height * (1 - config.segmentation.ignoreBottom)));
+  for (let y = 0; y < lastRow; y++) {
     const row = y * width;
-    const bottom = y >= height - band;
     for (let x = 0; x < width; x++) {
-      if (!bottom && x >= band && x < width - band) continue;
+      if (x >= band && x < width - band) continue;
       edge++;
       if (mask[row + x] === SEGMENT.bodySkin) edgeSkin++;
     }

@@ -19,6 +19,16 @@ function iou(a: Box, b: Box): number {
 
 const contains = (b: Box, x: number, y: number): boolean => x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height;
 
+/** Objet qui fait partie du sujet (planche de surf, vélo, chien) tenu par une personne ou à côté d'elle : il touche la
+ *  zone d'une personne. Un chien au loin ou un ballon en arrière-plan ne compte pas. */
+export function holdsSubjectObject(faces: readonly FaceMetrics[], objects: readonly DetectedObject[] | null): boolean {
+  const cfg = config.content;
+  const zones = faces.map(subjectZone);
+  return (objects ?? []).some(
+    (o) => cfg.subjectObjects.includes(o.label) && o.score >= cfg.subjectObjectMinScore && zones.some((z) => overlap(z, o.box) > 0),
+  );
+}
+
 /** Zone occupée par une personne dont on connaît le visage : le visage, les épaules et le buste. */
 export function subjectZone(face: FaceMetrics): Box {
   const cfg = config.content;
