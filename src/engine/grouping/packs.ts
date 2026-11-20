@@ -47,16 +47,28 @@ export function groupIntoPacks(items: readonly MediaItem[], packGapSeconds: numb
   };
 
   const c = config.grouping.byContent;
+  // Personnes au premier plan seulement : un passant au loin ne fait pas d'un portrait une photo de groupe.
+  const people = (it: MediaItem) =>
+    (it.objects ?? []).filter(
+      (o) => o.label === 'person' && o.score >= config.poses.personMinScore && o.box.width * o.box.height >= c.personMinArea,
+    ).length;
   const together = (item: MediaItem, previous: MediaItem): boolean => {
     const gap = item.capturedAt! - previous.capturedAt!;
     if (!byContent) return gap <= gapMs;
-    if (gap <= c.burstSeconds * 1000) return true;
     const sims = current
       .slice(-c.compareLast)
       .map((other) => embeddingSimilarity(item.embedding, other.embedding))
       .filter((s): s is number => s !== null);
-    if (sims.length === 0) return gap <= gapMs;
-    return gap <= c.maxGapSeconds * 1000 && Math.max(...sims) >= c.similar;
+    const best = sims.length ? Math.max(...sims) : null;
+    // Une personne seule après une photo de groupe (ou l'inverse) : autre photo, autre paquet (utilisateur, 20/11),
+    // sauf si la scène est presque identique (une personne simplement non détectée).
+    const solo = (it: MediaItem) => people(it) === 1;
+    const group = (it: MediaItem) => people(it) >= 2;
+    if (((solo(item) && group(previous)) || (group(item) && solo(previous))) && (best === null || best < c.sameScene)) return false;
+    // Rafale : ensemble même si le cadrage change beaucoup, sauf scène sans rapport (selfie puis portrait, 20/11 : 0,21).
+    if (gap <= c.burstSeconds * 1000) return best === null || best >= c.burstMinSimilar;
+    if (best === null) return gap <= gapMs;
+    return gap <= c.maxGapSeconds * 1000 && best >= c.similar;
   };
 
   for (const item of dated) {

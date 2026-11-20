@@ -206,6 +206,12 @@ export function Paquets({ session, day, gap, onJoin, onNewDay, choices, previous
         </div>
       )}
 
+      {session.reopened && (
+        <p className="info">
+          Séance rouverte. Vos choix sont repris. Le zoom montre l’aperçu, pas la photo d’origine.
+        </p>
+      )}
+
       {session.restored && (
         <p className="info">
           Séance reprise : l’iPhone avait fermé l’app pendant que vous étiez ailleurs. Vos choix et commentaires sont

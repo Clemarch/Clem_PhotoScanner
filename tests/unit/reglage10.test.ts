@@ -62,12 +62,23 @@ describe('paquets selon ce que montrent les photos (utilisateur, 19/11)', () => 
   it('une autre scène, même 30 s après, ouvre un nouveau paquet', () => {
     expect(sizes([photo('a', 0, { embedding: plage }), photo('b', 30, { embedding: volcan })])).toEqual(['a', 'b']);
   });
-  it('une rafale reste ensemble même si le cadrage change beaucoup', () => {
-    expect(sizes([photo('a', 0, { embedding: plage }), photo('b', 4, { embedding: volcan })])).toEqual(['ab']);
+  it('une rafale reste ensemble même si le cadrage change beaucoup (ressemblance 0,5)', () => {
+    expect(sizes([photo('a', 0, { embedding: plage }), photo('b', 4, { embedding: [0.5, 0.87, 0] })])).toEqual(['ab']);
+  });
+  it('rafale entre deux scènes sans rapport (selfie puis portrait, 20/11) : deux paquets', () => {
+    expect(sizes([photo('a', 0, { embedding: plage }), photo('b', 4, { embedding: volcan })])).toEqual(['a', 'b']);
   });
   it('compare aux dernières photos du paquet, pas seulement à la précédente', () => {
-    const items = [photo('a', 0, { embedding: plage }), photo('b', 5, { embedding: volcan }), photo('c', 120, { embedding: plage })];
+    const items = [photo('a', 0, { embedding: plage }), photo('b', 5, { embedding: [0.5, 0.87, 0] }), photo('c', 120, { embedding: plage })];
     expect(sizes(items)).toEqual(['abc']);
+  });
+  it('une personne seule après une photo de groupe : nouveau paquet, même en rafale', () => {
+    const person = (x: number) => ({ label: 'person', score: 0.9, box: { x, y: 0.2, width: 0.2, height: 0.7 } });
+    const items = [
+      photo('groupe', 0, { embedding: plage, objects: [person(0.1), person(0.4), person(0.7)] }),
+      photo('seule', 9, { embedding: [0.7, 0.71, 0], objects: [person(0.4)] }),
+    ];
+    expect(sizes(items)).toEqual(['groupe', 'seule']);
   });
   it('jamais réunies au-delà de 3 h, même ressemblantes', () => {
     expect(sizes([photo('a', 0, { embedding: plage }), photo('b', 4 * 3600, { embedding: plage })])).toEqual(['a', 'b']);

@@ -105,8 +105,15 @@ export function analyzeContent(
   const zones = mainFaces.map(subjectZone);
   const detections = (objects ?? []).filter((o) => o.score >= cfg.minObjectScore);
 
+  // Petit objet tenu en main par un sujet (tasse, bouteille, téléphone) : un accessoire de la photo, pas une gêne
+  // (utilisateur, 20/11 : « la tasse est un accessoire en main, ça ne gêne pas ici »).
+  const subjectBodies = detections
+    .filter((o) => o.label === 'person' && mainFaces.some((f) => contains(o.box, f.box.x + f.box.width / 2, f.box.y + f.box.height / 2)))
+    .map((o) => o.box);
+  const held = (o: DetectedObject) =>
+    cfg.handheldLabels.includes(o.label) && subjectBodies.some((b) => overlap(b, o.box) >= cfg.heldInside * area(o.box));
   const distractions = detections
-    .filter((o) => o.label in cfg.distractingLabels && o.score >= cfg.distractionMinScore)
+    .filter((o) => o.label in cfg.distractingLabels && o.score >= cfg.distractionMinScore && !held(o))
     .filter((o) => area(o.box) >= cfg.largeObjectArea || zones.some((zone) => overlap(zone, o.box) > 0))
     .map((o) => o.label);
 
