@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { config, FEATURE_NAMES, evaluateDay, preferencePairs, type ChoiceRecord, type DayAnalysis, type LearnedWeights } from '../../engine';
+import { FEATURE_NAMES, evaluateDay, preferencePairs, type ChoiceRecord, type DayAnalysis, type LearnedWeights } from '../../engine';
 import type { Session } from '../session';
 import { featureLabel } from '../reasons';
 import { agreementLine, buildReport, copyText, shareText, summarize } from '../report';
@@ -7,9 +7,11 @@ import { RapportsEnregistres } from '../RapportsEnregistres';
 import { SauvegardeGouts } from '../SauvegardeGouts';
 import { GuideRaccourci } from '../GuideRaccourci';
 import type { SavedReport } from '../../platform/storage/reports';
-import { formatDateTime, formatGap, formatMs, formatOrientation, formatSize } from '../format';
+import { formatDateTime, formatMs, formatOrientation, formatSize } from '../format';
 import { IconFermer, IconPartager } from '../icons';
 import { useScrolled } from '../useScrolled';
+import { Seances } from '../Seances';
+import type { SessionSummary } from '../../platform/storage/sessionStore';
 import { APP_VERSION } from '../version';
 
 interface Props {
@@ -21,16 +23,16 @@ interface Props {
   reports: SavedReport[];
   onRestore: (records: ChoiceRecord[]) => Promise<{ added: number; updated: number }>;
   onForget: () => void;
-  gap: number;
-  onGap: (seconds: number) => void;
-  byContent: boolean;
-  onByContent: (value: boolean) => void;
+  seances: SessionSummary[];
+  currentId: string | null;
+  onReopen: (sessionId: string) => void;
+  onDeleteSession: (sessionId: string) => void;
   /** Ouvert par-dessus l'accueil : bouton de fermeture. */
   onClose?: () => void;
 }
 
-/** Réglages : sauvegarde des goûts, découpage en paquets, raccourci, rapports, diagnostic et effacement (caché). */
-export function Reglages({ session, day, records, learned, reports, onRestore, onForget, gap, onGap, byContent, onByContent, onClose }: Props) {
+/** Réglages : sauvegarde des goûts, séances, raccourci, rapports, diagnostic et effacement (caché). */
+export function Reglages({ session, day, records, learned, reports, onRestore, onForget, seances, currentId, onReopen, onDeleteSession, onClose }: Props) {
   const scrolled = useScrolled();
   return (
     <main className={`page${onClose ? ' par-dessus' : ''}`}>
@@ -51,34 +53,8 @@ export function Reglages({ session, day, records, learned, reports, onRestore, o
       <h2 className="titre-groupe">Mes goûts</h2>
       <SauvegardeGouts records={records} onRestore={onRestore} />
 
-      <h2 className="titre-groupe">Paquets</h2>
-      <section className="groupe">
-        <label className="ligne-reglage">
-          <span>
-            Selon ce que montrent les photos
-            <span className="note bloc">
-              Un nouveau paquet commence quand la scène change. Le même paysage revu plus tard reste dans le même paquet.
-            </span>
-          </span>
-          <input type="checkbox" className="interrupteur" checked={byContent} onChange={(e) => onByContent(e.target.checked)} />
-        </label>
-        {!byContent && (
-          <div className="ligne-reglage colonne">
-            <label htmlFor="ecart">
-              Nouveau paquet après <strong>{formatGap(gap)}</strong> sans photo
-            </label>
-            <input
-              id="ecart"
-              type="range"
-              min={config.grouping.packGapMinSeconds}
-              max={config.grouping.packGapMaxSeconds}
-              step={10}
-              value={gap}
-              onChange={(event) => onGap(Number(event.target.value))}
-            />
-          </div>
-        )}
-      </section>
+      <h2 className="titre-groupe">Séances</h2>
+      <Seances seances={seances} currentId={currentId} onReopen={onReopen} onDelete={onDeleteSession} />
 
       <h2 className="titre-groupe">Raccourci de suppression</h2>
       <section className="groupe">

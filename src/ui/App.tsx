@@ -14,7 +14,19 @@ import { analyzeDay, config, learnWeights, mergeChoices, measureFace, measureSeg
 import { clearChoices, loadChoices, removeChoice, saveChoice } from '../platform/storage/choices';
 import { loadReports, saveReport, type SavedReport } from '../platform/storage/reports';
 import { loadLastRun, runSignature, saveLastRun, type LastRun } from '../platform/storage/lastRun';
-import { clearSession, loadSession, saveSession, saveSessionSettings } from '../platform/storage/sessionStore';
+import {
+  deleteSession,
+  forgetCurrentSession,
+  listSessions,
+  loadSession,
+  loadSessionById,
+  saveSession,
+  saveSessionSettings,
+  setSessionClosed,
+  type SavedSession,
+  type SessionSummary,
+} from '../platform/storage/sessionStore';
+import { SeanceTerminee } from './screens/SeanceTerminee';
 import { forgetLastBackupCount } from '../platform/storage/backupFile';
 import type { DeviceReport } from '../platform/device';
 import { buildReport } from './report';
@@ -45,33 +57,23 @@ import { finalKeep } from './choices';
 
 type Tab = 'paquets' | 'supprimer' | 'reglages';
 
-const BY_CONTENT_KEY = 'photo-triage.paquets-selon-contenu';
-
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number; name: string } | null>(null);
   const [tab, setTab] = useState<Tab>('paquets');
   const [interrupted, setInterrupted] = useState<InterruptedRun | null>(null);
   const cancelRef = useRef(false);
+  // Une analyse a été lancée : la séance relue au démarrage (plus lente) ne doit pas la remplacer.
+  const startedRef = useRef(false);
   const [gap, setGap] = useState<number>(config.grouping.packGapSeconds);
   const [records, setRecords] = useState<ChoiceRecord[]>([]);
   const [recordsLoaded, setRecordsLoaded] = useState(false);
-  // Paquets découpés selon ce que montrent les photos (utilisateur, 19/11), ou selon le temps seulement.
-  // Gardé sur l'iPhone, même choisi depuis l'accueil (sans séance).
-  const [byContent, setByContent] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem(BY_CONTENT_KEY) !== 'non';
-    } catch {
-      return true;
-    }
-  });
-  useEffect(() => {
-    try {
-      localStorage.setItem(BY_CONTENT_KEY, byContent ? 'oui' : 'non');
-    } catch {
-      // Mémoire seulement.
-    }
-  }, [byContent]);
+  // Séance terminée (tout est parti à la suppression) : ses photos ne s'affichent plus, mais elle peut être rouverte.
+  const [closed, setClosed] = useState(false);
+  // Toutes les séances gardées sur l'iPhone (utilisateur, 20/11 : « possible de réouvrir la session si besoin et toutes
+  // les autres antérieures »).
+  const [seances, setSeances] = useState<SessionSummary[]>([]);
+  const refreshSeances = () => void listSessions().then(setSeances);
   // Réglages ouverts par-dessus l'accueil.
   const [settingsOpen, setSettingsOpen] = useState(false);
   // Paquets rattachés à la main au paquet précédent (pour cette journée).
@@ -90,41 +92,79 @@ export function App() {
     void loadReports().then(setReports);
     // Séance en cours reprise si iOS a fermé l'app en arrière-plan (passage dans une autre app, mémoire).
     void loadSession().then((saved) => {
-      if (!saved) return;
-      const { session: s, settings } = saved;
-      const thumbnails = new Map<string, string>();
-      const previews = new Map<string, string>();
-      for (const r of s.results) {
-        if (r.thumbnail) thumbnails.set(r.item.id, URL.createObjectURL(r.thumbnail));
-        if (r.preview) previews.set(r.item.id, URL.createObjectURL(r.preview));
-      }
-      setSession((current) =>
-        current ?? {
-          id: s.sessionId,
-          results: s.results.map((r) => ({ ...r, frame: null })),
-          thumbnails,
-          previews,
-          originals: new Map(),
-          ...s.meta,
-          device: s.meta.device as DeviceReport,
-          restored: true,
-        },
-      );
-      if (settings) {
-        setGap(settings.gap);
-        if (typeof settings.byContent === 'boolean') setByContent(settings.byContent);
-        setJoined(new Set(settings.joined));
-      }
+      if (!saved || startedRef.current) return;
+      setSession(openSaved(saved, 'reprise'));
     });
+    refreshSeances();
     // Protège les choix enregistrés contre l'effacement automatique de Safari.
     void requestPersistentStorage();
   }, []);
+
+  /** Séance gardée → séance affichée (vignettes et aperçus relus sur l'iPhone, réglages repris). */
+  function openSaved(saved: SavedSession, how: 'reprise' | 'rouverte'): Session {
+    const thumbnails = new Map<string, string>();
+    const previews = new Map<string, string>();
+    for (const r of saved.results) {
+      if (r.thumbnail) thumbnails.set(r.item.id, URL.createObjectURL(r.thumbnail));
+      if (r.preview) previews.set(r.item.id, URL.createObjectURL(r.preview));
+    }
+    setGap(saved.settings?.gap ?? config.grouping.packGapSeconds);
+    setJoined(new Set(saved.settings?.joined ?? []));
+    setClosed(false);
+    return {
+      id: saved.sessionId,
+      results: saved.results.map((r) => ({ ...r, frame: null })),
+      thumbnails,
+      previews,
+      originals: new Map(),
+      ...saved.meta,
+      device: saved.meta.device as DeviceReport,
+      restored: how === 'reprise',
+      reopened: how === 'rouverte',
+    };
+  }
+
+  const releaseUrls = (s: Session | null) => {
+    s?.thumbnails.forEach((url) => URL.revokeObjectURL(url));
+    s?.previews.forEach((url) => URL.revokeObjectURL(url));
+  };
+
+  /** Rouvre une séance : celle qui est affichée (terminée), ou une plus ancienne. */
+  const reopen = async (sessionId: string) => {
+    if (session?.id === sessionId) {
+      setClosed(false);
+    } else {
+      const saved = await loadSessionById(sessionId);
+      if (!saved) return;
+      releaseUrls(session);
+      setSession(openSaved(saved, 'rouverte'));
+    }
+    await setSessionClosed(sessionId, false);
+    setSettingsOpen(false);
+    setTab('paquets');
+    window.scrollTo({ top: 0 });
+    refreshSeances();
+  };
+
+  /** Tout est parti à la suppression : la séance se termine. */
+  const finish = () => {
+    if (!session) return;
+    setClosed(true);
+    window.scrollTo({ top: 0 });
+    void setSessionClosed(session.id, true).then(refreshSeances);
+  };
+
+  const removeSaved = async (sessionId: string) => {
+    await deleteSession(sessionId);
+    refreshSeances();
+  };
 
   // Choix de l'utilisateur, et goûts appris à partir de tous ses choix enregistrés sur l'appareil.
   const choices = useMemo<Choices>(() => ({ byKey: new Map(records.map((r) => [r.key, r])) }), [records]);
   const learned = useMemo(() => learnWeights(records), [records]);
   const items = useMemo(() => session?.results.map((r) => r.item) ?? [], [session]);
-  const day = useMemo(() => analyzeDay(items, gap, learned, joined, byContent), [items, gap, learned, joined, byContent]);
+  // Paquets toujours découpés selon ce que montrent les photos (utilisateur, 20/11 : l'interrupteur n'avait pas de sens).
+  const day = useMemo(() => analyzeDay(items, gap, learned, joined, true), [items, gap, learned, joined]);
 
   // Rapport de l'analyse en cours, conservé sur l'iPhone et mis à jour avec les choix (4 s après le dernier, pour ne
   // pas ralentir l'app pendant qu'on trie : le rapport recalcule l'accord honnête, qui demande un peu de calcul).
@@ -146,15 +186,18 @@ export function App() {
 
   // Réglages de la séance (écart entre paquets, paquets réunis) gardés avec elle.
   useEffect(() => {
-    if (session) void saveSessionSettings({ sessionId: session.id, gap, joined: [...joined], byContent });
-  }, [session, gap, joined, byContent]);
+    if (session) void saveSessionSettings(session.id, { gap, joined: [...joined] });
+  }, [session, gap, joined]);
 
   const start = async (files: File[]) => {
-    void clearSession();
+    startedRef.current = true;
+    // La séance précédente n'est plus « ouverte » : si iOS ferme l'app pendant l'analyse, elle n'est pas reprise.
+    void forgetCurrentSession();
     setJoined(new Set());
-    session?.thumbnails.forEach((url) => URL.revokeObjectURL(url));
-    session?.previews.forEach((url) => URL.revokeObjectURL(url));
+    releaseUrls(session);
     setSession(null);
+    setClosed(false);
+    setSettingsOpen(false);
     setInterrupted(null);
     cancelRef.current = false;
     setProgress({ done: 0, total: files.length, name: '' });
@@ -309,7 +352,7 @@ export function App() {
     };
     setSession({ id: String(launchedAt), results, thumbnails, previews, originals, ...meta });
     // Gardée sur l'iPhone : reprise si iOS ferme l'app pendant qu'on est dans une autre app.
-    void saveSession(String(launchedAt), results, meta);
+    void saveSession(String(launchedAt), results, meta).then(refreshSeances);
     setProgress(null);
     setTab('paquets');
   };
@@ -393,10 +436,10 @@ export function App() {
         void clearChoices();
         forgetLastBackupCount();
       }}
-      gap={gap}
-      onGap={setGap}
-      byContent={byContent}
-      onByContent={setByContent}
+      seances={seances}
+      currentId={closed ? null : (session?.id ?? null)}
+      onReopen={(id) => void reopen(id)}
+      onDeleteSession={(id) => void removeSaved(id)}
       onClose={onClose}
     />
   );
@@ -412,6 +455,7 @@ export function App() {
         recordsLoaded={recordsLoaded}
         onRestore={restore}
         onSettings={() => setSettingsOpen(true)}
+        seances={seances.length}
       />
     );
   }
@@ -421,9 +465,20 @@ export function App() {
     window.scrollTo({ top: 0 });
   };
 
+  const ended = (
+    <SeanceTerminee
+      session={session}
+      onReopen={() => void reopen(session.id)}
+      onNewDay={(files) => void start(files)}
+      onSeances={() => goTab('reglages')}
+    />
+  );
+
   return (
     <>
-      {tab === 'paquets' ? (
+      {closed && tab !== 'reglages' ? (
+        ended
+      ) : tab === 'paquets' ? (
         <Paquets
           session={session}
           day={day}
@@ -444,7 +499,7 @@ export function App() {
           onGoDelete={() => goTab('supprimer')}
         />
       ) : tab === 'supprimer' ? (
-        <ASupprimer session={session} day={day} choices={choices} onChoose={choose} onComment={comment} onConfirm={confirmPacks} onUnconfirm={unconfirmPacks} />
+        <ASupprimer session={session} day={day} choices={choices} onChoose={choose} onComment={comment} onConfirm={confirmPacks} onUnconfirm={unconfirmPacks} onFinished={finish} />
       ) : (
         settings()
       )}
@@ -456,7 +511,7 @@ export function App() {
         <button className={tab === 'supprimer' ? 'actif' : ''} onClick={() => goTab('supprimer')}>
           <span className="onglet-icone">
             <IconCorbeille />
-            {toRemove > 0 && <span className="pastille">{toRemove}</span>}
+            {toRemove > 0 && !closed && <span className="pastille">{toRemove}</span>}
           </span>
           <span>Supprimer</span>
         </button>

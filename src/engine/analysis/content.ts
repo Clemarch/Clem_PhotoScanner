@@ -105,8 +105,27 @@ export function analyzeContent(
   const zones = mainFaces.map(subjectZone);
   const detections = (objects ?? []).filter((o) => o.score >= cfg.minObjectScore);
 
+  // Petit objet tenu en main par un sujet (tasse, bouteille, téléphone) : tout dépend de l'intention (utilisateur,
+  // 21/11). Levé près du visage ou à hauteur de poitrine (on boit, on le montre) : il fait partie de l'attitude, pas
+  // une gêne. Tenu bas, bras baissé (bouteille d'eau qu'on ne veut pas montrer) : il gêne.
+  const subjectBodies = detections
+    .filter((o) => o.label === 'person' && mainFaces.some((f) => contains(o.box, f.box.x + f.box.width / 2, f.box.y + f.box.height / 2)))
+    .map((o) => o.box);
+  const raised = (o: DetectedObject) => {
+    const cx = o.box.x + o.box.width / 2;
+    const cy = o.box.y + o.box.height / 2;
+    return mainFaces.some((f) => {
+      const fx = f.box.x + f.box.width / 2;
+      const fy = f.box.y + f.box.height / 2;
+      return cy - fy <= cfg.heldRaisedFaces * f.box.height && Math.abs(cx - fx) <= cfg.heldSideFaces * f.box.width;
+    });
+  };
+  const held = (o: DetectedObject) =>
+    cfg.handheldLabels.includes(o.label) &&
+    subjectBodies.some((b) => overlap(b, o.box) >= cfg.heldInside * area(o.box)) &&
+    raised(o);
   const distractions = detections
-    .filter((o) => o.label in cfg.distractingLabels && o.score >= cfg.distractionMinScore)
+    .filter((o) => o.label in cfg.distractingLabels && o.score >= cfg.distractionMinScore && !held(o))
     .filter((o) => area(o.box) >= cfg.largeObjectArea || zones.some((zone) => overlap(zone, o.box) > 0))
     .map((o) => o.label);
 

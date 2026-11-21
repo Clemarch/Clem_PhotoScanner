@@ -20,6 +20,8 @@ interface Props {
   onConfirm: (packs: PackAnalysis[]) => void;
   /** Paquets rouverts : leurs accords silencieux sont retirés. */
   onUnconfirm: (packs: PackAnalysis[]) => void;
+  /** Tous les paquets sont traités : la séance se termine (utilisateur, 20/11). */
+  onFinished: () => void;
 }
 
 const DONE_KEY = 'photo-triage.faits';
@@ -45,7 +47,7 @@ const asPhoto = (item: MediaItem) => ({ fileName: item.fileName, at: item.instan
 const findable = (item: MediaItem) => shortcutCount([asPhoto(item)]) === 1;
 
 /** Écran « Supprimer » : envoie la liste au raccourci « Photo Triage », par lots de 49 au plus. */
-export function ASupprimer({ session, day, choices, onChoose, onComment, onConfirm, onUnconfirm }: Props) {
+export function ASupprimer({ session, day, choices, onChoose, onComment, onConfirm, onUnconfirm, onFinished }: Props) {
   const [done, setDone] = useState<Set<string>>(() => loadDone());
   const [viewing, setViewing] = useState<number | null>(null);
   // Photos déjà envoyées au raccourci pendant cette visite (lots de 49 au plus).
@@ -81,6 +83,8 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
     if (fresh.length === 0) return;
     setDone((set) => new Set([...set, ...fresh]));
     onConfirm(day.packs.filter((p) => fresh.includes(p.key)));
+    // Tous les paquets à supprimer sont traités : la séance est terminée.
+    if (todo.every((p) => done.has(p.pack.key) || fresh.includes(p.pack.key))) onFinished();
   };
 
   const send = () => {

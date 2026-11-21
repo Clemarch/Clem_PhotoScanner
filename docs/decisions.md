@@ -672,6 +672,29 @@ Rapport de 38 photos (surf), accord 7/23 :
   selfie pris d'en haut reste vérifié pour les clignements) ; la comparaison ne montre plus le regard comme une raison
   quand la personne est seule, et les photos y sont affichées entières (zones qui changent bien placées).
 
+### 40. Séances terminées et rouvertes, paquets sans interrupteur, groupe ≠ personne seule, accessoire en main (20/11)
+
+- **Séance terminée** : quand tous les paquets à supprimer sont partis au raccourci (ou marqués « Fait »), la séance
+  se termine : ses photos ne s'affichent plus dans Trier ni Supprimer, la pastille rouge disparaît. Écran « Séance
+  terminée » : Nouvelle séance, Rouvrir cette séance, Toutes les séances.
+- **Toutes les séances sont gardées** sur l'iPhone (vignettes, aperçus, mesures, réglages ; jamais les photos
+  d'origine), listées dans Réglages › Séances, avec « Rouvrir » et une corbeille pour en effacer une. Format :
+  `src/platform/storage/sessionStore.ts` (`s:<id>` complet, `i:<id>` résumé, `courante` pointeur) ; l'ancien format
+  (une seule séance) est repris à la première lecture. Une séance terminée ne se rouvre plus seule au lancement ; une
+  séance en cours se rouvre seule pendant 14 jours, ensuite seulement depuis la liste. « Seule » ou « groupe » : on ne
+  compte que les personnes au premier plan (3 % de l'image au moins), pas les passants.
+- **Interrupteur « Selon ce que montrent les photos » retiré** (« ça doit toujours être le cas ») : les paquets sont
+  toujours découpés selon le contenu ; le temps ne sert plus que si l'empreinte manque.
+- **Groupe ≠ personne seule** (« pas le même nombre de personnes, ça peut pas être le même paquet ») : passer d'une
+  photo d'une seule personne à une photo de groupe (personnes détectées), ou l'inverse, ouvre un nouveau paquet, sauf
+  scène presque identique (≥ 0,8). En rafale aussi, deux photos sans rapport (ressemblance < 0,4) sont séparées
+  (selfie à trois puis portrait 9 s après : 0,21).
+- **Objet en main : tout dépend de l'intention** (21/11). Tasse levée en train de boire : elle fait partie de
+  l'attitude, pas une gêne. Bouteille d'eau tenue bras baissé, qu'on ne veut pas montrer : elle gêne et baisse un peu
+  la note. Indice retenu : la hauteur de l'objet par rapport au visage. Tasse, verre, bouteille ou téléphone sur le
+  corps d'un sujet et à moins de 2,5 hauteurs de visage sous son visage (bouche, poitrine) : voulu ; plus bas : gênant.
+- Non traité : « mieux cadrée (mieux zoomée) » (photo 11) ; préférence de cadrage serré à apprendre plus tard.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

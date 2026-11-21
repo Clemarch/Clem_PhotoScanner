@@ -402,3 +402,11 @@ dd { margin: 0; text-align: right; overflow-wrap: anywhere; font-variant-numeric
 .avantage { font-weight: 600; }
 .avantage.gauche { color: var(--accent); }
 .avantage.droite { color: #64b5ff; }
+
+/* Liste des séances */
+.seances { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.seances li { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-top: 0.5px solid var(--trait); }
+.seances li:first-child { border-top: 0; padding-top: 0; }
+.seance-texte { flex: 1; min-width: 0; font-size: 15px; }
+.rond.petit-rond { width: 30px; height: 30px; color: var(--doux); }
+.icone-ronde.gris { background: var(--carte-3); }

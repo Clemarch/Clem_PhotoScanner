@@ -18,6 +18,12 @@ export const config = {
       compareLast: 4,
       /** Rafale : photos à moins de N secondes toujours ensemble, même si le cadrage change beaucoup. */
       burstSeconds: 10,
+      /** Même en rafale, deux photos sans rapport (ressemblance sous ce seuil) vont dans deux paquets. */
+      burstMinSimilar: 0.4,
+      /** Personne seule ↔ groupe : même paquet seulement si la scène est presque identique. */
+      sameScene: 0.8,
+      /** Taille minimale (part de l'image) d'une personne comptée pour « seule » ou « groupe » : pas les passants. */
+      personMinArea: 0.03,
       /** Au-delà, deux photos ne sont jamais réunies, même ressemblantes (même paysage revu 1 h plus tard : réunis). */
       maxGapSeconds: 3 * 3600,
     },
@@ -113,6 +119,13 @@ export const config = {
      *  une 3e personne ») : quand l'un d'eux est sur la photo, ce qui passe devant les personnes n'est pas un défaut. */
     subjectObjects: ['surfboard', 'skis', 'snowboard', 'skateboard', 'bicycle', 'dog', 'cat', 'horse', 'kite', 'sports ball'] as string[],
     subjectObjectMinScore: 0.5,
+    /** Petits objets qu'on tient en main : pas une gêne quand ils sont (à `heldInside` au moins) sur le corps d'un sujet. */
+    handheldLabels: ['cup', 'wine glass', 'bottle', 'cell phone'] as string[],
+    heldInside: 0.6,
+    /** Objet « levé » (voulu) : son centre au plus à N hauteurs de visage sous le centre du visage (bouche, poitrine),
+     *  et au plus à N largeurs de visage sur le côté. Plus bas, bras baissé : il gêne (utilisateur, 21/11). */
+    heldRaisedFaces: 2.5,
+    heldSideFaces: 2.5,
     /** Un objet gênant est compté s'il touche la zone des personnes, ou s'il occupe au moins cette part de l'image. */
     largeObjectArea: 0.04,
     /** Zone des personnes autour d'un visage : largeur et hauteur en multiples de la taille du visage. */

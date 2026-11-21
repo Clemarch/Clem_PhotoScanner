@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { groupPoses, scorePack, type FaceMetrics, type MediaItem } from '../../src/engine';
 import { measureSegmentation } from '../../src/engine/analysis/segmentation';
 import { scoreFactors } from '../../src/ui/compare';
+import { analyzeContent } from '../../src/engine/analysis/content';
 
 const face = (x: number, over: Partial<FaceMetrics> = {}): FaceMetrics =>
   ({
@@ -98,5 +99,19 @@ describe('retours du 19/11 au soir', () => {
     const rows = scoreFactors(scores.get('a')!, scores.get('b')!, true);
     expect(rows.some((r) => r.feature === 'nettete')).toBe(false);
     expect(rows.find((r) => r.feature === 'expression')!.favours).toBe('a');
+  });
+});
+
+describe('retours du 20/11', () => {
+  it('objet en main : levé (on boit) il fait partie de l’attitude ; tenu bras baissé, il gêne (21/11)', () => {
+    // Visage centré en (0,5 ; 0,4), 0,2 de haut ; personne de 0,2 à 1.
+    const f = face(0.5);
+    const person = { label: 'person', score: 0.95, box: { x: 0.3, y: 0.2, width: 0.4, height: 0.8 } };
+    const levee = { label: 'cup', score: 0.8, box: { x: 0.45, y: 0.5, width: 0.08, height: 0.1 } };
+    expect(analyzeContent([f], [], [person, levee]).distractions).toEqual([]);
+    const baissee = { label: 'bottle', score: 0.8, box: { x: 0.62, y: 0.88, width: 0.06, height: 0.1 } };
+    expect(analyzeContent([f], [], [person, baissee]).distractions).toEqual(['bottle']);
+    const posee = { label: 'cup', score: 0.8, box: { x: 0.72, y: 0.6, width: 0.08, height: 0.1 } };
+    expect(analyzeContent([f], [], [person, posee]).distractions).toEqual(['cup']);
   });
 });
