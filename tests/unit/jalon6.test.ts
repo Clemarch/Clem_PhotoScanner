@@ -5,9 +5,12 @@ import {
   buildQueue,
   calibrate,
   decodeBackup,
+  emotionSummary,
   encodeBackup,
+  encodeEmbedding,
   isSure,
   mergeValidations,
+  shadowCompare,
   type ChoiceRecord,
   type FaceMetrics,
   type MediaItem,
@@ -126,5 +129,65 @@ describe('tri éclair : file des poses', () => {
     expect(queue[0]!.proposed.size).toBeGreaterThan(0);
     expect(queue[0]!.sure).toBe(false);
     expect(queue[0]!.margin).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('nouvel œil en coulisse (réglage 13)', () => {
+  // Empreintes CLIP de deux « styles » de photos : l'utilisateur garde toujours le style A.
+  const unit = (seed: number) => {
+    const v = Array.from({ length: 512 }, (_, i) => Math.sin(i * 0.37 + seed));
+    const n = Math.hypot(...v);
+    return v.map((x) => x / n);
+  };
+  const styleA = unit(1);
+  const styleB = unit(2);
+  const rec = (key: string, clip: number[], base: number): ChoiceRecord => ({
+    key,
+    packKey: 'p',
+    choice: 'garder',
+    features: {} as ChoiceRecord['features'],
+    baseScore: base,
+    at: 1,
+    clip: encodeEmbedding(clip.map((x, i) => x + 0.02 * Math.cos(i + key.length)))!,
+    emo: [0.5, 0.5, 0.5, 0.5, 0.2, 0.1],
+  });
+
+  it('apprend sur les autres séances et devine mieux que la formule quand la formule se trompe', () => {
+    const records: ChoiceRecord[] = [];
+    const validations: PoseValidation[] = [];
+    for (const session of ['s1', 's2', 's3'])
+      for (let i = 0; i < 20; i++) {
+        const a = `${session}-${i}-a`;
+        const b = `${session}-${i}-b`;
+        // La formule préfère toujours la mauvaise photo (B).
+        records.push(rec(a, styleA, 0.5), rec(b, styleB, 0.6));
+        validations.push({ id: `${session}|${i}`, at: 1, sessionId: session, packKey: 'p', margin: 0.1, keys: [a, b], proposed: [b], kept: [a], ms: 3000 });
+      }
+    const s = shadowCompare(validations, records);
+    expect(s.sessions).toBe(3);
+    expect(s.tested).toBe(60);
+    expect(s.formula).toBe(0);
+    expect(s.eye).toBe(60);
+  });
+
+  it('une seule séance : pas de comparaison (rien pour apprendre sans tricher)', () => {
+    const records = [rec('a', styleA, 0.5), rec('b', styleB, 0.6)];
+    const s = shadowCompare([{ id: 's|1', at: 1, sessionId: 's', packKey: 'p', margin: 0.1, keys: ['a', 'b'], proposed: ['b'], kept: ['a'], ms: 3000 }], records);
+    expect(s.tested).toBe(0);
+    expect(s.pairs).toBe(1);
+  });
+
+  it('résumé des émotions des visages principaux, et sauvegarde des nouvelles mesures', () => {
+    const happy = { probs: [0, 0, 0, 0, 0.9, 0.1, 0, 0], valence: 0.8, arousal: 0.2 };
+    const sad = { probs: [0, 0, 0, 0, 0.1, 0.3, 0.6, 0], valence: -0.4, arousal: 0.1 };
+    const item = photo('x', 0, { faces: [face(0.3, { emotion: happy }), face(0.7, { emotion: sad })] });
+    const s = emotionSummary(item)!;
+    expect(s[0]).toBeCloseTo(-0.4);
+    expect(s[2]).toBeCloseTo(0.1);
+    expect(s[5]).toBeCloseTo(0.6);
+    const r = rec('k', styleA, 0.5);
+    const back = decodeBackup(JSON.parse(JSON.stringify(encodeBackup([r], 1)))).records[0]!;
+    expect(back.clip).toBe(r.clip);
+    expect(back.emo).toEqual(r.emo);
   });
 });

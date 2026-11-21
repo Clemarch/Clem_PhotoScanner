@@ -25,6 +25,8 @@ for (const file of [
   'models/efficientnet_lite0.tflite',
   'models/gesture_recognizer.task',
   'models/wasm/vision_wasm_internal.wasm',
+  'models/onnx/clip_vit_b32_int8.onnx',
+  'models/onnx/hsemotion_b0_va.onnx',
 ])
   if (!existsSync(`dist/${file}`)) problems.push(`dist/${file} est absent`);
 

@@ -52,6 +52,17 @@ describe('contraintes non négociables', () => {
     expect(/XMLHttpRequest|WebSocket|sendBeacon/.test(bundle)).toBe(false);
   });
 
+  it('le moteur du « nouvel œil » (onnxruntime-web) est figé et ne contient aucune adresse de statistiques', () => {
+    const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as { dependencies: Record<string, string> };
+    expect(pkg.dependencies['onnxruntime-web']).toBe('1.30.0');
+    const bundle = readFileSync('node_modules/onnxruntime-web/dist/ort.wasm.bundle.min.mjs', 'utf8');
+    // Seule adresse présente : un lien vers une page de documentation (jamais appelé).
+    expect((bundle.match(/https?:\/\/[^"'\s)`]+/g) ?? []).filter((u) => !u.startsWith('https://web.dev/'))).toEqual([]);
+    // XMLHttpRequest y sert seulement à lire son propre fichier de calcul (même adresse que l'app) ; la politique de
+    // sécurité de l'app (connect-src 'self') bloque de toute façon tout appel vers un autre site.
+    expect(/WebSocket|sendBeacon/.test(bundle)).toBe(false);
+  });
+
   it('le moteur n’importe ni platform, ni ui, ni bibliothèque externe', () => {
     const offenders = sources
       .filter(({ path }) => path.startsWith(join('src', 'engine')))

@@ -345,6 +345,19 @@ export const config = {
     /** Nombre maximal de mains cherchées par photo. */
     maxHands: 4,
   },
+  /** « Nouvel œil » en coulisse (réglage 13) : classement personnel appris sur les poses validées. */
+  ranker: {
+    /** Poids de l'empreinte CLIP face aux mesures (ses 512 valeurs sont petites une fois normalisées). */
+    clipScale: 3,
+    /** Frein contre l'apprentissage par cœur, pas et nombre de passes de l'apprentissage. */
+    lambda: 0.05,
+    rate: 0.5,
+    iterations: 250,
+    /** Paires minimales des autres séances pour tester une séance. */
+    minTrainPairs: 30,
+    /** Au plus N paires pour apprendre (prises à intervalles réguliers) : le calcul reste rapide sur l'iPhone. */
+    maxTrainPairs: 400,
+  },
   /** Tri éclair (jalon 6, `docs/jalon-6.md`). */
   triage: {
     /** Une pose validée plus vite que ça (ms) ne compte ni pour la justesse ni pour l'apprentissage. */

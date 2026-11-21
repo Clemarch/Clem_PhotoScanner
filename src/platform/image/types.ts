@@ -29,6 +29,8 @@ export interface FileDiagnostic {
   objectMs: number | null;
   /** Durée cumulée des modèles de silhouette, d'empreinte et de scène (null si non faits). */
   modelsMs: number | null;
+  /** Durée du « nouvel œil » (CLIP et émotions des visages), en coulisse ; absente si non fait. */
+  eyeMs?: number;
 }
 
 /** Image réduite gardée juste le temps de chercher les visages, puis libérée. */

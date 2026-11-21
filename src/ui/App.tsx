@@ -16,6 +16,7 @@ import {
   calibrate,
   config,
   learnWeights,
+  mainFaces,
   mergeChoices,
   mergeValidations,
   measureFace,
@@ -28,6 +29,8 @@ import {
   type PackAnalysis,
   type PoseTask,
   type PoseValidation,
+  type ShadowComparison,
+  shadowCompare,
 } from '../engine';
 import { clearValidations, loadValidations, saveValidation } from '../platform/storage/validations';
 import { TriEclair, type EclairResult } from './screens/TriEclair';
@@ -66,6 +69,7 @@ import {
   type Segmenter,
 } from '../platform/vision/sceneModels';
 import { createAnalyzer } from '../platform/worker/analyzer';
+import { createEye, type Eye } from '../platform/vision/eye';
 import type { Session } from './session';
 import { Accueil } from './screens/Accueil';
 import { Analyse } from './screens/Analyse';
@@ -96,6 +100,8 @@ export function App() {
   // Tri éclair (jalon 6) : journal des poses validées, et file en cours (figée à l'ouverture).
   const [validations, setValidations] = useState<PoseValidation[]>([]);
   const [eclair, setEclair] = useState<PoseTask[] | null>(null);
+  // Comparaison du nouvel œil : calcul un peu long, fait au calme (quelques secondes après la dernière validation).
+  const [shadow, setShadow] = useState<ShadowComparison | null>(null);
   // Une analyse vient de se terminer : le tri éclair s'ouvre de lui-même.
   const [justAnalyzed, setJustAnalyzed] = useState(false);
   const refreshSeances = () => void listSessions().then(setSeances);
@@ -188,6 +194,12 @@ export function App() {
   // Choix de l'utilisateur, et goûts appris à partir de tous ses choix enregistrés sur l'appareil.
   const choices = useMemo<Choices>(() => ({ byKey: new Map(records.map((r) => [r.key, r])) }), [records]);
   const learned = useMemo(() => learnWeights(records), [records]);
+  const recordsRef = useRef(records);
+  recordsRef.current = records;
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShadow(shadowCompare(validations, recordsRef.current)), 3000);
+    return () => window.clearTimeout(timer);
+  }, [validations]);
   const items = useMemo(() => session?.results.map((r) => r.item) ?? [], [session]);
   // Paquets toujours découpés selon ce que montrent les photos (utilisateur, 20/11 : l'interrupteur n'avait pas de sens).
   const day = useMemo(() => analyzeDay(items, gap, learned, joined, true), [items, gap, learned, joined]);
@@ -223,11 +235,11 @@ export function App() {
         id: session.id,
         at: Date.now(),
         title: `${first ? formatDate(first) : 'Sans date'} · ${photos} photos · ${chosen} choix`,
-        text: buildReport(session, day, records, learned, validations),
+        text: buildReport(session, day, records, learned, validations, shadow),
       }).then(() => loadReports().then(setReports));
     }, 4000);
     return () => window.clearTimeout(timer);
-  }, [session, day, records, learned, validations]);
+  }, [session, day, records, learned, validations, shadow]);
 
   // Réglages de la séance (écart entre paquets, paquets réunis) gardés avec elle.
   useEffect(() => {
@@ -278,6 +290,14 @@ export function App() {
     const embedder: Embedder | null = await start3('empreinte', createEmbedder);
     const classifier: Classifier | null = await start3('scène', createClassifier);
     const gestures: GestureFinder | null = await start3('gestes', createGestureFinder);
+    // « Nouvel œil » en coulisse (réglage 13) : facultatif, l'analyse continue sans lui s'il ne se charge pas.
+    let eye: Eye | null = null;
+    let eyeInfo: string | null = null;
+    try {
+      eye = await createEye();
+    } catch (e) {
+      eyeInfo = e instanceof Error ? e.message : String(e);
+    }
     const results: AnalyzeResult[] = [];
     const originals = new Map<string, File>();
     const thumbnails = new Map<string, string>();
@@ -347,6 +367,20 @@ export function App() {
           }
           if (segmenter || embedder || classifier || gestures) result.diagnostic.modelsMs = performance.now() - t;
         }
+        if (eye) {
+          const t = performance.now();
+          try {
+            result.item.clip = await eye.clip(frame.bitmap);
+            const main = mainFaces(result.item.faces);
+            if (main.length > 0) {
+              const emotions = await eye.emotions(frame.bitmap, main.map((f) => f.box));
+              main.forEach((face, i) => (face.emotion = emotions[i] ?? null));
+            }
+          } catch (e) {
+            eyeInfo ??= e instanceof Error ? e.message : String(e);
+          }
+          result.diagnostic.eyeMs = performance.now() - t;
+        }
         frame.bitmap.close();
       }
       results.push(result);
@@ -363,6 +397,7 @@ export function App() {
     embedder?.close();
     classifier?.close();
     gestures?.close();
+    eye?.close();
     // À lire avant de relâcher : après, l'écran n'est évidemment plus tenu allumé.
     const wakeActive = wake.active;
     const wakeInfo = wake.describe();
@@ -394,6 +429,7 @@ export function App() {
       heapAfterMB: readJsHeapMB(),
       device,
       faceError,
+      eyeInfo,
     };
     setSession({ id: String(launchedAt), results, thumbnails, previews, originals, ...meta });
     // Gardée sur l'iPhone : reprise si iOS ferme l'app pendant qu'on est dans une autre app.
@@ -436,7 +472,9 @@ export function App() {
       keys: task.items.map(photoKey),
       proposed: previous?.proposed ?? task.items.filter((it) => task.appProposed.has(it.id)).map(photoKey),
       kept: task.items.filter((it) => kept.has(it.id)).map(photoKey),
-      ms,
+      // Revalidée d'un geste rapide (retour en arrière, « Tout revoir ») : le temps déjà passé sur la pose compte, sinon
+      // une validation faite en regardant serait écartée comme « trop rapide ».
+      ms: Math.max(ms, previous?.ms ?? 0),
     };
     void saveValidation(validation);
     setValidations((list) => [...list.filter((v) => v.id !== validation.id), validation]);
@@ -524,6 +562,7 @@ export function App() {
         forgetLastBackupCount();
       }}
       validations={validations}
+      shadow={shadow}
       seances={seances}
       currentId={closed ? null : (session?.id ?? null)}
       onReopen={(id) => void reopen(id)}

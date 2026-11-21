@@ -43,8 +43,10 @@ export default defineConfig({
       includeAssets: ['apple-touch-icon.png', 'icon.svg'],
       workbox: {
         // Le modèle de visages et son moteur sont mis en cache avec l'app : tout marche hors ligne.
-        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,wasm,task,tflite,mp4}'],
-        maximumFileSizeToCacheInBytes: 25 * 1024 * 1024,
+        // Modèles du « nouvel œil » (.onnx, réglage 13) compris : téléchargés une fois avec la mise à jour, comme les
+        // autres (règle : aucun appel réseau après l'installation), puis seulement s'ils changent.
+        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,wasm,task,tflite,onnx,mp4}'],
+        maximumFileSizeToCacheInBytes: 100 * 1024 * 1024,
       },
       manifest: {
         name: 'Photo Triage',

@@ -20,6 +20,8 @@ export interface SavedSessionMeta {
   heapAfterMB: number | null;
   device: unknown;
   faceError: string | null;
+  /** « Nouvel œil » : raison s'il n'a pas pu tourner (absent des séances d'avant le 21/11). */
+  eyeInfo?: string | null;
 }
 
 export interface SessionSettings {

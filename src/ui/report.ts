@@ -1,5 +1,5 @@
 import type { Session } from './session';
-import { accuracy, calibrate, type PoseValidation, asideKind, config, evaluateDay, embeddingSimilarity, mainFaces, photoKey, signatureDistance, type ChoiceRecord, type DayAnalysis, type Decision, type LearnedWeights, type PhotoScore, type SceneType, type Agreement } from '../engine';
+import { accuracy, calibrate, type ShadowComparison, type PoseValidation, asideKind, config, evaluateDay, embeddingSimilarity, mainFaces, photoKey, signatureDistance, type ChoiceRecord, type DayAnalysis, type Decision, type LearnedWeights, type PhotoScore, type SceneType, type Agreement } from '../engine';
 import { choiceStorage } from '../platform/storage/choices';
 import { lastDbError } from '../platform/storage/db';
 import { formatDateTime, formatMs, formatOrientation, formatSize } from './format';
@@ -92,12 +92,23 @@ export function eclairLine(validations: readonly PoseValidation[], sessionId: st
   );
 }
 
+/** Comparaison honnête du « nouvel œil » et de la formule, sur les poses validées (chaque séance testée à part). */
+export function shadowLine(s: ShadowComparison | null): string {
+  if (!s) return 'Nouvel œil — comparaison : en cours de calcul';
+  const pct = (n: number) => `${n}/${s.tested} (${Math.round((n / s.tested) * 100)} %)`;
+  if (s.tested === 0)
+    return `Nouvel œil — comparaison : pas encore possible (${s.pairs} paires gardée/supprimée sur ${s.sessions} séance(s) ; il faut 2 séances validées et ${config.ranker.minTrainPairs} paires pour apprendre)`;
+  return `Nouvel œil — comparaison honnête (chaque séance testée avec un apprentissage sur les autres) : formule ${pct(s.formula)} · nouvel œil ${pct(s.eye)} des paires gardée/supprimée`;
+}
+
 export function buildReport(
   session: Session,
   day: DayAnalysis,
   records: readonly ChoiceRecord[],
   learned: LearnedWeights,
   validations: readonly PoseValidation[] = [],
+  /** Comparaison du nouvel œil, calculée à part (au calme) pour ne pas ralentir l'app. */
+  shadow: ShadowComparison | null = null,
 ): string {
   const s = summarize(session);
   const d = session.device;
@@ -145,6 +156,14 @@ export function buildReport(
     `Paquets : ${day.packs.map((p, i) => `P${i + 1} ${new Set(p.sceneOf.values()).size > 1 ? `mixte (${[...new Set(p.sceneOf.values())].join('+')})` : p.scene} (${p.pack.items.length} photos, ${p.poses.length} pose${p.poses.length > 1 ? 's' : ''}, ${[...p.decisions.values()].filter((d) => d.keep && !d.review).length} gardées par l'app${[...p.decisions.values()].some((d) => d.review) ? `, ${[...p.decisions.values()].filter((d) => d.review).length} à vérifier` : ''})`).join(' · ') || '—'}`,
     agreementLine(evaluateDay(day, records)),
     eclairLine(validations, session.id),
+    shadowLine(shadow),
+    `Nouvel œil (en coulisse) : ${(() => {
+      // Chargé si au moins une photo est passée par lui ; une erreur en cours d'analyse n'est pas un échec de chargement.
+      const ms = session.results.flatMap((r) => (r.diagnostic.eyeMs === undefined ? [] : [r.diagnostic.eyeMs]));
+      if (!ms.length) return session.eyeInfo ? `non chargé (${session.eyeInfo})` : 'non lancé';
+      const withClip = session.results.filter((r) => r.item.clip).length;
+      return `analyse moyenne ${formatMs(ms.reduce((a, b) => a + b, 0) / ms.length)} · empreinte CLIP sur ${withClip}/${ms.length} photos${session.eyeInfo ? ` · erreur : ${session.eyeInfo}` : ''}`;
+    })()}`,
     `Vos choix enregistrés : ${records.length}${records.some((r) => r.implicit) ? ` (dont ${records.filter((r) => r.implicit).length} laissés tels quels)` : ''} · goûts appris : ${
       Object.entries(learned)
         .map(([k, v]) => `${k} ${v >= 0 ? '+' : ''}${v.toFixed(2)}`)
@@ -176,7 +195,7 @@ export function buildReport(
         .sort((a, b) => a.box.x + a.box.width / 2 - (b.box.x + b.box.width / 2))
         .map(
           (f) =>
-            `[x ${(f.box.x + f.box.width / 2).toFixed(2)} yeux ${f.eyesOpen.toFixed(2)} regard ${f.gaze.toFixed(2)} expr ${f.expression.toFixed(2)} sourire ${f.smile.toFixed(2)} parle ${f.talking.toFixed(2)} moue ${f.pout.toFixed(2)} net ${f.sharpness.toFixed(0)} tête ${f.yawDeg.toFixed(0)}°/${f.pitchDeg.toFixed(0)}° écart-objectif ${f.offAxisHDeg.toFixed(0)}°/${f.offAxisVDeg.toFixed(0)}° yeux-dir ${f.eyeH.toFixed(2)}/${f.eyeV.toFixed(2)}${f.cut ? ' COUPÉ' : ''} couleur ${color(f.upperColor)}/${color(f.lowerColor)}/${color(f.bodyColor)}]`,
+            `[x ${(f.box.x + f.box.width / 2).toFixed(2)} yeux ${f.eyesOpen.toFixed(2)} regard ${f.gaze.toFixed(2)} expr ${f.expression.toFixed(2)} sourire ${f.smile.toFixed(2)} parle ${f.talking.toFixed(2)} moue ${f.pout.toFixed(2)} net ${f.sharpness.toFixed(0)} tête ${f.yawDeg.toFixed(0)}°/${f.pitchDeg.toFixed(0)}° écart-objectif ${f.offAxisHDeg.toFixed(0)}°/${f.offAxisVDeg.toFixed(0)}° yeux-dir ${f.eyeH.toFixed(2)}/${f.eyeV.toFixed(2)}${f.cut ? ' COUPÉ' : ''} couleur ${color(f.upperColor)}/${color(f.lowerColor)}/${color(f.bodyColor)}${f.emotion ? ` émotion joie ${(f.emotion.probs[4] ?? 0).toFixed(2)} neutre ${(f.emotion.probs[5] ?? 0).toFixed(2)} valence ${f.emotion.valence.toFixed(2)}` : ''}]`,
         )
         .join(' ');
       const objects = (item.objects ?? []).map((o) => `${o.label} ${o.score.toFixed(2)}`).join(', ') || 'aucun';

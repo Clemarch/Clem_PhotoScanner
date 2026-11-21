@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { accuracy, FEATURE_NAMES, evaluateDay, preferencePairs, type ChoiceRecord, type PoseValidation, type DayAnalysis, type LearnedWeights } from '../../engine';
+import { accuracy, type ShadowComparison, FEATURE_NAMES, evaluateDay, preferencePairs, type ChoiceRecord, type PoseValidation, type DayAnalysis, type LearnedWeights } from '../../engine';
 import type { Session } from '../session';
 import { featureLabel } from '../reasons';
 import { agreementLine, buildReport, copyText, shareText, summarize } from '../report';
@@ -24,6 +24,8 @@ interface Props {
   onRestore: (records: ChoiceRecord[], validations?: PoseValidation[]) => Promise<{ added: number; updated: number }>;
   onForget: () => void;
   validations: PoseValidation[];
+  /** Comparaison du nouvel œil (calculée à part, au calme). */
+  shadow: ShadowComparison | null;
   seances: SessionSummary[];
   currentId: string | null;
   onReopen: (sessionId: string) => void;
@@ -33,7 +35,7 @@ interface Props {
 }
 
 /** Réglages : sauvegarde des goûts, séances, raccourci, rapports, diagnostic et effacement (caché). */
-export function Reglages({ session, day, records, learned, reports, onRestore, onForget, validations, seances, currentId, onReopen, onDeleteSession, onClose }: Props) {
+export function Reglages({ session, day, records, learned, reports, onRestore, onForget, validations, shadow, seances, currentId, onReopen, onDeleteSession, onClose }: Props) {
   const scrolled = useScrolled();
   return (
     <main className={`page${onClose ? ' par-dessus' : ''}`}>
@@ -53,7 +55,7 @@ export function Reglages({ session, day, records, learned, reports, onRestore, o
 
       <h2 className="titre-groupe">Mes goûts</h2>
       <SauvegardeGouts records={records} onRestore={onRestore} validations={validations} />
-      <Justesse validations={validations} sessionId={session?.id ?? null} />
+      <Justesse validations={validations} shadow={shadow} sessionId={session?.id ?? null} />
 
       <h2 className="titre-groupe">Séances</h2>
       <Seances seances={seances} currentId={currentId} onReopen={onReopen} onDelete={onDeleteSession} />
@@ -63,7 +65,7 @@ export function Reglages({ session, day, records, learned, reports, onRestore, o
         <GuideRaccourci />
       </section>
 
-      {session && day && <RapportEtDiagnostic session={session} day={day} records={records} learned={learned} validations={validations} />}
+      {session && day && <RapportEtDiagnostic session={session} day={day} records={records} learned={learned} validations={validations} shadow={shadow} />}
       <h2 className="titre-groupe">Rapports enregistrés</h2>
       <RapportsEnregistres reports={reports} />
 
@@ -94,7 +96,7 @@ export function Reglages({ session, day, records, learned, reports, onRestore, o
 }
 
 /** Justesse de l'app, mesurée honnêtement sur les poses validées dans le tri éclair (le chiffre qui doit monter). */
-function Justesse({ validations, sessionId }: { validations: PoseValidation[]; sessionId: string | null }) {
+function Justesse({ validations, shadow, sessionId }: { validations: PoseValidation[]; shadow: ShadowComparison | null; sessionId: string | null }) {
   const all = accuracy(validations);
   if (all.poses.total === 0) return null;
   const here = accuracy(validations.filter((v) => v.sessionId === sessionId));
@@ -113,6 +115,11 @@ function Justesse({ validations, sessionId }: { validations: PoseValidation[]; s
           </span>
         </div>
       </div>
+      <p className="note">
+        {shadow && shadow.tested > 0
+          ? `Nouvel œil, en coulisse : il met la photo gardée devant dans ${Math.round((shadow.eye / shadow.tested) * 100)} % des cas, contre ${Math.round((shadow.formula / shadow.tested) * 100)} % pour la formule actuelle (${shadow.tested} comparaisons).`
+          : 'Nouvel œil, en coulisse : il apprend de vos poses validées ; la comparaison avec la formule actuelle apparaîtra après 2 séances.'}
+      </p>
     </section>
   );
 }
@@ -123,15 +130,17 @@ function RapportEtDiagnostic({
   records,
   learned,
   validations,
+  shadow,
 }: {
   session: Session;
   day: DayAnalysis;
   records: ChoiceRecord[];
   learned: LearnedWeights;
   validations: PoseValidation[];
+  shadow: ShadowComparison | null;
 }) {
   const summary = useMemo(() => summarize(session), [session]);
-  const report = useMemo(() => buildReport(session, day, records, learned, validations), [session, day, records, learned, validations]);
+  const report = useMemo(() => buildReport(session, day, records, learned, validations, shadow), [session, day, records, learned, validations, shadow]);
   const pairs = useMemo(() => preferencePairs(records).length, [records]);
   const agreement = useMemo(() => evaluateDay(day, records), [day, records]);
   const learnedList = FEATURE_NAMES.filter((name) => learned[name] !== undefined).sort((a, b) => Math.abs(learned[b]!) - Math.abs(learned[a]!));

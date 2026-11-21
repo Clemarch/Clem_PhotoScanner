@@ -70,8 +70,8 @@ différences entre photos d'une même pose) apprend des poses validées. Il ne d
 poses validées, sa justesse à celle de la formule (en écartant la séance testée). Adopté seulement s'il fait
 nettement mieux.
 
-Prérequis : le réseau de l'environnement de développement bloque Hugging Face (où sont publiés ces modèles) ;
-l'utilisateur doit approuver l'accès, et les modèles (taille, licence), avant l'intégration.
+Fait le 21/11 (réglage 13, `docs/decisions.md` point 42) : accès réseau et modèles approuvés par l'utilisateur ;
+choix final CLIP ViT-B/32 int8 + HSEmotion B0 après mesure de vitesse (SigLIP 2 : 3,5 fois plus lent).
 
 ## 3. Risques et parades
 

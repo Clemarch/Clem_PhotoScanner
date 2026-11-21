@@ -716,6 +716,36 @@ l'app automatise ce qui est fiable et rend le choix subjectif ultra rapide, puis
 - Phase suivante (réglage 13, à approuver) : meilleurs modèles d'analyse en coulisse (expression du visage
   HSEmotion, compréhension d'image SigLIP ou CLIP), comparés honnêtement à la formule sur les poses validées.
 
+### 42. Réglage 13 : « nouvel œil » en coulisse (21/11)
+
+Approuvé par l'utilisateur (« ok ça me va, vas-y »). Mesures faites avant de choisir (`docs/jalon-6.md`) :
+
+| Modèle | Taille | Calcul (1 fil, WebAssembly) | Verdict |
+|---|---|---|---|
+| HSEmotion EfficientNet-B0, émotions + valence (Apache-2.0) | 16 Mo | 80-125 ms / visage | **Retenu** |
+| HSEmotion MobileFaceNet (Apache-2.0) | 8 Mo | 40 ms / visage | Repli si trop lent |
+| CLIP ViT-B/32 int8 (MIT) | 89 Mo | 210-250 ms / photo | **Retenu** |
+| CLIP ViT-B/32 q4 | 64 Mo | 574 ms, moins fidèle (même ordre de ressemblance que int8 dans 88 % des cas) | Écarté |
+| SigLIP 2 base int8 (Apache-2.0) | 95 Mo | 720-870 ms / photo | Écarté pour l'instant : 3,5 fois plus lent |
+
+Dans l'app (mesuré, 24 photos de test) : +296 ms par photo ; aucune requête externe ; marche avec la politique de
+sécurité actuelle (`wasm-unsafe-eval`).
+
+- Exécution : `onnxruntime-web` figé en 1.30.0 (MIT ; aucune adresse de statistiques, vérifié par un test), un seul
+  fil, aucun travailleur ni en-tête spécial. Module `src/platform/vision/eye.ts`, chargé seulement à l'analyse.
+- Les deux modèles (`public/models/onnx/`, licences dans `LICENCES.txt`) arrivent avec la mise à jour, comme les
+  autres (règle « aucun appel réseau après l'installation », relevée par l'audit) : environ 120 Mo de plus, une seule
+  fois (ensuite seulement s'ils changent). S'ils manquent, l'analyse continue sans eux.
+- La comparaison honnête se calcule au calme (3 s après la dernière validation), sur 400 paires au plus, pour ne pas
+  ralentir l'app ; une photo de la séance testée n'entre jamais dans l'apprentissage (photos analysées deux fois).
+- Mesures gardées : empreinte CLIP de la photo (`MediaItem.clip`), émotions de chaque visage principal
+  (`FaceMetrics.emotion`) ; avec chaque choix : empreinte (8 bits) et résumé des émotions (`ChoiceRecord.clip`,
+  `emo`), repris dans la sauvegarde.
+- **En coulisse** : un classement personnel (`src/engine/learning/ranker.ts`) apprend sur les poses validées dans le
+  tri éclair. Il ne décide rien. Le rapport et Réglages comparent, séance par séance (chaque séance testée avec un
+  apprentissage fait sur les autres seulement), la part des paires « gardée / supprimée » bien ordonnées par la
+  formule et par le nouvel œil. Adopté seulement s'il fait nettement mieux, après plusieurs séances.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

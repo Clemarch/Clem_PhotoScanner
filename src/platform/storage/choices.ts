@@ -19,7 +19,7 @@ export const choiceStorage = { database: 'non vérifiée' as 'ok' | 'erreur' | '
 
 function writeMirror(): void {
   try {
-    const rows = [...memory.values()].map((r) => ({ ...r, embedding: undefined }));
+    const rows = [...memory.values()].map((r) => ({ ...r, embedding: undefined, clip: undefined }));
     localStorage.setItem(MIRROR_KEY, JSON.stringify(encodeBackup(rows, Date.now())));
   } catch {
     // Copie de secours facultative (stockage plein ou indisponible).
