@@ -26,6 +26,9 @@ interface Props {
   onComment: (item: MediaItem, comment: string) => void;
   /** Aller à l'onglet « Supprimer ». */
   onGoDelete: () => void;
+  /** Tri éclair : poses encore à trancher, poses « sûres » non montrées, et total. */
+  eclair: { pending: number; sure: number; total: number };
+  onEclair: (which: 'suite' | 'sures' | 'tout') => void;
 }
 
 /** Le paquet mêle-t-il plusieurs types de photo (personnes et paysages, par exemple) ? */
@@ -44,7 +47,7 @@ const hintSeen = (): boolean => {
   }
 };
 
-export function Paquets({ session, day, gap, onJoin, onNewDay, choices, previousRun, onChoose, onComment, onGoDelete }: Props) {
+export function Paquets({ session, day, gap, onJoin, onNewDay, choices, previousRun, onChoose, onComment, onGoDelete, eclair, onEclair }: Props) {
   // Séance sur plusieurs jours : la date s'affiche au-dessus du premier paquet de chaque jour.
   const multiDay = new Set(day.packs.map((p) => dayOf(p.pack.startAt))).size > 1;
   const [viewing, setViewing] = useState<number | null>(null);
@@ -156,6 +159,35 @@ export function Paquets({ session, day, gap, onJoin, onNewDay, choices, previous
             </button>
           )}
         </div>
+      )}
+
+      {eclair.total > 0 && (
+        <section className="carte-eclair">
+          <h3>⚡ Tri éclair</h3>
+          {eclair.pending > 0 ? (
+            <>
+              <p className="doux">
+                {plural(eclair.pending, 'pose')} à trancher, une par écran, environ {Math.max(1, Math.round((eclair.pending * 4) / 60))} min. La
+                proposition de l’app est déjà cochée : vous touchez seulement ce qui ne va pas.
+              </p>
+              <button className="bouton principal grand" onClick={() => onEclair('suite')}>
+                {eclair.pending + eclair.sure < eclair.total ? 'Continuer' : 'Commencer'}
+              </button>
+            </>
+          ) : (
+            <p className="doux">Toutes les poses sont tranchées ✓</p>
+          )}
+          {eclair.sure > 0 && (
+            <button className="lien" onClick={() => onEclair('sures')}>
+              + {plural(eclair.sure, 'pose sûre', 'poses sûres')} non montrée{eclair.sure > 1 ? 's' : ''} (l’app y a fait ses preuves) : voir
+            </button>
+          )}
+          {eclair.pending === 0 && (
+            <button className="lien" onClick={() => onEclair('tout')}>
+              Tout revoir
+            </button>
+          )}
+        </section>
       )}
 
       {totals.total > 0 && (

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { isInstalled, type InterruptedRun } from '../../platform/device';
 import { watchUpdate, type UpdateStatus } from '../../platform/update';
 import { AlerteGoutsPerdus, backupDue, whenText } from '../SauvegardeGouts';
-import type { ChoiceRecord } from '../../engine';
+import type { ChoiceRecord, PoseValidation } from '../../engine';
 import type { LastRun } from '../../platform/storage/lastRun';
 import { loadLastBackup } from '../../platform/storage/backupFile';
 import { formatDate, formatShortTime, plural } from '../format';
@@ -16,7 +16,7 @@ interface Props {
   records: ChoiceRecord[];
   /** Les choix ont fini d'être lus sur l'iPhone (pour ne pas crier à la perte trop tôt). */
   recordsLoaded: boolean;
-  onRestore: (records: ChoiceRecord[]) => Promise<{ added: number; updated: number }>;
+  onRestore: (records: ChoiceRecord[], validations?: PoseValidation[]) => Promise<{ added: number; updated: number }>;
   onSettings: () => void;
   /** Nombre de séances gardées (à rouvrir dans Réglages). */
   seances: number;

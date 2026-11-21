@@ -257,6 +257,10 @@ export interface ChoiceRecord {
   /** Accord silencieux (utilisateur, 19/11 : « quand je clique pas c'est que je suis d'accord ») : la photo est partie
    *  à la suppression, ou est restée, sans que l'utilisateur touche à la décision de l'app. */
   implicit?: boolean;
+  /** Choix fait en validant toute une pose dans le tri éclair (21/11) : exemple complet et non biaisé. */
+  via?: 'pose';
+  /** Proposition de l'app au moment du choix : mesure honnête de sa justesse. */
+  app?: 'garder' | 'supprimer';
 }
 
 /** À augmenter quand le sens d'un critère change (pas quand on en ajoute un : il vaut alors 0,5 dans les anciens). */

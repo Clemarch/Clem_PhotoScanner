@@ -1,2 +1,2 @@
 /** Version affichée à l'utilisateur (accueil, réglages) : il la lit pour vérifier que la mise à jour est arrivée. */
-export const APP_VERSION = 'réglage 11 (séances terminées et rouvertes)';
+export const APP_VERSION = 'réglage 12 (tri éclair)';

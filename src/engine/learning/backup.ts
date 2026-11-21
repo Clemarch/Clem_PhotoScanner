@@ -3,13 +3,29 @@
 // Lisible par un humain, réparable, et prévu pour évoluer sans casser les anciennes sauvegardes.
 
 import { FEATURE_NAMES, type ChoiceRecord, type Features } from '../types';
+import type { PoseValidation } from '../triage/calibration';
 
 export const BACKUP_FORMAT = 'photo-triage-gouts';
 export const BACKUP_VERSION = 1;
 
 /** Une ligne : [clé, paquet, 1 garder / 0 supprimer, date ms, note de base ×1000, mesures ×1000, commentaire, version des critères,
  *  empreinte, 1 si accord silencieux]. La dernière colonne, ajoutée le 19/11, manque dans les anciennes sauvegardes. */
-type Row = [string, string, 0 | 1, number, number, (number | null)[], string | null, number | null, string | null, (0 | 1 | null)?];
+type Row = [
+  string,
+  string,
+  0 | 1,
+  number,
+  number,
+  (number | null)[],
+  string | null,
+  number | null,
+  string | null,
+  (0 | 1 | null)?,
+  /** Ajouté le 21/11 : 1 si choisi en validant une pose (tri éclair). */
+  (0 | 1 | null)?,
+  /** Ajouté le 21/11 : proposition de l'app (1 garder, 0 supprimer). */
+  (0 | 1 | null)?,
+];
 
 export interface BackupFile {
   format: typeof BACKUP_FORMAT;
@@ -18,11 +34,13 @@ export interface BackupFile {
   /** Noms des mesures, dans l'ordre des colonnes : une mesure ajoutée plus tard ne décale rien. */
   features: string[];
   choices: Row[];
+  /** Journal du tri éclair (ajouté le 21/11, absent des anciennes sauvegardes). */
+  validations?: PoseValidation[];
 }
 
 const milli = (v: number | undefined): number | null => (v === undefined || !Number.isFinite(v) ? null : Math.round(v * 1000));
 
-export function encodeBackup(records: readonly ChoiceRecord[], now: number): BackupFile {
+export function encodeBackup(records: readonly ChoiceRecord[], now: number, validations: readonly PoseValidation[] = []): BackupFile {
   return {
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
@@ -39,7 +57,10 @@ export function encodeBackup(records: readonly ChoiceRecord[], now: number): Bac
       r.v ?? null,
       r.embedding ?? null,
       r.implicit ? 1 : null,
+      r.via === 'pose' ? 1 : null,
+      r.app === undefined ? null : r.app === 'garder' ? 1 : 0,
     ]),
+    ...(validations.length ? { validations: validations.map((v) => ({ ...v, margin: Number.isFinite(v.margin) ? v.margin : -1 })) } : {}),
   };
 }
 
@@ -48,6 +69,8 @@ export interface DecodedBackup {
   /** Lignes ignorées car illisibles. */
   skipped: number;
   savedAt: number | null;
+  /** Journal du tri éclair (vide pour les sauvegardes d'avant le 21/11). */
+  validations: PoseValidation[];
 }
 
 /** Lit une sauvegarde ; lève une erreur lisible si ce n'est pas un fichier de l'app. */
@@ -61,7 +84,7 @@ export function decodeBackup(data: unknown): DecodedBackup {
   let skipped = 0;
   for (const row of Array.isArray(file.choices) ? file.choices : []) {
     try {
-      const [key, packKey, keep, at, base, values, comment, v, embedding, implicit] = row as Row;
+      const [key, packKey, keep, at, base, values, comment, v, embedding, implicit, viaPose, app] = row as Row;
       if (typeof key !== 'string' || typeof packKey !== 'string' || (keep !== 0 && keep !== 1) || typeof at !== 'number')
         throw new Error('ligne');
       const features: Partial<Features> = {};
@@ -80,12 +103,31 @@ export function decodeBackup(data: unknown): DecodedBackup {
         ...(typeof v === 'number' ? { v } : {}),
         ...(typeof embedding === 'string' && embedding ? { embedding } : {}),
         ...(implicit === 1 ? { implicit: true } : {}),
+        ...(viaPose === 1 ? { via: 'pose' as const } : {}),
+        ...(app === 1 ? { app: 'garder' as const } : app === 0 ? { app: 'supprimer' as const } : {}),
       });
     } catch {
       skipped++;
     }
   }
-  return { records, skipped, savedAt: typeof file.savedAt === 'number' ? file.savedAt : null };
+  const validations: PoseValidation[] = [];
+  for (const raw of Array.isArray(file.validations) ? file.validations : []) {
+    const v = raw as Partial<PoseValidation>;
+    const strings = (x: unknown): x is string[] => Array.isArray(x) && x.every((k) => typeof k === 'string');
+    if (typeof v.id !== 'string' || typeof v.at !== 'number' || !strings(v.keys) || !strings(v.proposed) || !strings(v.kept)) continue;
+    validations.push({
+      id: v.id,
+      at: v.at,
+      sessionId: String(v.sessionId ?? ''),
+      packKey: String(v.packKey ?? ''),
+      margin: typeof v.margin === 'number' && v.margin >= 0 ? v.margin : Infinity,
+      keys: v.keys,
+      proposed: v.proposed,
+      kept: v.kept,
+      ms: typeof v.ms === 'number' ? v.ms : 0,
+    });
+  }
+  return { records, skipped, savedAt: typeof file.savedAt === 'number' ? file.savedAt : null, validations };
 }
 
 /** Fusion : rien n'est supprimé ; pour une même photo, le choix le plus récent l'emporte. */

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { FEATURE_NAMES, evaluateDay, preferencePairs, type ChoiceRecord, type DayAnalysis, type LearnedWeights } from '../../engine';
+import { accuracy, FEATURE_NAMES, evaluateDay, preferencePairs, type ChoiceRecord, type PoseValidation, type DayAnalysis, type LearnedWeights } from '../../engine';
 import type { Session } from '../session';
 import { featureLabel } from '../reasons';
 import { agreementLine, buildReport, copyText, shareText, summarize } from '../report';
@@ -21,8 +21,9 @@ interface Props {
   records: ChoiceRecord[];
   learned: LearnedWeights;
   reports: SavedReport[];
-  onRestore: (records: ChoiceRecord[]) => Promise<{ added: number; updated: number }>;
+  onRestore: (records: ChoiceRecord[], validations?: PoseValidation[]) => Promise<{ added: number; updated: number }>;
   onForget: () => void;
+  validations: PoseValidation[];
   seances: SessionSummary[];
   currentId: string | null;
   onReopen: (sessionId: string) => void;
@@ -32,7 +33,7 @@ interface Props {
 }
 
 /** Réglages : sauvegarde des goûts, séances, raccourci, rapports, diagnostic et effacement (caché). */
-export function Reglages({ session, day, records, learned, reports, onRestore, onForget, seances, currentId, onReopen, onDeleteSession, onClose }: Props) {
+export function Reglages({ session, day, records, learned, reports, onRestore, onForget, validations, seances, currentId, onReopen, onDeleteSession, onClose }: Props) {
   const scrolled = useScrolled();
   return (
     <main className={`page${onClose ? ' par-dessus' : ''}`}>
@@ -51,7 +52,8 @@ export function Reglages({ session, day, records, learned, reports, onRestore, o
       </header>
 
       <h2 className="titre-groupe">Mes goûts</h2>
-      <SauvegardeGouts records={records} onRestore={onRestore} />
+      <SauvegardeGouts records={records} onRestore={onRestore} validations={validations} />
+      <Justesse validations={validations} sessionId={session?.id ?? null} />
 
       <h2 className="titre-groupe">Séances</h2>
       <Seances seances={seances} currentId={currentId} onReopen={onReopen} onDelete={onDeleteSession} />
@@ -61,7 +63,7 @@ export function Reglages({ session, day, records, learned, reports, onRestore, o
         <GuideRaccourci />
       </section>
 
-      {session && day && <RapportEtDiagnostic session={session} day={day} records={records} learned={learned} />}
+      {session && day && <RapportEtDiagnostic session={session} day={day} records={records} learned={learned} validations={validations} />}
       <h2 className="titre-groupe">Rapports enregistrés</h2>
       <RapportsEnregistres reports={reports} />
 
@@ -91,9 +93,45 @@ export function Reglages({ session, day, records, learned, reports, onRestore, o
   );
 }
 
-function RapportEtDiagnostic({ session, day, records, learned }: { session: Session; day: DayAnalysis; records: ChoiceRecord[]; learned: LearnedWeights }) {
+/** Justesse de l'app, mesurée honnêtement sur les poses validées dans le tri éclair (le chiffre qui doit monter). */
+function Justesse({ validations, sessionId }: { validations: PoseValidation[]; sessionId: string | null }) {
+  const all = accuracy(validations);
+  if (all.poses.total === 0) return null;
+  const here = accuracy(validations.filter((v) => v.sessionId === sessionId));
+  const pct = (a: { right: number; total: number }) => Math.round((a.right / a.total) * 100);
+  return (
+    <section className="groupe">
+      <div className="ligne-info">
+        <span className="icone-ronde vert-fond">%</span>
+        <div>
+          <strong>
+            Justesse de l’app : {pct(all.photos)} % des photos, {pct(all.poses)} % des poses
+          </strong>
+          <span className="note bloc">
+            Sur {all.poses.total} poses que vous avez validées dans le tri éclair
+            {here.poses.total > 0 ? ` · cette séance : ${pct(here.photos)} % des photos` : ''}. Objectif : 80 %.
+          </span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function RapportEtDiagnostic({
+  session,
+  day,
+  records,
+  learned,
+  validations,
+}: {
+  session: Session;
+  day: DayAnalysis;
+  records: ChoiceRecord[];
+  learned: LearnedWeights;
+  validations: PoseValidation[];
+}) {
   const summary = useMemo(() => summarize(session), [session]);
-  const report = useMemo(() => buildReport(session, day, records, learned), [session, day, records, learned]);
+  const report = useMemo(() => buildReport(session, day, records, learned, validations), [session, day, records, learned, validations]);
   const pairs = useMemo(() => preferencePairs(records).length, [records]);
   const agreement = useMemo(() => evaluateDay(day, records), [day, records]);
   const learnedList = FEATURE_NAMES.filter((name) => learned[name] !== undefined).sort((a, b) => Math.abs(learned[b]!) - Math.abs(learned[a]!));

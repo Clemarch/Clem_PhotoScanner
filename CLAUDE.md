@@ -50,6 +50,9 @@ propre à ce test.
   suppression, rouvrables depuis Réglages › Séances (point 40).
 - Interface : `src/ui/style.css` (style d'Apple, mode sombre), icônes dans `src/ui/icons.tsx`, version affichée dans
   `src/ui/version.ts`. Photos non touchées enregistrées comme accords (`ChoiceRecord.implicit`) à l'envoi au raccourci.
+- Tri éclair : file `src/engine/triage/queue.ts`, justesse et confiance `src/engine/triage/calibration.ts`, journal
+  `src/platform/storage/validations.ts`, écran `src/ui/screens/TriEclair.tsx`. La justesse de l'app se mesure sur les
+  poses validées (point 41), pas sur les corrections.
 - Choix de l'utilisateur : IndexedDB (`src/platform/storage/choices.ts`), mesures et empreinte d'image (8 bits),
   jamais d'image. Apprentissage : `src/engine/learning/preferences.ts` ; goûts par l'image, en test :
   `src/engine/learning/taste.ts` ; accord honnête : `src/engine/evaluation.ts`.
@@ -86,4 +89,6 @@ Réglage 9 : plusieurs photos par pose si différentes, regard en groupe, photo 
 Réglage 10 : nouvelle présentation (onglets Trier, Supprimer, Réglages), paquets selon le contenu, accords
 silencieux (photos non touchées = d'accord), yeux plissés jugés par personne, sauvegarde datée (point 38).
 Réglage 10 bis (point 39) et réglage 11 (point 40) : séances terminées et rouvertes, groupe ≠ personne seule.
+Jalon 6 (plan : `docs/jalon-6.md`), réglage 12 (point 41) : tri éclair pose par pose, justesse honnête mesurée sur
+les poses validées, confiance calibrée. Réglage 13 proposé : meilleurs modèles en coulisse (à approuver).
 Modèle restant proposé : objets plus fins.

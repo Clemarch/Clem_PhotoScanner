@@ -695,6 +695,27 @@ Rapport de 38 photos (surf), accord 7/23 :
   corps d'un sujet et à moins de 2,5 hauteurs de visage sous son visage (bouche, poitrine) : voulu ; plus bas : gênant.
 - Non traité : « mieux cadrée (mieux zoomée) » (photo 11) ; préférence de cadrage serré à apprendre plus tard.
 
+### 41. Jalon 6, réglage 12 : tri éclair, justesse honnête, confiance calibrée (21/11)
+
+Plan et mesures : `docs/jalon-6.md`. Constat mesuré sur les sauvegardes : avec les signaux actuels, deviner la photo
+gardée plafonne vers 60-65 % ; le « mode duel » est abandonné. Nouvelle approche validée par l'utilisateur :
+l'app automatise ce qui est fiable et rend le choix subjectif ultra rapide, puis apprend des vraies décisions.
+
+- **Tri éclair** (`src/ui/screens/TriEclair.tsx`, file `src/engine/triage/queue.ts`) : une pose par écran, photos en
+  grand, proposition de l'app cochée, un toucher bascule garder/supprimer, « Valider ». S'ouvre de lui-même après
+  une analyse ; carte « ⚡ Tri éclair » en haut de l'onglet Trier pour continuer ou tout revoir. Loupe : double
+  toucher pour zoomer.
+- **Données propres** : chaque pose validée enregistre un choix par photo (`ChoiceRecord.via = 'pose'`) et la
+  proposition de l'app à cet instant (`ChoiceRecord.app`, désormais sur tous les choix). Journal des poses validées
+  (base IndexedDB version 4, magasin `validations`), repris dans la sauvegarde des goûts. Validée en moins de 0,7 s
+  sans rien changer : comptée comme vue, pas apprise.
+- **Justesse honnête** : part des photos et des poses validées où la proposition de l'app était juste ; affichée dans
+  Réglages (« Justesse de l'app », objectif 80 %) et dans le rapport, avec le détail par écart de note.
+- **Confiance calibrée** (`src/engine/triage/calibration.ts`) : une pose est « sûre » et n'est plus montrée que si,
+  à son écart de note, au moins 30 poses validées donnent raison à l'app à 90 %. Au départ, aucune.
+- Phase suivante (réglage 13, à approuver) : meilleurs modèles d'analyse en coulisse (expression du visage
+  HSEmotion, compréhension d'image SigLIP ou CLIP), comparés honnêtement à la formule sur les poses validées.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

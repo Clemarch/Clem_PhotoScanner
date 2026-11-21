@@ -1,5 +1,5 @@
 import type { Session } from './session';
-import { asideKind, config, evaluateDay, embeddingSimilarity, mainFaces, photoKey, signatureDistance, type ChoiceRecord, type DayAnalysis, type Decision, type LearnedWeights, type PhotoScore, type SceneType, type Agreement } from '../engine';
+import { accuracy, calibrate, type PoseValidation, asideKind, config, evaluateDay, embeddingSimilarity, mainFaces, photoKey, signatureDistance, type ChoiceRecord, type DayAnalysis, type Decision, type LearnedWeights, type PhotoScore, type SceneType, type Agreement } from '../engine';
 import { choiceStorage } from '../platform/storage/choices';
 import { lastDbError } from '../platform/storage/db';
 import { formatDateTime, formatMs, formatOrientation, formatSize } from './format';
@@ -75,7 +75,30 @@ const counts = (record: Record<string, number>): string =>
     .join(', ') || '—';
 
 /** Rapport en texte, à copier puis coller dans la conversation avec Claude. Ne contient aucune image. */
-export function buildReport(session: Session, day: DayAnalysis, records: readonly ChoiceRecord[], learned: LearnedWeights): string {
+/** Justesse de l'app mesurée sur les poses validées dans le tri éclair : séance, et depuis le début. */
+export function eclairLine(validations: readonly PoseValidation[], sessionId: string | null): string {
+  const pct = (a: { right: number; total: number }) => (a.total ? `${a.right}/${a.total} (${Math.round((a.right / a.total) * 100)} %)` : '—');
+  const here = accuracy(validations.filter((v) => v.sessionId === sessionId));
+  const all = accuracy(validations);
+  // Libellés des tranches tirés de la config (ils suivent les seuils s'ils changent).
+  const edges = config.triage.marginBuckets.map((e) => String(e).replace('.', ','));
+  const label = (i: number): string => (i === 0 ? `<${edges[0]}` : i >= edges.length ? `≥${edges[edges.length - 1]}` : `${edges[i - 1]}-${edges[i]}`);
+  const cal = calibrate(validations)
+    .buckets.map((b, i) => `${label(i)} : ${b.poses ? `${b.right}/${b.poses}` : '—'}`)
+    .join(' · ');
+  return (
+    `Tri éclair — justesse de l'app : cette séance ${pct(here.poses)} poses, ${pct(here.photos)} photos · ` +
+    `depuis le début ${pct(all.poses)} poses, ${pct(all.photos)} photos · par écart de note : ${cal}`
+  );
+}
+
+export function buildReport(
+  session: Session,
+  day: DayAnalysis,
+  records: readonly ChoiceRecord[],
+  learned: LearnedWeights,
+  validations: readonly PoseValidation[] = [],
+): string {
   const s = summarize(session);
   const d = session.device;
   const lines = [
@@ -121,6 +144,7 @@ export function buildReport(session: Session, day: DayAnalysis, records: readonl
     0,
     `Paquets : ${day.packs.map((p, i) => `P${i + 1} ${new Set(p.sceneOf.values()).size > 1 ? `mixte (${[...new Set(p.sceneOf.values())].join('+')})` : p.scene} (${p.pack.items.length} photos, ${p.poses.length} pose${p.poses.length > 1 ? 's' : ''}, ${[...p.decisions.values()].filter((d) => d.keep && !d.review).length} gardées par l'app${[...p.decisions.values()].some((d) => d.review) ? `, ${[...p.decisions.values()].filter((d) => d.review).length} à vérifier` : ''})`).join(' · ') || '—'}`,
     agreementLine(evaluateDay(day, records)),
+    eclairLine(validations, session.id),
     `Vos choix enregistrés : ${records.length}${records.some((r) => r.implicit) ? ` (dont ${records.filter((r) => r.implicit).length} laissés tels quels)` : ''} · goûts appris : ${
       Object.entries(learned)
         .map(([k, v]) => `${k} ${v >= 0 ? '+' : ''}${v.toFixed(2)}`)
