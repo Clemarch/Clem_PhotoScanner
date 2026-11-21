@@ -37,6 +37,14 @@ export interface FaceObservation {
 }
 
 /** Mesures d'un visage, toutes entre 0 (mauvais) et 1 (bon) sauf mention contraire. */
+/** Émotions d'un visage (modèle HSEmotion) : probabilités de Colère, Mépris, Dégoût, Peur, Joie, Neutre, Tristesse,
+ *  Surprise ; valence (négatif → positif, environ -1 à 1) et éveil. */
+export interface FaceEmotion {
+  probs: number[];
+  valence: number;
+  arousal: number;
+}
+
 export interface FaceMetrics {
   box: Box;
   /** Part de l'image occupée par le visage. */
@@ -67,6 +75,8 @@ export interface FaceMetrics {
   lowerColor: Rgb | null;
   /** Couleur moyenne juste sous le visage (cou, buste) : un objet tenu devant la personne la change. */
   bodyColor: Rgb | null;
+  /** Émotions mesurées par le « nouvel œil » (HSEmotion), en coulisse ; absent si non calculé. */
+  emotion?: FaceEmotion | null;
 }
 
 /** Mesures tirées de la silhouette des personnes (modèle de segmentation : fond, cheveux, peau du corps,
@@ -149,6 +159,8 @@ export interface MediaItem {
   segmentation: SegmentationMetrics | null;
   /** Empreinte fine de l'image (modèle d'empreinte, vecteur normalisé) ; null si non calculée. */
   embedding: number[] | null;
+  /** Empreinte CLIP (« nouvel œil », en coulisse), normalisée ; absente si non calculée. */
+  clip?: number[] | null;
   /** Catégories de scène les plus probables ; null si non classée. */
   labels: SceneLabel[] | null;
   /** Part de l'image envahie depuis les bords par une zone sombre et uniforme (hublot, doigt), entre 0 et 1. */
@@ -257,6 +269,13 @@ export interface ChoiceRecord {
   /** Accord silencieux (utilisateur, 19/11 : « quand je clique pas c'est que je suis d'accord ») : la photo est partie
    *  à la suppression, ou est restée, sans que l'utilisateur touche à la décision de l'app. */
   implicit?: boolean;
+  /** Choix fait en validant toute une pose dans le tri éclair (21/11) : exemple complet et non biaisé. */
+  via?: 'pose';
+  /** Proposition de l'app au moment du choix : mesure honnête de sa justesse. */
+  app?: 'garder' | 'supprimer';
+  /** « Nouvel œil » (21/11) : empreinte CLIP (8 bits, base64) et résumé des émotions des visages (`emotionSummary`). */
+  clip?: string;
+  emo?: number[];
 }
 
 /** À augmenter quand le sens d'un critère change (pas quand on en ajoute un : il vaut alors 0,5 dans les anciens). */

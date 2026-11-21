@@ -50,6 +50,9 @@ propre à ce test.
   suppression, rouvrables depuis Réglages › Séances (point 40).
 - Interface : `src/ui/style.css` (style d'Apple, mode sombre), icônes dans `src/ui/icons.tsx`, version affichée dans
   `src/ui/version.ts`. Photos non touchées enregistrées comme accords (`ChoiceRecord.implicit`) à l'envoi au raccourci.
+- Tri éclair : file `src/engine/triage/queue.ts`, justesse et confiance `src/engine/triage/calibration.ts`, journal
+  `src/platform/storage/validations.ts`, écran `src/ui/screens/TriEclair.tsx`. La justesse de l'app se mesure sur les
+  poses validées (point 41), pas sur les corrections.
 - Choix de l'utilisateur : IndexedDB (`src/platform/storage/choices.ts`), mesures et empreinte d'image (8 bits),
   jamais d'image. Apprentissage : `src/engine/learning/preferences.ts` ; goûts par l'image, en test :
   `src/engine/learning/taste.ts` ; accord honnête : `src/engine/evaluation.ts`.
@@ -61,6 +64,10 @@ propre à ce test.
 Modèles embarqués dans `public/models/` : `face_landmarker.task` (visages), `efficientdet_lite0.tflite` (objets),
 `selfie_multiclass_256x256.tflite` (silhouette avec peau), `mobilenet_v3_small.tflite` (empreinte fine),
 `efficientnet_lite0.tflite` (classement de scène) et `gesture_recognizer.task` (gestes : V, pouce levé). Le modèle du corps a été retiré (`docs/decisions.md`, point 26).
+« Nouvel œil » (réglage 13, approuvé le 21/11), dans `public/models/onnx/` : `clip_vit_b32_int8.onnx` (CLIP, MIT) et
+`hsemotion_b0_va.onnx` (émotions des visages, Apache-2.0), exécutés par `onnxruntime-web` figé en 1.30.0 (test de
+garde : aucune adresse de statistiques). En coulisse : ils ne décident rien tant que la comparaison honnête
+(`src/engine/learning/ranker.ts`, point 42) ne montre pas qu'ils font mieux que la formule.
 Tout nouveau modèle se propose d'abord à l'utilisateur.
 `@mediapipe/tasks-vision` est figé en 0.10.34. Les versions 1.x envoient des statistiques d'usage à Google
 (voir `docs/decisions.md`, point 8). Un test et `tools/check-dist.mjs` bloquent toute régression.
@@ -86,4 +93,7 @@ Réglage 9 : plusieurs photos par pose si différentes, regard en groupe, photo 
 Réglage 10 : nouvelle présentation (onglets Trier, Supprimer, Réglages), paquets selon le contenu, accords
 silencieux (photos non touchées = d'accord), yeux plissés jugés par personne, sauvegarde datée (point 38).
 Réglage 10 bis (point 39) et réglage 11 (point 40) : séances terminées et rouvertes, groupe ≠ personne seule.
+Jalon 6 (plan : `docs/jalon-6.md`), réglage 12 (point 41) : tri éclair pose par pose, justesse honnête mesurée sur
+les poses validées, confiance calibrée. Réglage 13 (point 42) : nouvel œil en coulisse (CLIP + émotions des visages),
+comparé honnêtement à la formule.
 Modèle restant proposé : objets plus fins.

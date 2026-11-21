@@ -21,4 +21,7 @@ export { analyzeDay, photoKey, type DayAnalysis, type PackAnalysis } from './pip
 export { encodeEmbedding, decodeEmbedding, cosine } from './learning/embeddingCodec';
 export { tasteMemory, tasteVote, type TasteMemory } from './learning/taste';
 export { evaluateDay, type Agreement } from './evaluation';
+export { accuracy, bucketOf, calibrate, isSure, mergeValidations, tooFast, type Accuracy, type Calibration, type PoseValidation } from './triage/calibration';
+export { buildQueue, poseKey, poseMargin, type PoseTask } from './triage/queue';
+export { emotionSummary, eyeVector, rankScore, shadowCompare, trainRanker, type RankerModel, type ShadowComparison } from './learning/ranker';
 export { encodeBackup, decodeBackup, mergeChoices, BACKUP_FORMAT, BACKUP_VERSION, type BackupFile, type DecodedBackup } from './learning/backup';

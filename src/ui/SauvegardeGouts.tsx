@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import type { ChoiceRecord } from '../engine';
+import type { ChoiceRecord, PoseValidation } from '../engine';
 import { exportBackup, loadLastBackup, makeBackupFile, readBackupFile, saveLastBackup, type LastBackup } from '../platform/storage/backupFile';
 import { formatShortTime, plural } from './format';
 import { IconNuage } from './icons';
 
-type Restore = (records: ChoiceRecord[]) => Promise<{ added: number; updated: number }>;
+type Restore = (records: ChoiceRecord[], validations?: PoseValidation[]) => Promise<{ added: number; updated: number }>;
 
 interface Props {
   records: ChoiceRecord[];
@@ -36,7 +36,7 @@ export function whenText(at: number, now = Date.now()): string {
 async function restoreFrom(file: File, onRestore: Restore): Promise<string> {
   try {
     const decoded = await readBackupFile(file);
-    const { added, updated } = await onRestore(decoded.records);
+    const { added, updated } = await onRestore(decoded.records, decoded.validations);
     return (
       `Restauré : ${plural(added, 'choix ajouté', 'choix ajoutés')}, ${plural(updated, 'mis à jour', 'mis à jour')}` +
       (decoded.skipped ? `, ${decoded.skipped} ligne(s) illisible(s) ignorée(s)` : '') +
@@ -94,7 +94,7 @@ export function AlerteGoutsPerdus({ records, loaded, onRestore }: Props & { load
 }
 
 /** Sauvegarde des goûts dans iCloud Drive (par la feuille de partage d'iOS) et restauration. */
-export function SauvegardeGouts({ records, onRestore }: Props) {
+export function SauvegardeGouts({ records, onRestore, validations = [] }: Props & { validations?: PoseValidation[] }) {
   const [last, setLast] = useState<LastBackup | null>(() => loadLastBackup());
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -105,11 +105,11 @@ export function SauvegardeGouts({ records, onRestore }: Props) {
   useEffect(() => {
     let alive = true;
     setReady(null);
-    if (records.length > 0) void makeBackupFile(records).then((file) => alive && setReady(file));
+    if (records.length > 0) void makeBackupFile(records, validations).then((file) => alive && setReady(file));
     return () => {
       alive = false;
     };
-  }, [records]);
+  }, [records, validations]);
   const due = backupDue(records);
 
   const save = async () => {

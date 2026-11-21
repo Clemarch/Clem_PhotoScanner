@@ -1,6 +1,6 @@
 // Décision finale d'une photo : le choix de l'utilisateur s'il en a fait un, sinon celui de l'app.
 
-import { FEATURES_VERSION, encodeEmbedding, photoKey, type ChoiceRecord, type MediaItem, type PackAnalysis } from '../engine';
+import { FEATURES_VERSION, emotionSummary, encodeEmbedding, photoKey, type ChoiceRecord, type MediaItem, type PackAnalysis } from '../engine';
 
 export type Choice = 'garder' | 'supprimer';
 
@@ -29,8 +29,16 @@ export function stateLook(state: FinalState): { css: string; mark: string; label
 }
 
 /** `implicit` : accord silencieux avec l'app (photo laissée telle quelle, puis envoyée à la suppression). */
-export function makeRecord(item: MediaItem, pack: PackAnalysis, choice: Choice, implicit = false): ChoiceRecord {
+export function makeRecord(item: MediaItem, pack: PackAnalysis, choice: Choice, implicit = false, via?: 'pose'): ChoiceRecord {
   const score = pack.scores.get(item.id)!;
   const embedding = encodeEmbedding(item.embedding);
-  return { key: photoKey(item), packKey: pack.key, choice, features: score.features, baseScore: score.baseScore, at: Date.now(), v: FEATURES_VERSION, ...(embedding ? { embedding } : {}), ...(implicit ? { implicit: true } : {}) };
+  const clip = encodeEmbedding(item.clip ?? null);
+  const emo = emotionSummary(item);
+  return { key: photoKey(item), packKey: pack.key, choice, features: score.features, baseScore: score.baseScore, at: Date.now(), v: FEATURES_VERSION, ...(embedding ? { embedding } : {}), ...(implicit ? { implicit: true } : {}),
+    ...(via ? { via } : {}),
+    // Proposition de l'app à cet instant (« à vérifier » compte comme gardée) : mesure honnête de sa justesse.
+    app: pack.decisions.get(item.id)?.keep === false ? 'supprimer' : 'garder',
+    // « Nouvel œil » (en coulisse) : empreinte CLIP et émotions des visages, si elles ont été mesurées.
+    ...(clip ? { clip } : {}),
+    ...(emo ? { emo } : {}) };
 }

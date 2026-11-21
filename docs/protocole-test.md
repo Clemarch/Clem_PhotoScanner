@@ -6,11 +6,14 @@ Claude complète la partie « Ce test-ci » à chaque mise à jour.
 ## Toujours
 
 1. Fusionner la pull request indiquée par Claude, attendre 3 minutes.
-2. En Wi-Fi, ouvrir l'app et la laisser ouverte 2 à 3 minutes (la mise à jour télécharge les modèles, environ 50 Mo
+2. En Wi-Fi, ouvrir l'app et la laisser ouverte 2 à 3 minutes (la mise à jour télécharge les modèles, environ 170 Mo depuis le réglage 13, une seule fois
    en tout ; une connexion faible peut la faire échouer, l'ancienne version reste alors en place). Puis la fermer
    complètement, la rouvrir deux fois, et vérifier la version écrite en bas de l'écran d'accueil.
 3. Choisir les photos d'une journée et lancer l'analyse.
-4. Onglet **Trier** : pour chaque paquet, ouvrir les photos et les feuilleter (glisser le doigt, ou toucher les
+4. **Tri éclair** (s'ouvre tout seul après l'analyse, sinon carte « ⚡ Tri éclair » en haut de l'onglet Trier) :
+   pour chaque pose, toucher les photos mal jugées, puis « Valider ». Prendre le temps de regarder : une pose validée
+   en moins d'une seconde sans rien changer ne sert pas à l'apprentissage.
+5. Ensuite, si besoin, onglet **Trier** : pour chaque paquet, ouvrir les photos et les feuilleter (glisser le doigt, ou toucher les
    miniatures du paquet en bas de l'écran).
    - Quand l'app se trompe, toucher **Garder** ou **Supprimer** (ces boutons marquent la photo, ils ne suppriment rien).
      Ce qu'on ne touche pas compte comme un accord avec l'app, au moment de l'envoi au raccourci.
@@ -19,11 +22,11 @@ Claude complète la partie « Ce test-ci » à chaque mise à jour.
      l'app d'apprendre.
    - Après un choix, écrire en quelques mots **pourquoi** dans la zone « Pourquoi ? » : le commentaire arrive dans
      le rapport.
-5. Onglet **Supprimer** : toucher le grand bouton rouge (lots de 49 au plus), vérifier l'aperçu du raccourci, confirmer.
-6. Onglet **Réglages** → « Rapport de cette séance » → **Partager**, puis choisir l'app Claude (ou **Copier** et
+6. Onglet **Supprimer** : toucher le grand bouton rouge (lots de 49 au plus), vérifier l'aperçu du raccourci, confirmer.
+7. Onglet **Réglages** → « Rapport de cette séance » → **Partager**, puis choisir l'app Claude (ou **Copier** et
    coller). Les 10 derniers rapports restent sur l'iPhone (Réglages › « Rapports enregistrés ») : on peut les envoyer
    tous d'un coup.
-7. Réglages › « Mes goûts » → **Sauvegarder** quand l'app le propose (bouton jaune).
+8. Réglages › « Mes goûts » → **Sauvegarder** quand l'app le propose (bouton jaune).
 
 ## Ce qu'il faut écrire à Claude avec le rapport
 

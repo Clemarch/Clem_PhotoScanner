@@ -1,9 +1,10 @@
 // Base IndexedDB de l'app, sur l'iPhone seulement.
 // Version 3 : choix de l'utilisateur, rapports de diagnostic, séance en cours (pour la reprendre si iOS ferme l'app).
+// Version 4 (21/11) : journal des poses validées dans le tri éclair.
 
 const DB = 'photo-triage';
-const VERSION = 3;
-export const STORES = { choices: 'choix', reports: 'rapports', session: 'seance' } as const;
+const VERSION = 4;
+export const STORES = { choices: 'choix', reports: 'rapports', session: 'seance', validations: 'validations' } as const;
 
 /** Dernier problème rencontré avec la base (affiché dans le rapport), ou null si tout va bien. */
 export let lastDbError: string | null = null;

@@ -1,7 +1,7 @@
 // Fichier de sauvegarde des goûts : création (compressée si possible) et lecture.
 // L'app ne l'envoie nulle part : la feuille de partage d'iOS laisse l'utilisateur l'enregistrer dans iCloud Drive.
 
-import { decodeBackup, encodeBackup, type ChoiceRecord, type DecodedBackup } from '../../engine';
+import { decodeBackup, encodeBackup, type ChoiceRecord, type DecodedBackup, type PoseValidation } from '../../engine';
 
 const LAST_KEY = 'photo-triage.derniere-sauvegarde';
 
@@ -30,8 +30,8 @@ export function backupName(at: number, count: number): string {
 }
 
 /** Fichier prêt à enregistrer (« ….json.gz », ou « .json » si la compression manque). */
-export async function makeBackupFile(records: readonly ChoiceRecord[], at = Date.now()): Promise<File> {
-  const text = JSON.stringify(encodeBackup(records, at));
+export async function makeBackupFile(records: readonly ChoiceRecord[], validations: readonly PoseValidation[] = [], at = Date.now()): Promise<File> {
+  const text = JSON.stringify(encodeBackup(records, at, validations));
   const packed = await gzip(text);
   const name = backupName(at, records.length);
   return packed

@@ -22,6 +22,8 @@ export interface Session {
   device: DeviceReport;
   /** Message d'erreur si la recherche de visages n'a pas pu démarrer (l'app continue alors sans). */
   faceError: string | null;
+  /** « Nouvel œil » : raison s'il n'a pas pu tourner (absent des séances d'avant le 21/11). */
+  eyeInfo?: string | null;
   /** Séance reprise après une fermeture de l'app par iOS (les photos d'origine ne sont plus accessibles). */
   restored?: boolean;
   /** Séance rouverte depuis la liste des séances (les photos d'origine ne sont plus accessibles). */

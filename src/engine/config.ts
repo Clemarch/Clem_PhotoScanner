@@ -345,6 +345,31 @@ export const config = {
     /** Nombre maximal de mains cherchées par photo. */
     maxHands: 4,
   },
+  /** « Nouvel œil » en coulisse (réglage 13) : classement personnel appris sur les poses validées. */
+  ranker: {
+    /** Poids de l'empreinte CLIP face aux mesures (ses 512 valeurs sont petites une fois normalisées). */
+    clipScale: 3,
+    /** Frein contre l'apprentissage par cœur, pas et nombre de passes de l'apprentissage. */
+    lambda: 0.05,
+    rate: 0.5,
+    iterations: 250,
+    /** Paires minimales des autres séances pour tester une séance. */
+    minTrainPairs: 30,
+    /** Au plus N paires pour apprendre (prises à intervalles réguliers) : le calcul reste rapide sur l'iPhone. */
+    maxTrainPairs: 400,
+  },
+  /** Tri éclair (jalon 6, `docs/jalon-6.md`). */
+  triage: {
+    /** Une pose validée plus vite que ça (ms) ne compte ni pour la justesse ni pour l'apprentissage. */
+    minValidMs: 700,
+    /** Tranches d'écart de note entre la meilleure photo d'une pose et la suivante (mesure du 21/11 : sous 0,03 l'app
+     *  a raison une fois sur deux ; au-dessus de 0,15, 70 à 84 %). */
+    marginBuckets: [0.03, 0.08, 0.15],
+    /** Une pose est « sûre » (sautée) si, dans sa tranche, au moins `sureMinPoses` poses ont été validées et l'app avait
+     *  raison sur `sureMinRate` d'entre elles. */
+    sureMinPoses: 30,
+    sureMinRate: 0.9,
+  },
   /** Goûts appris sur l'image (empreinte) : en test, sans influence sur les décisions (voir `docs/jalon-5.md`). */
   taste: {
     /** Nombre de choix voisins consultés, et ressemblance minimale pour qu'un choix compte comme voisin. */
