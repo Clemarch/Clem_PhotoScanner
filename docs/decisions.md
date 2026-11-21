@@ -689,8 +689,10 @@ Rapport de 38 photos (surf), accord 7/23 :
   photo d'une seule personne à une photo de groupe (personnes détectées), ou l'inverse, ouvre un nouveau paquet, sauf
   scène presque identique (≥ 0,8). En rafale aussi, deux photos sans rapport (ressemblance < 0,4) sont séparées
   (selfie à trois puis portrait 9 s après : 0,21).
-- **Accessoire en main** (« la tasse est un accessoire en main, ça ne gêne pas ici ») : tasse, verre, bouteille ou
-  téléphone posé sur le corps d'un sujet (60 % de sa boîte) n'est plus un objet gênant. À revoir si un objet tenu gêne.
+- **Objet en main : tout dépend de l'intention** (21/11). Tasse levée en train de boire : elle fait partie de
+  l'attitude, pas une gêne. Bouteille d'eau tenue bras baissé, qu'on ne veut pas montrer : elle gêne et baisse un peu
+  la note. Indice retenu : la hauteur de l'objet par rapport au visage. Tasse, verre, bouteille ou téléphone sur le
+  corps d'un sujet et à moins de 2,5 hauteurs de visage sous son visage (bouche, poitrine) : voulu ; plus bas : gênant.
 - Non traité : « mieux cadrée (mieux zoomée) » (photo 11) ; préférence de cadrage serré à apprendre plus tard.
 
 ## Points ouverts pour les jalons suivants (rien n'est codé)

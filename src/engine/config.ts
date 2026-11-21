@@ -122,6 +122,10 @@ export const config = {
     /** Petits objets qu'on tient en main : pas une gêne quand ils sont (à `heldInside` au moins) sur le corps d'un sujet. */
     handheldLabels: ['cup', 'wine glass', 'bottle', 'cell phone'] as string[],
     heldInside: 0.6,
+    /** Objet « levé » (voulu) : son centre au plus à N hauteurs de visage sous le centre du visage (bouche, poitrine),
+     *  et au plus à N largeurs de visage sur le côté. Plus bas, bras baissé : il gêne (utilisateur, 21/11). */
+    heldRaisedFaces: 2.5,
+    heldSideFaces: 2.5,
     /** Un objet gênant est compté s'il touche la zone des personnes, ou s'il occupe au moins cette part de l'image. */
     largeObjectArea: 0.04,
     /** Zone des personnes autour d'un visage : largeur et hauteur en multiples de la taille du visage. */
