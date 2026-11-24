@@ -8,6 +8,16 @@
 // Le raccourci montre ensuite les photos trouvées (aperçu) avant que l'iPhone demande la confirmation.
 
 export const SHORTCUT_NAME = 'Photo Triage';
+/** Copie de « Photo Triage » qui range les photos reçues dans l'album « Triées » au lieu de les supprimer (24/11). */
+export const KEEP_SHORTCUT_NAME = 'Photo Triage Garder';
+/** Raccourci qui remplit l'album « À trier » avec les photos pas encore triées, les plus récentes d'abord. */
+export const PREP_SHORTCUT_NAME = 'Préparer le tri';
+/** Nombre de photos mises dans « À trier » à chaque préparation (une séance confortable). */
+export const PREP_LIMIT = 200;
+/** Album des photos déjà triées et gardées, et album des photos à trier (créés par l'utilisateur dans Photos). */
+export const KEPT_ALBUM = 'Triées';
+export const TODO_ALBUM = 'À trier';
+
 /** iOS bloque la suppression de 50 photos ou plus par un raccourci (réglage de protection) : lots de 49 au plus. */
 export const SHORTCUT_BATCH = 49;
 /** Demi-largeur de la fenêtre de temps autour de la prise de vue, en secondes. */
@@ -32,19 +42,23 @@ export interface ShortcutPhoto {
   at: number | null;
 }
 
-/**
- * Une ligne par photo : « IMG_0696|2026-11-18 22:29:51|2026-11-18 22:29:55 » (nom, début et fin de la fenêtre).
- * Une photo sans heure de prise de vue n'est pas envoyée : on ne pourrait pas la désigner sans ambiguïté.
- */
-export function shortcutText(photos: readonly ShortcutPhoto[]): string {
+const lines = (photos: readonly ShortcutPhoto[]): string[] => {
   const w = SHORTCUT_WINDOW_SECONDS * 1000;
   return photos
     .filter((p) => p.at !== null)
     .map((p) => {
       const second = Math.floor(p.at! / 1000) * 1000;
       return `${photoName(p.fileName)}|${shortcutDate(second - w)}|${shortcutDate(second + w)}`;
-    })
-    .join('\n');
+    });
+};
+
+/**
+ * Une ligne par photo : « IMG_0696|2026-11-18 22:29:51|2026-11-18 22:29:55 » (nom, début et fin de la fenêtre).
+ * Une photo sans heure de prise de vue n'est pas envoyée : on ne pourrait pas la désigner sans ambiguïté.
+ * Même format pour « Photo Triage Garder » (photos gardées, rangées dans l'album « Triées »).
+ */
+export function shortcutText(photos: readonly ShortcutPhoto[]): string {
+  return lines(photos).join('\n');
 }
 
 /** Nombre de photos réellement envoyées (avec une heure connue). */
@@ -53,10 +67,42 @@ export function shortcutCount(photos: readonly ShortcutPhoto[]): number {
 }
 
 /** Lien qui ouvre le raccourci. Ce n'est pas un appel réseau : iOS ouvre l'app Raccourcis. */
-export function shortcutUrl(photos: readonly ShortcutPhoto[]): string {
-  return `shortcuts://run-shortcut?name=${encodeURIComponent(SHORTCUT_NAME)}&input=text&text=${encodeURIComponent(shortcutText(photos))}`;
+export function shortcutUrl(photos: readonly ShortcutPhoto[], name: string = SHORTCUT_NAME): string {
+  return `shortcuts://run-shortcut?name=${encodeURIComponent(name)}&input=text&text=${encodeURIComponent(shortcutText(photos))}`;
 }
 
 export function runShortcut(photos: readonly ShortcutPhoto[]): void {
   window.location.href = shortcutUrl(photos);
+}
+
+/** Range des photos gardées dans l'album « Triées » (raccourci « Photo Triage Garder »). Rien n'est supprimé. */
+export function runKeepShortcut(photos: readonly ShortcutPhoto[]): void {
+  window.location.href = shortcutUrl(photos, KEEP_SHORTCUT_NAME);
+}
+
+/** Ouvre « Préparer le tri » (pas un appel réseau : iOS ouvre l'app Raccourcis). */
+export const prepShortcutUrl = (): string => `shortcuts://run-shortcut?name=${encodeURIComponent(PREP_SHORTCUT_NAME)}`;
+export function runPrepShortcut(): void {
+  window.location.href = prepShortcutUrl();
+}
+
+/** Photos gardées envoyées par lots (adresse de taille raisonnable). */
+export const KEPT_BATCH = 150;
+
+const ALBUMS_KEY = 'photo-triage.albums';
+/** L'utilisateur a créé les raccourcis des albums : l'app propose de ranger les photos gardées et de préparer le tri. */
+export function albumsEnabled(): boolean {
+  try {
+    return localStorage.getItem(ALBUMS_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+export function setAlbumsEnabled(on: boolean): void {
+  try {
+    if (on) localStorage.setItem(ALBUMS_KEY, '1');
+    else localStorage.removeItem(ALBUMS_KEY);
+  } catch {
+    // Mémoire seulement.
+  }
 }

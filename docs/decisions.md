@@ -810,6 +810,28 @@ fonctionnait sur ordinateur).
   l'analyse, et le zoom retrouve la photo d'origine. Les choix ne bougent pas.
 - Analyse interrompue : l'effacement final attend les derniers enregistrements (il en restait parfois un).
 
+### 48. Albums « Triées » et « À trier » (24/11)
+
+Demande de l'utilisateur : savoir quelles photos de la photothèque sont déjà traitées, et pouvoir tout sélectionner
+sans réfléchir (« un album automatique qui dit toutes les photos par défaut, sauf celles déjà traitées »), les plus
+récentes d'abord. Puis : « Elle est pas trop complexe ton automatisation ? » → version la plus simple ci-dessous.
+
+- iOS n'a pas d'album intelligent sur iPhone et une app web ne peut pas écrire dans Photos : tout passe par
+  l'app Raccourcis. Vérifié par l'utilisateur : la recherche sait « Album n'est pas … », « Supprimer de l'album
+  photo » existe, et il n'y a pas d'« Ajouter à l'album » : « Créer un album photo » ajoute les photos à l'album
+  s'il porte déjà ce nom. Jamais « Enregistrer dans l'album photo », qui copierait les photos.
+- « Photo Triage » ne change pas. « Photo Triage Garder » en est une copie (Dupliquer) dont le dernier bloc
+  « Supprimer A supprimer » est remplacé par « Créer un album photo Triées contenant A supprimer » : 5 gestes, même
+  format de lignes. Onglet Supprimer : « Ranger dans Triées » (lots de 150), à part de la suppression.
+- « Préparer le tri » : vide « À trier » (Si Photos a une valeur → Supprimer de l'album photo), puis y met les 200
+  images hors « Triées » les plus récentes (tri par date, limite). Plus simple que des tranches de 2 semaines en
+  boucle, et même esprit : les plus récentes d'abord, puis les plus anciennes, en lots de taille d'une séance.
+  Lancement par un bouton de l'accueil (iOS interdit d'ouvrir le sélecteur de photos sans toucher un bouton, et
+  l'ouvrir à chaque lancement de l'app renverrait dans Raccourcis à chaque retour).
+- Interrupteur « Mes raccourcis sont prêts » (Réglages) ; bouton pour ranger les photos gardées des séances
+  terminées (sauf celles supprimées).
+- Non fait (reconnaître dans l'app une photo déjà triée) : l'album suffit à l'éviter ; à revoir si besoin.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

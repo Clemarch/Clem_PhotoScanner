@@ -6,6 +6,7 @@ import { agreementLine, buildReport, copyText, shareText, summarize } from '../r
 import { RapportsEnregistres } from '../RapportsEnregistres';
 import { SauvegardeGouts } from '../SauvegardeGouts';
 import { GuideRaccourci } from '../GuideRaccourci';
+import { GuideAlbums } from '../GuideAlbums';
 import type { SavedReport } from '../../platform/storage/reports';
 import { formatDateTime, formatMs, formatOrientation, formatSize } from '../format';
 import { IconFermer, IconPartager } from '../icons';
@@ -77,6 +78,11 @@ export function Reglages({ session, day, records, learned, reports, onRestore, o
       <h2 className="titre-groupe">Raccourci de suppression</h2>
       <section className="groupe">
         <GuideRaccourci />
+      </section>
+
+      <h2 className="titre-groupe">Albums « Triées » et « À trier »</h2>
+      <section className="groupe">
+        <GuideAlbums records={records} />
       </section>
 
       {session && day && <RapportEtDiagnostic session={session} day={day} records={records} learned={learned} validations={validations} shadow={shadow} />}
