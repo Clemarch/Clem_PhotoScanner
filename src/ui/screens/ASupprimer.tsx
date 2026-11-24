@@ -5,7 +5,7 @@ import { finalKeep, stateLook, type Choice, type Choices } from '../choices';
 import { dayEntries } from '../entries';
 import { formatDate, formatTime, plural } from '../format';
 import { Visionneuse } from './Visionneuse';
-import { runShortcut, shortcutCount, shortcutText, SHORTCUT_BATCH, SHORTCUT_NAME } from '../../platform/shortcut';
+import { albumsEnabled, KEPT_ALBUM, runShortcut, shortcutCount, shortcutText, SHORTCUT_BATCH, SHORTCUT_NAME } from '../../platform/shortcut';
 import { GuideRaccourci } from '../GuideRaccourci';
 import { IconCoche, IconCorbeille, IconCroix } from '../icons';
 import { useScrolled } from '../useScrolled';
@@ -45,6 +45,24 @@ function saveDone(done: Set<string>): void {
   }
 }
 
+// Séance dont les photos gardées sont déjà parties vers l'album « Triées » (survit au changement d'onglet).
+const KEPT_KEY = 'photo-triage.triees-envoyees';
+function keptSentFor(): string | null {
+  try {
+    return localStorage.getItem(KEPT_KEY);
+  } catch {
+    return null;
+  }
+}
+function saveKeptSent(sessionId: string | null): void {
+  try {
+    if (sessionId) localStorage.setItem(KEPT_KEY, sessionId);
+    else localStorage.removeItem(KEPT_KEY);
+  } catch {
+    // Mémoire seulement.
+  }
+}
+
 const asPhoto = (item: MediaItem) => ({ fileName: item.fileName, at: item.instant ?? item.capturedAt });
 /** Le raccourci retrouve la photo (nom et heure connus) ? */
 const findable = (item: MediaItem) => shortcutCount([asPhoto(item)]) === 1;
@@ -57,6 +75,13 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
   const [sent, setSent] = useState<Set<string>>(new Set());
   const scrolled = useScrolled();
   useEffect(() => saveDone(done), [done]);
+  // Albums (24/11) : les photos gardées partent avec le premier lot, pour l'album « Triées ».
+  const markKept = albumsEnabled();
+  const [keptSent, setKeptSentState] = useState(() => keptSentFor() === session.id);
+  const setKeptSent = (on: boolean) => {
+    setKeptSentState(on);
+    saveKeptSent(on ? session.id : null);
+  };
 
   const entries = useMemo(() => dayEntries(day), [day]);
   const positionOf = useMemo(() => new Map(entries.map((e, i) => [e.item.id, i])), [entries]);
@@ -78,6 +103,12 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
   const batchItems = pendingItems.slice(0, SHORTCUT_BATCH);
   const pendingPhotos = batchItems.map(asPhoto);
   const sendable = shortcutCount(pendingPhotos);
+  // Photos gardées de la séance (tout sauf ce qui part à la suppression ; photos illisibles exclues : elles reviendront).
+  const removeIds = new Set(packs.flatMap((p) => p.remove.map((it) => it.id)));
+  const keptPhotos = markKept
+    ? session.results.filter((r) => !r.diagnostic.error && !removeIds.has(r.item.id) && findable(r.item)).map((r) => asPhoto(r.item))
+    : [];
+  const keptNow = keptSent ? [] : keptPhotos;
   const batchDone = Math.ceil(sent.size / SHORTCUT_BATCH);
   const batches = batchDone + Math.ceil(pendingItems.length / SHORTCUT_BATCH);
 
@@ -91,7 +122,8 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
   };
 
   const send = () => {
-    runShortcut(pendingPhotos);
+    runShortcut(pendingPhotos, keptNow);
+    if (keptNow.length > 0) setKeptSent(true);
     const nowSent = new Set([...sent, ...batchItems.map((it) => it.id)]);
     setSent(nowSent);
     // Un paquet est « fait » quand toutes ses photos à supprimer sont parties. S'il en reste à supprimer à la main
@@ -139,6 +171,20 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
           </span>
           <h2>Rien à supprimer</h2>
           <p className="doux">Toutes les photos de la séance sont gardées.</p>
+          {keptPhotos.length > 0 &&
+            (keptSent ? (
+              <p className="note">Envoyées au raccourci pour l’album « {KEPT_ALBUM} ».</p>
+            ) : (
+              <button
+                className="bouton principal"
+                onClick={() => {
+                  runShortcut([], keptPhotos);
+                  setKeptSent(true);
+                }}
+              >
+                Ranger les {plural(keptPhotos.length, 'photo')} dans « {KEPT_ALBUM} »
+              </button>
+            ))}
         </section>
       ) : allSent ? (
         <section className="carte heros">
@@ -156,6 +202,7 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
             className="lien"
             onClick={() => {
               setSent(new Set());
+              setKeptSent(false);
               reopen(todo.map((p) => p.pack.key));
             }}
           >
@@ -192,10 +239,12 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
             Le raccourci montre d’abord les photos trouvées : vérifiez qu’il y en a <strong>{sendable}</strong>, touchez
             « Terminé », puis confirmez.
             {batches > 1 && ' L’iPhone n’en accepte que 49 à la fois : revenez ici après chaque lot.'}
+            {keptNow.length > 0 &&
+              ` Il range aussi les ${plural(keptNow.length, 'photo')} gardée${keptNow.length > 1 ? 's' : ''} dans l’album « ${KEPT_ALBUM} » (comptez une minute de plus).`}
           </p>
           <details className="note">
             <summary>Liste envoyée (pour vérifier)</summary>
-            <pre className="liste-envoyee">{shortcutText(pendingPhotos)}</pre>
+            <pre className="liste-envoyee">{shortcutText(pendingPhotos, keptNow)}</pre>
           </details>
         </section>
       )}

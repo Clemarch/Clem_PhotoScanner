@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { SHORTCUT_NAME } from '../platform/shortcut';
+import { KEPT_ALBUM, SHORTCUT_NAME } from '../platform/shortcut';
 import { IconChevron } from './icons';
 
 /**
  * Marche à suivre, une seule fois, pour créer le raccourci qui supprime les photos (app Raccourcis d'Apple).
  * Version validée sur l'iPhone de l'utilisateur le 19/11 : une ligne reçue par photo (« nom|début|fin »), une seule
  * recherche par photo (nom + date de création dans la fenêtre), aperçu, puis confirmation d'iOS.
+ * 24/11 : les lignes terminées par « |G » (photos gardées) vont dans l'album « Triées » au lieu d'être supprimées.
  */
 export function GuideRaccourci({ open = false }: { open?: boolean }) {
   const [shown, setShown] = useState(open);
@@ -45,7 +46,7 @@ export function GuideRaccourci({ open = false }: { open?: boolean }) {
               <strong>Début</strong>.
             </li>
             <li>
-              <strong>Obtenir l’élément de la liste</strong> : <strong>Dernier élément</strong>. Puis{' '}
+              <strong>Obtenir l’élément de la liste</strong> : <strong>Élément à l’index 3</strong>. Puis{' '}
               <strong>Obtenir les dates de</strong> l’entrée. Puis <strong>Définir la variable</strong>{' '}
               <strong>Fin</strong>.
             </li>
@@ -57,15 +58,21 @@ export function GuideRaccourci({ open = false }: { open?: boolean }) {
               <strong>Nom est</strong> Nom photo. Pas de limite.
             </li>
             <li>
-              <strong>Ajouter à la variable</strong> : « Ajouter <strong>Photos</strong> à <strong>A supprimer</strong> ».
+              <strong>Si</strong> : « Si <strong>Élément de répétition</strong> <strong>se termine par</strong>{' '}
+              <strong>|G</strong> ». Dans le premier bloc : <strong>Ajouter à l’album</strong> « Ajouter{' '}
+              <strong>Photos</strong> à <strong>{KEPT_ALBUM}</strong> » (touchez le mot bleu de l’entrée et choisissez
+              « Photos », le résultat de la recherche). Après <strong>Sinon</strong> : <strong>Ajouter à la variable</strong>{' '}
+              « Ajouter <strong>Photos</strong> à <strong>A supprimer</strong> ».
             </li>
             <li>
-              Sous « Fin de la répétition » : <strong>Afficher le résultat</strong> (A supprimer), l’aperçu, puis{' '}
+              Sous « Fin de la répétition » : <strong>Si</strong> « <strong>A supprimer</strong>{' '}
+              <strong>a une valeur</strong> », et dedans : <strong>Afficher le résultat</strong> (A supprimer), puis{' '}
               <strong>Supprimer les photos</strong> (A supprimer). Touchez <strong>OK</strong>.
             </li>
           </ol>
           <p className="note">
-            Pièges connus : une action qui affiche « Filtrer Entrée de raccourci » ou « Filtrer Élément de répétition »
+            L’album « {KEPT_ALBUM} » doit exister dans Photos avant l’étape 9 (Photos › Albums › + › Nouvel album). Pièges
+            connus : une action qui affiche « Filtrer Entrée de raccourci » ou « Filtrer Élément de répétition »
             au lieu de « Rechercher Photos » (touchez le mot bleu, puis Effacer) ; un bloc placé sous la recherche alors
             qu’elle en a besoin (l’ordre compte, de haut en bas).
           </p>

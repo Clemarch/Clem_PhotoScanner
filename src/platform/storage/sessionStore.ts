@@ -12,6 +12,7 @@
 // Pourquoi des octets et pas des « Blob » (24/11) : sur l'iPhone, un Blob relu dans IndexedDB après une fermeture de
 // l'app devient souvent illisible (images vides « ? » à la reprise). Des octets bruts se relisent toujours.
 
+import type { MediaItem } from '../../engine';
 import type { AnalyzeResult } from '../image/types';
 import { openDb, runStore, STORES } from './db';
 
@@ -347,6 +348,16 @@ export async function storeSessionImages(sessionId: string, results: readonly Om
 async function convertOld(sessionId: string, results: readonly Omit<AnalyzeResult, 'frame'>[]): Promise<void> {
   // Au pire, la conversion sera refaite à la prochaine ouverture.
   await storeSessionImages(sessionId, results);
+}
+
+/** Photos d'une séance gardée, sans leurs images (pour marquer les photos déjà triées). */
+export async function loadSessionItems(sessionId: string): Promise<MediaItem[]> {
+  try {
+    const record = await get<FullRecord>(full(sessionId));
+    return Array.isArray(record?.results) ? record.results.map((r) => r.item) : [];
+  } catch {
+    return [];
+  }
 }
 
 /** Toutes les séances gardées, la plus récente d'abord. */

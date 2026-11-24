@@ -461,3 +461,6 @@ dd { margin: 0; text-align: right; overflow-wrap: anywhere; font-variant-numeric
 .carte-eclair h3 { font-size: 20px; }
 .carte-eclair .doux { font-size: 15px; }
 .icone-ronde.vert-fond { background: var(--ok); font-weight: 800; font-size: 15px; }
+
+/* Albums « Triées » / « À trier » (24/11). */
+.albums-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
