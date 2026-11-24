@@ -191,3 +191,13 @@ describe('nouvel œil en coulisse (réglage 13)', () => {
     expect(back.emo).toEqual(r.emo);
   });
 });
+
+describe('disposition selon le format des photos (24/11)', () => {
+  it('paysage ou portrait, en tenant compte de la rotation de la photo', async () => {
+    const { isLandscape } = await import('../../src/ui/format');
+    expect(isLandscape({ width: 4032, height: 3024, orientation: 1 })).toBe(true);
+    expect(isLandscape({ width: 4032, height: 3024, orientation: 6 })).toBe(false); // tournée : portrait
+    expect(isLandscape({ width: 3024, height: 4032, orientation: 1 })).toBe(false);
+    expect(isLandscape({ width: null, height: null, orientation: null })).toBe(false);
+  });
+});

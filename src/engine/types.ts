@@ -137,6 +137,8 @@ export interface MediaItem {
   height: number | null;
   /** Orientation EXIF (1 à 8), si connue. */
   orientation: number | null;
+  /** Format à l'écran, d'après l'image décodée (déjà tournée) : vrai si paysage. Absent des séances d'avant le 24/11. */
+  landscape?: boolean;
   /** Focale de l'objectif en « équivalent 35 mm » (23 pour la caméra selfie, 24 pour la principale…), si connue. */
   focal35: number | null;
   /** Netteté globale (plus grand = plus net). Ne se compare qu'entre photos d'un même paquet. */

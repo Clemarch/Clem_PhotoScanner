@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { config, type PoseTask } from '../../engine';
-import { plural } from '../format';
+import { isLandscape, plural } from '../format';
 import { IconCoche, IconCroix, IconEtoile, IconFermer, IconFleche } from '../icons';
 
 export interface EclairResult {
@@ -134,13 +134,14 @@ export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, o
       </div>
 
       <div className={`eclair-grille n${Math.min(task.items.length, 5)}`}>
+        {/* Paysage : toute la largeur (les photos s'empilent) ; portrait : deux par ligne (24/11). */}
         {task.items.map((it) => {
           const keep = kept.has(it.id);
           const src = url(it.id);
           return (
             <button
               key={it.id}
-              className={`eclair-photo ${keep ? 'garde' : 'jete'}`}
+              className={`eclair-photo ${keep ? 'garde' : 'jete'} ${isLandscape(it) || task.items.length === 1 ? 'paysage' : 'portrait'}`}
               onClick={() => toggle(it.id)}
               aria-label={`Photo n° ${numberOf(it.id) ?? ''} : ${keep ? 'gardée' : 'supprimée'}. Toucher pour changer.`}
             >

@@ -22,6 +22,9 @@ interface Props {
   onUnconfirm: (packs: PackAnalysis[]) => void;
   /** Tous les paquets sont traités : la séance se termine (utilisateur, 20/11). */
   onFinished: () => void;
+  /** Poses pas encore vérifiées dans le tri éclair (leurs photos suivent le choix de l'app), et comment les vérifier. */
+  unverified: number;
+  onVerify: () => void;
 }
 
 const DONE_KEY = 'photo-triage.faits';
@@ -47,7 +50,7 @@ const asPhoto = (item: MediaItem) => ({ fileName: item.fileName, at: item.instan
 const findable = (item: MediaItem) => shortcutCount([asPhoto(item)]) === 1;
 
 /** Écran « Supprimer » : envoie la liste au raccourci « Photo Triage », par lots de 49 au plus. */
-export function ASupprimer({ session, day, choices, onChoose, onComment, onConfirm, onUnconfirm, onFinished }: Props) {
+export function ASupprimer({ session, day, choices, onChoose, onComment, onConfirm, onUnconfirm, onFinished, unverified, onVerify }: Props) {
   const [done, setDone] = useState<Set<string>>(() => loadDone());
   const [viewing, setViewing] = useState<number | null>(null);
   // Photos déjà envoyées au raccourci pendant cette visite (lots de 49 au plus).
@@ -113,6 +116,21 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
         <h1>Supprimer</h1>
         <p className="sous-titre">Dans l’app Photos, par votre raccourci « {SHORTCUT_NAME} ».</p>
       </header>
+
+      {unverified > 0 && pendingAll.length > 0 && (
+        <section className="alerte alerte-bloc">
+          <p>
+            <strong>
+              {unverified} pose{unverified > 1 ? 's' : ''} pas encore vérifiée{unverified > 1 ? 's' : ''}
+            </strong>{' '}
+            : leurs photos à supprimer suivent le choix de l’app, sans que vous l’ayez validé. Vérifiez-les d’abord (tri
+            éclair), ou supprimez quand même si le choix de l’app vous va.
+          </p>
+          <button className="bouton principal" onClick={onVerify}>
+            Les vérifier maintenant
+          </button>
+        </section>
+      )}
 
       {totalRemove === 0 ? (
         <section className="carte heros">

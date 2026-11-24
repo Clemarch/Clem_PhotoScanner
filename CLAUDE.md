@@ -49,7 +49,8 @@ propre à ce test.
 - Enchaînement d'une journée : `src/engine/pipeline.ts` (paquets → notes → poses → sélection). Paquets toujours
   selon le contenu (`config.grouping.byContent`) ; le temps seulement sans empreinte. Personne seule ≠ groupe.
 - Séances : toutes gardées sur l'iPhone (`src/platform/storage/sessionStore.ts`), terminées une fois tout envoyé à la
-  suppression, rouvrables depuis Réglages › Séances (point 40).
+  suppression, rouvrables depuis Réglages › Séances (point 40). Images gardées en octets, jamais en Blob (iOS ne
+  relit plus un Blob après redémarrage, point 47).
 - Interface : `src/ui/style.css` (style d'Apple, mode sombre), icônes dans `src/ui/icons.tsx`, version affichée dans
   `src/ui/version.ts`. Photos non touchées enregistrées comme accords (`ChoiceRecord.implicit`) à l'envoi au raccourci.
 - Tri éclair : file `src/engine/triage/queue.ts`, justesse et confiance `src/engine/triage/calibration.ts`, journal

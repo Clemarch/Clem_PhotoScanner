@@ -41,3 +41,13 @@ export const formatOrientation = (value: number | null): string =>
 
 export const plural = (n: number, singular: string, pluralForm = `${singular}s`): string =>
   `${n} ${n > 1 ? pluralForm : singular}`;
+
+/** Photo au format paysage (plus large que haute, une fois tournée comme à l'écran) ? Inconnu : portrait. */
+export function isLandscape(item: { width: number | null; height: number | null; orientation: number | null; landscape?: boolean }): boolean {
+  if (typeof item.landscape === 'boolean') return item.landscape; // mesuré sur l'image décodée : le plus sûr
+  if (!item.width || !item.height) return false;
+  const turned = (item.orientation ?? 1) >= 5; // orientations 5 à 8 : photo tournée d'un quart de tour
+  const w = turned ? item.height : item.width;
+  const h = turned ? item.width : item.height;
+  return w > h * 1.05;
+}

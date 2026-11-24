@@ -48,6 +48,7 @@ import {
   saveSession,
   saveSessionSettings,
   setSessionClosed,
+  storeSessionImages,
   updateSessionMeasures,
   clearPartialResults,
   fileSignature,
@@ -203,6 +204,7 @@ export function App() {
     setGap(saved.settings?.gap ?? config.grouping.packGapSeconds);
     setJoined(new Set(saved.settings?.joined ?? []));
     setClosed(false);
+    setRecovering(null);
     return {
       id: saved.sessionId,
       results: saved.results.map((r) => ({ ...r, frame: null })),
@@ -253,6 +255,62 @@ export function App() {
   const removeSaved = async (sessionId: string) => {
     await deleteSession(sessionId);
     refreshSeances();
+  };
+
+  /**
+   * Images d'une séance reprise devenues illisibles : l'utilisateur re-choisit les mêmes photos, reconnues par leur nom
+   * et leur taille. Seules les images sont refaites (pas l'analyse) ; les choix ne bougent pas. Les photos d'origine
+   * redeviennent aussi accessibles pour le zoom.
+   */
+  const [recovering, setRecovering] = useState<{ done: number; total: number; found?: number } | null>(null);
+  const recoverImages = async (files: File[]) => {
+    const current = session;
+    if (!current || recovering) return;
+    const bySignature = new Map(current.results.map((r) => [`${r.item.fileName}|${r.item.sizeBytes}`, r]));
+    // Secours : même nom seulement, s'il est unique dans la séance (l'iPhone peut convertir la photo autrement).
+    const names = new Map<string, AnalyzeResult | null>();
+    for (const r of current.results) names.set(r.item.fileName, names.has(r.item.fileName) ? null : r);
+    const matches = files
+      .map((file) => ({ file, result: bySignature.get(fileSignature(file)) ?? names.get(file.name) ?? undefined }))
+      .filter((m) => m.result);
+    setRecovering({ done: 0, total: matches.length });
+    const thumbnails = new Map(current.thumbnails);
+    const previews = new Map(current.previews);
+    const originals = new Map(current.originals);
+    const fresh = new Map<string, { thumbnail: Blob | null; preview: Blob | null }>();
+    const analyzer = createAnalyzer();
+    try {
+      for (let i = 0; i < matches.length; i++) {
+        const { file, result } = matches[i]!;
+        const id = result!.item.id;
+        originals.set(id, file);
+        if (!thumbnails.has(id) || !previews.has(id)) {
+          try {
+            const redone = await analyzer.analyze(id, file);
+            redone.frame?.bitmap.close();
+            if (redone.thumbnail) {
+              fresh.set(id, { thumbnail: redone.thumbnail, preview: redone.preview });
+              const oldThumb = thumbnails.get(id);
+              const oldPreview = previews.get(id);
+              if (oldThumb) URL.revokeObjectURL(oldThumb);
+              if (oldPreview) URL.revokeObjectURL(oldPreview);
+              thumbnails.set(id, URL.createObjectURL(redone.thumbnail));
+              if (redone.preview) previews.set(id, URL.createObjectURL(redone.preview));
+            }
+          } catch {
+            // Photo illisible : elle reste sans image.
+          }
+        }
+        setRecovering({ done: i + 1, total: matches.length });
+      }
+    } finally {
+      analyzer.dispose();
+    }
+    const results = current.results.map((r) => (fresh.has(r.item.id) ? { ...r, ...fresh.get(r.item.id)! } : r));
+    setSession((s) => (s && s.id === current.id ? { ...s, results, thumbnails, previews, originals } : s));
+    setRecovering({ done: matches.length, total: matches.length, found: fresh.size });
+    // Gardées au format relisible : la prochaine reprise les montrera.
+    if (fresh.size > 0) void storeSessionImages(current.id, results);
   };
 
   // Une mise à jour arrivée en retard ne recharge jamais l'app pendant un travail (analyse, séance ouverte).
@@ -445,6 +503,8 @@ export function App() {
 
     // Analyse interrompue (iOS a fermé l'app) : les photos déjà analysées sont reprises telles quelles.
     const partial = await loadPartialResults(APP_VERSION);
+    // Enregistrements en cours : attendus avant l'effacement final, sinon un retardataire resterait sur l'iPhone.
+    const partialSaves: Promise<void>[] = [];
     let reused = 0;
     // Tous les modèles ont démarré : sinon les photos analysées sans eux ne sont pas gardées pour une reprise.
     const allModels = Boolean(detector && objectDetector && segmenter && embedder && classifier && gestures);
@@ -533,7 +593,7 @@ export function App() {
       results.push(result);
       // Gardée tout de suite : si iOS ferme l'app plus loin, elle ne sera pas refaite. Une photo en échec ou mesurée sans
       // tous les modèles (souvent faute de mémoire, juste avant la fermeture) n'est pas gardée : elle sera retentée.
-      if (!result.diagnostic.error && !incomplete && allModels) void savePartialResult(signature, result, APP_VERSION);
+      if (!result.diagnostic.error && !incomplete && allModels) partialSaves.push(savePartialResult(signature, result, APP_VERSION));
       // Le fichier d'origine reste sur l'iPhone ; on garde seulement sa référence, pour le zoom en pleine définition.
       originals.set(result.item.id, file);
       if (result.thumbnail) thumbnails.set(result.item.id, URL.createObjectURL(result.thumbnail));
@@ -553,7 +613,7 @@ export function App() {
     wake.release();
     clearProgress();
     // Analyse finie (ou arrêtée par l'utilisateur) : plus rien à reprendre.
-    void clearPartialResults();
+    void Promise.all(partialSaves).then(clearPartialResults);
     // Modèles de l'analyse fermés : le téléchargement des modèles du nouvel œil peut reprendre.
     analysing.current = false;
     if (resumeModels.current) {
@@ -792,9 +852,11 @@ export function App() {
           onGoDelete={() => goTab('supprimer')}
           eclair={{ pending: pending.length, sure: sureLeft.length, total: queue.length }}
           onEclair={openEclair}
+          recovering={recovering}
+          onRecoverImages={(files) => void recoverImages(files)}
         />
       ) : tab === 'supprimer' ? (
-        <ASupprimer session={session} day={day} choices={choices} onChoose={choose} onComment={comment} onConfirm={confirmPacks} onUnconfirm={unconfirmPacks} onFinished={finish} />
+        <ASupprimer session={session} day={day} choices={choices} onChoose={choose} onComment={comment} onConfirm={confirmPacks} onUnconfirm={unconfirmPacks} onFinished={finish} unverified={pending.length} onVerify={() => openEclair('suite')} />
       ) : (
         settings()
       )}

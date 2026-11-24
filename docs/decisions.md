@@ -785,6 +785,31 @@ désormais en arrière-plan pendant le tri (point 43) : la vitesse ne gêne plus
 - Rappel : le passage de la mise à jour de 170 à 68 Mo (point 44) n'a enlevé aucun modèle ; ceux du nouvel œil
   (111 Mo) sont téléchargés à l'ouverture avec une progression. Total sur l'iPhone : environ 180 Mo.
 
+### 46. Disposition selon le format des photos (24/11)
+
+- Format mesuré sur l'image décodée, déjà tournée (`MediaItem.landscape`, paysage si plus large de 5 %) ; séances
+  plus anciennes : déduit des dimensions EXIF et de l'orientation (`isLandscape`, `src/ui/format.ts`).
+- Tri éclair : une photo en paysage prend toute la largeur (deux paysages s'empilent), une en portrait la moitié.
+- Comparer : deux paysages l'un au-dessus de l'autre ; on parle alors de « haut » et « bas ».
+- Supprimer : un encadré signale les poses pas encore vérifiées dans le tri éclair, tant qu'il reste des photos à
+  envoyer, avec un bouton pour les vérifier.
+
+### 47. Images vides à la reprise d'une séance (24/11)
+
+Constat de l'utilisateur : après une fermeture de l'app par iOS (app laissée longtemps en arrière-plan, ou fermée), la
+séance revenait avec ses choix mais toutes les images en « ? ». Cause : vignettes et aperçus étaient gardés dans
+IndexedDB sous forme de « Blob », qu'iOS ne sait souvent plus relire après un redémarrage de l'app (le même code
+fonctionnait sur ordinateur).
+
+- Les images sont désormais gardées en octets bruts, une entrée par photo (`m:<séance>:<photo>`), relues une à une
+  (`src/platform/storage/sessionStore.ts`). Même chose pour les photos d'une analyse interrompue (`p:…`).
+- Anciennes séances : chaque Blob est relu ; ceux encore lisibles sont convertis au nouveau format. Un lot
+  entièrement illisible arrête la lecture (la reprise n'attend pas), délai de 3 s par image.
+- Images perdues : un encadré « Retrouver les images » sur l'onglet Trier. L'utilisateur re-choisit les mêmes
+  photos, reconnues par nom et taille (ou nom seul s'il est unique) ; seules les images sont refaites, pas
+  l'analyse, et le zoom retrouve la photo d'origine. Les choix ne bougent pas.
+- Analyse interrompue : l'effacement final attend les derniers enregistrements (il en restait parfois un).
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.
