@@ -13,7 +13,7 @@ export const KEEP_SHORTCUT_NAME = 'Photo Triage Garder';
 /** Raccourci qui remplit l'album « À trier » avec les photos pas encore triées, les plus récentes d'abord. */
 export const PREP_SHORTCUT_NAME = 'Préparer le tri';
 /** Nombre de photos mises dans « À trier » à chaque préparation (une séance confortable). */
-export const PREP_LIMIT = 150;
+export const PREP_LIMIT = 200;
 /** Album des photos déjà triées et gardées, et album des photos à trier (créés par l'utilisateur dans Photos). */
 export const KEPT_ALBUM = 'Triées';
 export const TODO_ALBUM = 'À trier';

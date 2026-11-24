@@ -21,7 +21,7 @@ import { IconChevron } from './icons';
  * Albums « Triées » et « À trier » (utilisateur, 24/11), version la plus simple :
  * - « Photo Triage Garder » : copie de « Photo Triage » dont la dernière action range dans « Triées » au lieu de
  *   supprimer (le raccourci de suppression ne change pas) ;
- * - « Préparer le tri » : vide « À trier », puis y met les 150 photos non triées les plus récentes.
+ * - « Préparer le tri » : vide « À trier », puis y met les 200 photos non triées les plus récentes.
  * Voir `docs/decisions.md`, point 48.
  */
 export function GuideAlbums({ records }: { records: ChoiceRecord[] }) {
@@ -129,6 +129,10 @@ export function GuideAlbums({ records }: { records: ChoiceRecord[] }) {
               <strong>Photos</strong> (celles de la dernière recherche). Touchez <strong>OK</strong>.
             </li>
           </ol>
+          <p className="note">
+            Piège fréquent : si le bloc de l’étape 5 affiche « <strong>Filtrer</strong> Résultat de la condition » au lieu
+            de « Rechercher Photos », touchez « Résultat de la condition », puis <strong>Effacer</strong>.
+          </p>
           <p className="note">
             Résultat : Rechercher (Album est {TODO_ALBUM}) · Si → Supprimer de l’album · Fin si · Rechercher (pas dans «{' '}
             {KEPT_ALBUM} », {PREP_LIMIT} plus récentes) · Créer un album photo « {TODO_ALBUM} ». Une photo qui revient sans
