@@ -794,7 +794,7 @@ export function App() {
           onEclair={openEclair}
         />
       ) : tab === 'supprimer' ? (
-        <ASupprimer session={session} day={day} choices={choices} onChoose={choose} onComment={comment} onConfirm={confirmPacks} onUnconfirm={unconfirmPacks} onFinished={finish} />
+        <ASupprimer session={session} day={day} choices={choices} onChoose={choose} onComment={comment} onConfirm={confirmPacks} onUnconfirm={unconfirmPacks} onFinished={finish} unverified={pending.length} onVerify={() => openEclair('suite')} />
       ) : (
         settings()
       )}

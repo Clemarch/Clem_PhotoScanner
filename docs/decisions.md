@@ -785,6 +785,15 @@ désormais en arrière-plan pendant le tri (point 43) : la vitesse ne gêne plus
 - Rappel : le passage de la mise à jour de 170 à 68 Mo (point 44) n'a enlevé aucun modèle ; ceux du nouvel œil
   (111 Mo) sont téléchargés à l'ouverture avec une progression. Total sur l'iPhone : environ 180 Mo.
 
+### 46. Disposition selon le format des photos (24/11)
+
+- Format mesuré sur l'image décodée, déjà tournée (`MediaItem.landscape`, paysage si plus large de 5 %) ; séances
+  plus anciennes : déduit des dimensions EXIF et de l'orientation (`isLandscape`, `src/ui/format.ts`).
+- Tri éclair : une photo en paysage prend toute la largeur (deux paysages s'empilent), une en portrait la moitié.
+- Comparer : deux paysages l'un au-dessus de l'autre ; on parle alors de « haut » et « bas ».
+- Supprimer : un encadré signale les poses pas encore vérifiées dans le tri éclair, tant qu'il reste des photos à
+  envoyer, avec un bouton pour les vérifier.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

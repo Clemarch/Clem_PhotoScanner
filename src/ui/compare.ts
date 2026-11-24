@@ -97,7 +97,7 @@ export function describeDifferences(
     const d = rel(Math.max(a.sharpness, b.sharpness), Math.min(a.sharpness, b.sharpness));
     if (d >= 5) {
       const w = better(a.sharpness, b.sharpness)!;
-      out.push({ text: `Image de ${name(w)} plus nette de ${d} %`, favours: w });
+      out.push({ text: `Image plus nette de ${d} % sur ${name(w)}`, favours: w });
     } else out.push({ text: 'Netteté de l’image : identique (écart de moins de 5 %)', favours: null });
   }
 

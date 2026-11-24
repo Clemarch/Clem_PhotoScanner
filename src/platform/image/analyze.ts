@@ -265,6 +265,8 @@ export async function analyzeFile(
       diagnostic.decodeMethod = decoded.method;
       diagnostic.analyzedWidth = size.w;
       diagnostic.analyzedHeight = size.h;
+      // Format tel qu'à l'écran (l'image décodée est déjà tournée) : sert à disposer les photos (paysage / portrait).
+      item.landscape = size.w > size.h * 1.05;
 
       const t2 = performance.now();
       const gray = rgbaToGray(pixels.data, size.w, size.h);

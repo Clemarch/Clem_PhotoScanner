@@ -5,6 +5,7 @@ import { diffImages, type ImageDiff } from '../../platform/image/difference';
 import { finalKeep, type Choice, type Choices } from '../choices';
 import { describeDifferences, scoreFactors } from '../compare';
 import { featureLabel, reasonText } from '../reasons';
+import { isLandscape } from '../format';
 
 interface Props {
   item: MediaItem;
@@ -32,6 +33,11 @@ export function Comparer({ item, pack, previews, thumbnails, choices, numberOf, 
   const [big, setBig] = useState<'a' | 'b' | null>(null);
   const url = (id: string) => previews.get(id) ?? thumbnails.get(id) ?? '';
   const label = (it: MediaItem) => `n° ${numberOf(it.id) ?? '?'}`;
+  // Deux photos en paysage : l'une au-dessus de l'autre (24/11) ; on parle alors de « haut » et « bas ».
+  const stacked = !!other && isLandscape(item) && isLandscape(other);
+  const A = stacked ? 'haut' : 'gauche';
+  const B = stacked ? 'bas' : 'droite';
+  const cap = (w: string) => w[0]!.toUpperCase() + w.slice(1);
 
   useEffect(() => {
     setDiff(null);
@@ -48,7 +54,7 @@ export function Comparer({ item, pack, previews, thumbnails, choices, numberOf, 
   const differences = useMemo(
     () =>
       other
-        ? describeDifferences(item, other, pack.scores.get(item.id), pack.scores.get(other.id), `la gauche (${label(item)})`, `la droite (${label(other)})`)
+        ? describeDifferences(item, other, pack.scores.get(item.id), pack.scores.get(other.id), `${stacked ? 'celle du haut' : 'la gauche'} (${label(item)})`, `${stacked ? 'celle du bas' : 'la droite'} (${label(other)})`)
         : [],
     [item, other, pack],
   );
@@ -79,7 +85,7 @@ export function Comparer({ item, pack, previews, thumbnails, choices, numberOf, 
   const withFaces = mainFaces(item.faces).length > 0 || mainFaces(other.faces).length > 0;
   const factors = sa && sb ? scoreFactors(sa, sb, withFaces) : [];
   const note = (it: MediaItem) => Math.round(scoreOf(it) * 100);
-  const side = (which: 'a' | 'b') => (which === 'a' ? 'Gauche' : 'Droite');
+  const side = (which: 'a' | 'b') => cap(which === 'a' ? A : B);
   const fmt = (feature: string, v: number) => (feature === 'gouts' ? `${v >= 0 ? '+' : '−'}${Math.round(Math.abs(v) * 100)}` : String(Math.round(v * 100)));
 
   const card = (it: MediaItem, which: 'a' | 'b') => {
@@ -128,7 +134,7 @@ export function Comparer({ item, pack, previews, thumbnails, choices, numberOf, 
       <div className="comp-corps">
         {others.length > 1 && (
           <div className="comp-choix">
-            <span className="note">À droite :</span>
+            <span className="note">{stacked ? 'En bas' : 'À droite'} :</span>
             {others.map((it) => (
               <button key={it.id} className={`puce ${it.id === otherId ? 'active' : ''}`} onClick={() => setOtherId(it.id)}>
                 {label(it)}
@@ -136,7 +142,7 @@ export function Comparer({ item, pack, previews, thumbnails, choices, numberOf, 
             ))}
           </div>
         )}
-        <div className="comp-duo">
+        <div className={`comp-duo${isLandscape(item) && isLandscape(other) ? ' paysages' : ''}`}>
           {card(item, 'a')}
           {card(other, 'b')}
         </div>
@@ -147,14 +153,14 @@ export function Comparer({ item, pack, previews, thumbnails, choices, numberOf, 
           <p className="doux">
             {gap === 0
               ? 'Notes égales.'
-              : `${gap > 0 ? `La gauche (${label(item)})` : `La droite (${label(other)})`} a la meilleure note : ${Math.max(note(item), note(other))} contre ${Math.min(note(item), note(other))}.`}
+              : `${gap > 0 ? `${stacked ? 'Celle du haut' : 'La gauche'} (${label(item)})` : `${stacked ? 'Celle du bas' : 'La droite'} (${label(other)})`} a la meilleure note : ${Math.max(note(item), note(other))} contre ${Math.min(note(item), note(other))}.`}
           </p>
           {factors.length > 0 ? (
             <div className="comp-tableau" role="table">
               <div className="comp-ligne entete" role="row">
                 <span role="columnheader">Critère</span>
-                <span role="columnheader">Gauche</span>
-                <span role="columnheader">Droite</span>
+                <span role="columnheader">{cap(A)}</span>
+                <span role="columnheader">{cap(B)}</span>
               </div>
               {factors.map((f) => (
                 <div className="comp-ligne" role="row" key={f.feature}>
@@ -198,17 +204,17 @@ export function Comparer({ item, pack, previews, thumbnails, choices, numberOf, 
               .map((d, i) => (
                 <li key={i} className={d.favours ? 'plus' : ''}>
                   {d.text}
-                  {d.favours && <strong className={d.favours === 'a' ? 'avantage gauche' : 'avantage droite'}> · avantage {d.favours === 'a' ? 'gauche' : 'droite'}</strong>}
+                  {d.favours && <strong className={d.favours === 'a' ? 'avantage gauche' : 'avantage droite'}> · avantage {d.favours === 'a' ? A : B}</strong>}
                 </li>
               ))}
             {reasonsOnly(item, other).map((r) => (
               <li key={`a-${r.code}`} className={r.tone}>
-                Gauche seulement : {reasonText(r, numberOf)}
+                {cap(A)} seulement : {reasonText(r, numberOf)}
               </li>
             ))}
             {reasonsOnly(other, item).map((r) => (
               <li key={`b-${r.code}`} className={r.tone}>
-                Droite seulement : {reasonText(r, numberOf)}
+                {cap(B)} seulement : {reasonText(r, numberOf)}
               </li>
             ))}
           </ul>
@@ -218,7 +224,7 @@ export function Comparer({ item, pack, previews, thumbnails, choices, numberOf, 
         <button className="comp-grand" onClick={() => setBig(big === 'a' ? 'b' : 'a')} aria-label="Basculer vers l'autre photo">
           <img src={url(big === 'a' ? item.id : other.id)} alt="" />
           <span className="comp-etiquette">
-            {side(big)} · {label(big === 'a' ? item : other)} — touchez pour voir la {big === 'a' ? 'droite' : 'gauche'}
+            {side(big)} · {label(big === 'a' ? item : other)} — touchez pour voir celle {big === 'a' ? `du ${B === 'bas' ? 'bas' : 'côté droit'}` : `du ${A === 'haut' ? 'haut' : 'côté gauche'}`}
           </span>
           <span
             className="comp-fermer"
