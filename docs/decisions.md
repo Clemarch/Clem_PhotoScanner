@@ -746,6 +746,17 @@ sécurité actuelle (`wasm-unsafe-eval`).
   apprentissage fait sur les autres seulement), la part des paires « gardée / supprimée » bien ordonnées par la
   formule et par le nouvel œil. Adopté seulement s'il fait nettement mieux, après plusieurs séances.
 
+### 43. Réglage 13 bis : nouvel œil en arrière-plan
+
+- Le nouvel œil ne tourne plus pendant l'analyse : il part après, dans son propre fil
+  (`src/platform/vision/eye.worker.ts`, lancé par `eyeRunner.ts`), une photo à la fois, pendant que l'utilisateur
+  trie. Les modèles de l'analyse sont déjà fermés : leur mémoire ne s'ajoute plus à celle du nouvel œil (environ
+  350 Mo), rendue à l'iPhone quand le fil se ferme.
+- Progression affichée dans Réglages. Les choix déjà faits sur une photo sont complétés quand son résultat arrive.
+- Mesures gardées avec la séance toutes les 20 photos et à la fin, sans toucher à ses réglages, à son état
+  (terminée) ni à la séance ouverte (`updateSessionMeasures`). Une séance reprise ou rouverte n'a plus les photos
+  d'origine : le nouvel œil n'y repasse pas.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

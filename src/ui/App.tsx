@@ -9,13 +9,14 @@ import {
   readJsHeapMB,
   type InterruptedRun,
 } from '../platform/device';
-import type { AnalyzeResult } from '../platform/image/types';
 import {
   analyzeDay,
   buildQueue,
   calibrate,
   config,
   learnWeights,
+  emotionSummary,
+  encodeEmbedding,
   mainFaces,
   mergeChoices,
   mergeValidations,
@@ -46,6 +47,7 @@ import {
   saveSession,
   saveSessionSettings,
   setSessionClosed,
+  updateSessionMeasures,
   type SavedSession,
   type SessionSummary,
 } from '../platform/storage/sessionStore';
@@ -69,7 +71,9 @@ import {
   type Segmenter,
 } from '../platform/vision/sceneModels';
 import { createAnalyzer } from '../platform/worker/analyzer';
-import { createEye, type Eye } from '../platform/vision/eye';
+import { runEyeInBackground, type EyeRun } from '../platform/vision/eyeRunner';
+import type { SavedSessionMeta } from '../platform/storage/sessionStore';
+import type { AnalyzeResult } from '../platform/image/types';
 import type { Session } from './session';
 import { Accueil } from './screens/Accueil';
 import { Analyse } from './screens/Analyse';
@@ -102,6 +106,9 @@ export function App() {
   const [eclair, setEclair] = useState<PoseTask[] | null>(null);
   // Comparaison du nouvel œil : calcul un peu long, fait au calme (quelques secondes après la dernière validation).
   const [shadow, setShadow] = useState<ShadowComparison | null>(null);
+  // Nouvel œil en arrière-plan : progression (affichée dans Réglages) et tâche en cours.
+  const [eyeProgress, setEyeProgress] = useState<{ sessionId: string; done: number; total: number; finished?: boolean } | null>(null);
+  const eyeRun = useRef<EyeRun | null>(null);
   // Une analyse vient de se terminer : le tri éclair s'ouvre de lui-même.
   const [justAnalyzed, setJustAnalyzed] = useState(false);
   const refreshSeances = () => void listSessions().then(setSeances);
@@ -168,6 +175,8 @@ export function App() {
     } else {
       const saved = await loadSessionById(sessionId);
       if (!saved) return;
+      eyeRun.current?.cancel();
+      eyeRun.current = null;
       releaseUrls(session);
       setSession(openSaved(saved, 'rouverte'));
     }
@@ -246,8 +255,59 @@ export function App() {
     if (session) void saveSessionSettings(session.id, { gap, joined: [...joined] });
   }, [session, gap, joined]);
 
+  /**
+   * Nouvel œil en arrière-plan : une photo à la fois. Chaque résultat complète la photo (empreinte CLIP, émotions des
+   * visages) et les choix déjà faits sur elle ; à la fin, la séance est réenregistrée avec ces mesures.
+   */
+  const startEye = (sessionId: string, results: AnalyzeResult[], originals: Map<string, File>, meta: SavedSessionMeta) => {
+    eyeRun.current?.cancel();
+    const byId = new Map(results.map((r) => [r.item.id, r]));
+    const photos = results
+      .filter((r) => r.item.camera !== false && !r.diagnostic.error && originals.has(r.item.id))
+      .map((r) => ({ id: r.item.id, file: originals.get(r.item.id)!, boxes: mainFaces(r.item.faces).map((f) => f.box) }));
+    if (photos.length === 0) return;
+    setEyeProgress({ sessionId, done: 0, total: photos.length });
+    let handled = 0;
+    eyeRun.current = runEyeInBackground(
+      photos,
+      (response) => {
+        const result = byId.get(response.id);
+        if (!result) return;
+        if (response.ok) {
+          result.item.clip = response.clip;
+          mainFaces(result.item.faces).forEach((face, i) => (face.emotion = response.emotions[i] ?? null));
+          result.diagnostic.eyeMs = response.ms;
+          // Choix déjà faits sur cette photo pendant que l'œil travaillait : complétés.
+          const key = photoKey(result.item);
+          const clip = encodeEmbedding(response.clip);
+          const emo = emotionSummary(result.item);
+          const existing = recordsRef.current.find((r) => r.key === key);
+          if (existing && !existing.clip && (clip || emo)) {
+            const updated = { ...existing, ...(clip ? { clip } : {}), ...(emo ? { emo } : {}) };
+            setRecords((list) => list.map((r) => (r.key === key ? updated : r)));
+            void saveChoice(updated);
+          }
+        } else meta.eyeInfo ??= response.error;
+        // Mesures gardées au fur et à mesure : si iOS ferme l'app en route, elles ne sont pas perdues.
+        if (++handled % 20 === 0) void updateSessionMeasures(sessionId, results, meta);
+        setEyeProgress((p) => (p && p.sessionId === sessionId ? { ...p, done: p.done + 1 } : p));
+      },
+      (error) => {
+        if (error) meta.eyeInfo ??= error;
+        eyeRun.current = null;
+        setEyeProgress((p) => (p && p.sessionId === sessionId ? { ...p, total: p.done, finished: true } : p));
+        setSession((s) => (s && s.id === sessionId ? { ...s, eyeInfo: meta.eyeInfo } : s));
+        // Mesures gardées avec la séance (reprise, réouverture), sans toucher à ses réglages, à son état (terminée) ni à
+        // la séance ouverte ; rien si elle a été effacée entre-temps.
+        void updateSessionMeasures(sessionId, results, meta);
+      },
+    );
+  };
+
   const start = async (files: File[]) => {
     startedRef.current = true;
+    eyeRun.current?.cancel();
+    eyeRun.current = null;
     // La séance précédente n'est plus « ouverte » : si iOS ferme l'app pendant l'analyse, elle n'est pas reprise.
     void forgetCurrentSession();
     setJoined(new Set());
@@ -290,14 +350,6 @@ export function App() {
     const embedder: Embedder | null = await start3('empreinte', createEmbedder);
     const classifier: Classifier | null = await start3('scène', createClassifier);
     const gestures: GestureFinder | null = await start3('gestes', createGestureFinder);
-    // « Nouvel œil » en coulisse (réglage 13) : facultatif, l'analyse continue sans lui s'il ne se charge pas.
-    let eye: Eye | null = null;
-    let eyeInfo: string | null = null;
-    try {
-      eye = await createEye();
-    } catch (e) {
-      eyeInfo = e instanceof Error ? e.message : String(e);
-    }
     const results: AnalyzeResult[] = [];
     const originals = new Map<string, File>();
     const thumbnails = new Map<string, string>();
@@ -367,20 +419,6 @@ export function App() {
           }
           if (segmenter || embedder || classifier || gestures) result.diagnostic.modelsMs = performance.now() - t;
         }
-        if (eye) {
-          const t = performance.now();
-          try {
-            result.item.clip = await eye.clip(frame.bitmap);
-            const main = mainFaces(result.item.faces);
-            if (main.length > 0) {
-              const emotions = await eye.emotions(frame.bitmap, main.map((f) => f.box));
-              main.forEach((face, i) => (face.emotion = emotions[i] ?? null));
-            }
-          } catch (e) {
-            eyeInfo ??= e instanceof Error ? e.message : String(e);
-          }
-          result.diagnostic.eyeMs = performance.now() - t;
-        }
         frame.bitmap.close();
       }
       results.push(result);
@@ -397,7 +435,6 @@ export function App() {
     embedder?.close();
     classifier?.close();
     gestures?.close();
-    eye?.close();
     // À lire avant de relâcher : après, l'écran n'est évidemment plus tenu allumé.
     const wakeActive = wake.active;
     const wakeInfo = wake.describe();
@@ -429,11 +466,14 @@ export function App() {
       heapAfterMB: readJsHeapMB(),
       device,
       faceError,
-      eyeInfo,
+      eyeInfo: null as string | null,
     };
     setSession({ id: String(launchedAt), results, thumbnails, previews, originals, ...meta });
     // Gardée sur l'iPhone : reprise si iOS ferme l'app pendant qu'on est dans une autre app.
     void saveSession(String(launchedAt), results, meta).then(refreshSeances);
+    // « Nouvel œil » après l'analyse, dans son propre fil, pendant que l'utilisateur trie (réglage 13 bis) : les modèles
+    // de l'analyse sont déjà fermés, la mémoire ne s'additionne plus.
+    if (!cancelRef.current) startEye(String(launchedAt), results, originals, meta);
     setProgress(null);
     setTab('paquets');
     setJustAnalyzed(true);
@@ -563,6 +603,7 @@ export function App() {
       }}
       validations={validations}
       shadow={shadow}
+      eyeProgress={eyeProgress && eyeProgress.sessionId === session?.id ? eyeProgress : null}
       seances={seances}
       currentId={closed ? null : (session?.id ?? null)}
       onReopen={(id) => void reopen(id)}

@@ -1,0 +1,43 @@
+/// <reference lib="webworker" />
+// « Nouvel œil » dans son propre fil (réglage 13 bis) : il tourne après l'analyse, pendant que l'utilisateur trie,
+// et sa mémoire (environ 350 Mo) est rendue à l'iPhone dès qu'il a fini (le fil est fermé).
+
+import type { Box, FaceEmotion } from '../../engine';
+import { createEye, type Eye } from './eye';
+
+export interface EyeRequest {
+  id: string;
+  file: File;
+  /** Boîtes des visages principaux (proportions de l'image), dans l'ordre où l'app les attend. */
+  boxes: Box[];
+  /** Adresse complète du dossier des modèles. */
+  base: string;
+}
+
+export type EyeResponse =
+  | { id: string; ok: true; clip: number[] | null; emotions: (FaceEmotion | null)[]; ms: number }
+  | { id: string; ok: false; error: string };
+
+const scope = self as unknown as DedicatedWorkerGlobalScope;
+let eye: Promise<Eye> | null = null;
+
+scope.onmessage = async (event: MessageEvent<EyeRequest>) => {
+  const { id, file, boxes, base } = event.data;
+  try {
+    eye ??= createEye(base);
+    const model = await eye;
+    const t = performance.now();
+    // Même décodage que l'analyse (orientation de la photo comprise), en plus petit : les boîtes restent justes.
+    // Comme l'analyse : si le décodage réduit échoue, la photo est décodée en pleine taille.
+    const bitmap = await createImageBitmap(file, { resizeWidth: 1024, resizeQuality: 'medium' }).catch(() => createImageBitmap(file));
+    try {
+      const clip = await model.clip(bitmap);
+      const emotions = boxes.length ? await model.emotions(bitmap, boxes) : [];
+      scope.postMessage({ id, ok: true, clip, emotions, ms: performance.now() - t } satisfies EyeResponse);
+    } finally {
+      bitmap.close();
+    }
+  } catch (e) {
+    scope.postMessage({ id, ok: false, error: e instanceof Error ? e.message : String(e) } satisfies EyeResponse);
+  }
+};

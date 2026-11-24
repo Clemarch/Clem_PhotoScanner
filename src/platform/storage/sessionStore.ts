@@ -120,6 +120,21 @@ export async function saveSession(sessionId: string, results: readonly AnalyzeRe
   }
 }
 
+/**
+ * Complète les mesures d'une séance déjà gardée (nouvel œil en arrière-plan), sans toucher à ses réglages, à son
+ * résumé (terminée ou non) ni à la séance ouverte. Ne fait rien si la séance a été effacée entre-temps.
+ */
+export async function updateSessionMeasures(sessionId: string, results: readonly AnalyzeResult[], meta: SavedSessionMeta): Promise<void> {
+  try {
+    const record = await get<FullRecord>(full(sessionId));
+    if (!record) return;
+    const kept = results.map(({ item, thumbnail, preview, diagnostic }) => ({ item, thumbnail, preview, diagnostic }));
+    await put({ ...record, results: kept, meta } satisfies FullRecord);
+  } catch {
+    // Facultatif : au pire, les mesures du nouvel œil manquent à la reprise.
+  }
+}
+
 export async function saveSessionSettings(sessionId: string, settings: SessionSettings): Promise<void> {
   try {
     const record = await get<FullRecord>(full(sessionId));

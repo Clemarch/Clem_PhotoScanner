@@ -26,6 +26,8 @@ interface Props {
   validations: PoseValidation[];
   /** Comparaison du nouvel œil (calculée à part, au calme). */
   shadow: ShadowComparison | null;
+  /** Nouvel œil en arrière-plan sur la séance en cours. */
+  eyeProgress: { done: number; total: number; finished?: boolean } | null;
   seances: SessionSummary[];
   currentId: string | null;
   onReopen: (sessionId: string) => void;
@@ -35,7 +37,7 @@ interface Props {
 }
 
 /** Réglages : sauvegarde des goûts, séances, raccourci, rapports, diagnostic et effacement (caché). */
-export function Reglages({ session, day, records, learned, reports, onRestore, onForget, validations, shadow, seances, currentId, onReopen, onDeleteSession, onClose }: Props) {
+export function Reglages({ session, day, records, learned, reports, onRestore, onForget, validations, shadow, eyeProgress, seances, currentId, onReopen, onDeleteSession, onClose }: Props) {
   const scrolled = useScrolled();
   return (
     <main className={`page${onClose ? ' par-dessus' : ''}`}>
@@ -56,6 +58,12 @@ export function Reglages({ session, day, records, learned, reports, onRestore, o
       <h2 className="titre-groupe">Mes goûts</h2>
       <SauvegardeGouts records={records} onRestore={onRestore} validations={validations} />
       <Justesse validations={validations} shadow={shadow} sessionId={session?.id ?? null} />
+      {eyeProgress && !eyeProgress.finished && (
+        <p className="note marge">
+          Nouvel œil : analyse en arrière-plan, {eyeProgress.done} / {eyeProgress.total} photos. Vous pouvez trier pendant ce
+          temps.
+        </p>
+      )}
 
       <h2 className="titre-groupe">Séances</h2>
       <Seances seances={seances} currentId={currentId} onReopen={onReopen} onDelete={onDeleteSession} />
