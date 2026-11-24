@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { isInstalled, type InterruptedRun } from '../../platform/device';
-import { watchUpdate, type UpdateStatus } from '../../platform/update';
+import { applyPendingUpdate, watchUpdate, type UpdateStatus } from '../../platform/update';
 import { AlerteGoutsPerdus, backupDue, whenText } from '../SauvegardeGouts';
 import type { ChoiceRecord, PoseValidation } from '../../engine';
 import type { LastRun } from '../../platform/storage/lastRun';
@@ -8,6 +8,9 @@ import { loadLastBackup } from '../../platform/storage/backupFile';
 import { formatDate, formatShortTime, plural } from '../format';
 import { IconChevron, IconNuage, IconReglages, IconTrier } from '../icons';
 import { APP_VERSION } from '../version';
+import type { ModelsState } from '../../platform/storage/models';
+import { EtatModeles } from '../EtatModeles';
+
 
 interface Props {
   onFiles: (files: File[]) => void;
@@ -20,9 +23,12 @@ interface Props {
   onSettings: () => void;
   /** Nombre de séances gardées (à rouvrir dans Réglages). */
   seances: number;
+  /** Modèles du nouvel œil : téléchargement et état. */
+  models: ModelsState | null;
+  onRetryModels: () => void;
 }
 
-export function Accueil({ onFiles, interrupted, lastRun, records, recordsLoaded, onRestore, onSettings, seances }: Props) {
+export function Accueil({ onFiles, interrupted, lastRun, records, recordsLoaded, onRestore, onSettings, seances, models, onRetryModels }: Props) {
   const [update, setUpdate] = useState<UpdateStatus>(null);
   useEffect(() => watchUpdate(setUpdate), []);
   const installed = isInstalled();
@@ -51,7 +57,14 @@ export function Accueil({ onFiles, interrupted, lastRun, records, recordsLoaded,
       {update === 'telechargement' && (
         <p className="info">Mise à jour en cours de téléchargement. Gardez l’app ouverte, de préférence en Wi-Fi, jusqu’au message « prête ».</p>
       )}
-      {update === 'prete' && <p className="info">Nouvelle version prête : fermez complètement l’app (balayez-la vers le haut), puis rouvrez-la.</p>}
+      {update === 'prete' && (
+        <div className="info alerte-bloc">
+          <p>Nouvelle version prête. Elle s’installera à la prochaine ouverture de l’app, ou tout de suite :</p>
+          <button className="bouton principal" onClick={() => void applyPendingUpdate()}>
+            Installer maintenant
+          </button>
+        </div>
+      )}
 
       {!installed && (
         <details className="info">
@@ -70,10 +83,12 @@ export function Accueil({ onFiles, interrupted, lastRun, records, recordsLoaded,
 
       {interrupted && (
         <p className="alerte">
-          La dernière analyse s’est arrêtée brutalement à la photo {interrupted.done} sur {interrupted.total}. Notez ces deux
-          nombres : ils indiquent la limite de l’iPhone.
+          La dernière analyse s’est arrêtée à la photo {interrupted.done} sur {interrupted.total} (l’iPhone a fermé l’app). Touchez
+          « Choisir les photos » et re-choisissez les mêmes : celles déjà analysées sont reprises, pas refaites.
         </p>
       )}
+
+      <EtatModeles models={models} onRetry={onRetryModels} />
 
       <section className="groupe">
         {lastRun && (

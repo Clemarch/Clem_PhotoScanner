@@ -9,6 +9,8 @@ Décisions prises et écarts : `docs/decisions.md` — à mettre à jour à chaq
 ## Contraintes non négociables
 
 - Tout reste sur l'iPhone : aucun appel réseau après l'installation, aucune télémétrie, modèles d'IA embarqués.
+  Seule exception (demande de l'utilisateur, 24/11) : les modèles du nouvel œil sont téléchargés par l'app à
+  l'ouverture, depuis sa propre adresse, jusqu'à ce qu'ils soient là (`src/platform/storage/models.ts`, point 44).
 - Pas d'ordinateur côté utilisateur : tout se teste sur iPhone via l'URL GitHub Pages.
 - Aucune suppression automatique. L'écran final rend la suppression la plus simple possible : bouton qui passe la
   liste au raccourci « Photo Triage » (app Raccourcis), une recherche par photo (nom + fenêtre de ±2 s), aperçu puis confirmation d'iOS
@@ -64,7 +66,8 @@ propre à ce test.
 Modèles embarqués dans `public/models/` : `face_landmarker.task` (visages), `efficientdet_lite0.tflite` (objets),
 `selfie_multiclass_256x256.tflite` (silhouette avec peau), `mobilenet_v3_small.tflite` (empreinte fine),
 `efficientnet_lite0.tflite` (classement de scène) et `gesture_recognizer.task` (gestes : V, pouce levé). Le modèle du corps a été retiré (`docs/decisions.md`, point 26).
-« Nouvel œil » (réglage 13, approuvé le 21/11), dans `public/models/onnx/` : `clip_vit_b32_int8.onnx` (CLIP, MIT) et
+« Nouvel œil » (réglage 13, approuvé le 21/11), dans `public/models/onnx/` : `siglip2_base_int8.onnx` (SigLIP 2,
+Apache-2.0 ; remplace CLIP le 24/11 : performance avant tout, point 45) et
 `hsemotion_b0_va.onnx` (émotions des visages, Apache-2.0), exécutés par `onnxruntime-web` figé en 1.30.0 (test de
 garde : aucune adresse de statistiques). En coulisse : ils ne décident rien tant que la comparaison honnête
 (`src/engine/learning/ranker.ts`, point 42) ne montre pas qu'ils font mieux que la formule.

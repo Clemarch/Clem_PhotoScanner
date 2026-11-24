@@ -117,7 +117,7 @@ export function buildReport(
     `Appareil : ${d.userAgent}`,
     `Écran : ${d.screen} · cœurs : ${d.cores ?? '?'} · installée : ${d.installed ? 'oui' : 'non'} · hors ligne prêt : ${d.offlineReady ? 'oui' : 'non'}`,
     `Fonctions : ${Object.entries(d.support).map(([k, v]) => `${k} ${v ? 'oui' : 'NON'}`).join(', ')}`,
-    `Stockage : ${d.storageUsedMB?.toFixed(1) ?? '?'} / ${d.storageQuotaMB?.toFixed(0) ?? '?'} Mo · durable : ${d.persisted === null ? '?' : d.persisted ? 'oui' : 'NON'} · base des choix : ${choiceStorage.database}${lastDbError ? ` (${lastDbError})` : ''} · repris de la copie de secours : ${choiceStorage.recoveredFromMirror} · séance reprise après fermeture : ${session.restored ? 'oui' : 'non'}`,
+    `Stockage : ${d.storageUsedMB?.toFixed(1) ?? '?'} / ${d.storageQuotaMB?.toFixed(0) ?? '?'} Mo · durable : ${d.persisted === null ? '?' : d.persisted ? 'oui' : 'NON'} · base des choix : ${choiceStorage.database}${lastDbError ? ` (${lastDbError})` : ''} · repris de la copie de secours : ${choiceStorage.recoveredFromMirror} · séance reprise après fermeture : ${session.restored ? 'oui' : 'non'}${session.resumed ? ` · photos reprises d'une analyse interrompue : ${session.resumed}` : ''}`,
     '',
     `Fichiers : ${s.total} · avec date : ${s.withDate} · SANS date : ${s.withoutDate} · RAW mis de côté : ${s.raw} · erreurs : ${s.errors}`,
     `Mis de côté : ${counts(Object.fromEntries([...day.setAside.reduce((m, it) => m.set(asideKind(it) ?? '?', (m.get(asideKind(it) ?? '?') ?? 0) + 1), new Map<string, number>())]))}`,
@@ -161,8 +161,9 @@ export function buildReport(
       // Chargé si au moins une photo est passée par lui ; une erreur en cours d'analyse n'est pas un échec de chargement.
       const ms = session.results.flatMap((r) => (r.diagnostic.eyeMs === undefined ? [] : [r.diagnostic.eyeMs]));
       if (!ms.length) return session.eyeInfo ? `non chargé (${session.eyeInfo})` : 'non lancé';
-      const withClip = session.results.filter((r) => r.item.clip).length;
-      return `analyse moyenne ${formatMs(ms.reduce((a, b) => a + b, 0) / ms.length)} · empreinte CLIP sur ${withClip}/${ms.length} photos${session.eyeInfo ? ` · erreur : ${session.eyeInfo}` : ''}`;
+      // Empreintes du modèle actuel seulement (une séance rouverte du réglage 13 a des empreintes CLIP, 512 valeurs).
+      const withClip = session.results.filter((r) => r.item.clip?.length === config.ranker.eyeDims).length;
+      return `analyse moyenne ${formatMs(ms.reduce((a, b) => a + b, 0) / ms.length)} · empreinte SigLIP 2 sur ${withClip}/${ms.length} photos${session.eyeInfo ? ` · erreur : ${session.eyeInfo}` : ''}`;
     })()}`,
     `Vos choix enregistrés : ${records.length}${records.some((r) => r.implicit) ? ` (dont ${records.filter((r) => r.implicit).length} laissés tels quels)` : ''} · goûts appris : ${
       Object.entries(learned)

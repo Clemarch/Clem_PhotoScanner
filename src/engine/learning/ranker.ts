@@ -34,7 +34,8 @@ export function emotionSummary(item: MediaItem): number[] | null {
 /** Vecteur d'une photo pour le classement : mesures actuelles, émotions (et si elles existent), empreinte CLIP. */
 export function eyeVector(r: ChoiceRecord): number[] | null {
   const clip = decodeEmbedding(r.clip);
-  if (!clip) return null;
+  // Seulement les empreintes du modèle actuel (SigLIP 2, 768 valeurs) : celles de CLIP (512, réglage 13) ne se comparent pas.
+  if (!clip || clip.length !== config.ranker.eyeDims) return null;
   const norm = Math.hypot(...clip) || 1;
   const c = config.ranker;
   const emo = r.emo && r.emo.length === 6 ? r.emo : null;

@@ -1,9 +1,10 @@
-Modèles du « nouvel œil » (Photo Triage, réglage 13), exécutés sur l'iPhone par onnxruntime-web (Microsoft, licence MIT).
+Modèles du « nouvel œil » (Photo Triage), exécutés sur l'iPhone par onnxruntime-web (Microsoft, licence MIT).
+Téléchargés par l'app elle-même à l'ouverture, vérifiés (taille et SHA-256), puis gardés sur l'iPhone.
 
-clip_vit_b32_int8.onnx
-  Partie image de CLIP ViT-B/32 (OpenAI), licence MIT, version ONNX quantifiée en 8 bits publiée par Xenova
-  (huggingface.co/Xenova/clip-vit-base-patch32, onnx/vision_model_int8.onnx).
-  SHA-256 0ab0c1b3ace708e539633af1744d5a95247fe4e14d3e08ff197ef82a6cb9bd93
+siglip2_base_int8.onnx (depuis le 24/11, remplace CLIP ViT-B/32)
+  Partie image de SigLIP 2 base patch16-224 (Google), licence Apache-2.0, version ONNX quantifiée en 8 bits publiée
+  par onnx-community (huggingface.co/onnx-community/siglip2-base-patch16-224-ONNX, onnx/vision_model_int8.onnx).
+  SHA-256 0dd31785a2713f1113ef2272472165c69d580473dae38d7b47568ac587795e70
 
 hsemotion_b0_va.onnx
   HSEmotion EfficientNet-B0, 8 émotions + valence + éveil (A. Savchenko), licence Apache-2.0

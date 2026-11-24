@@ -746,6 +746,45 @@ sécurité actuelle (`wasm-unsafe-eval`).
   apprentissage fait sur les autres seulement), la part des paires « gardée / supprimée » bien ordonnées par la
   formule et par le nouvel œil. Adopté seulement s'il fait nettement mieux, après plusieurs séances.
 
+### 43. Réglage 13 bis : nouvel œil en arrière-plan
+
+- Le nouvel œil ne tourne plus pendant l'analyse : il part après, dans son propre fil
+  (`src/platform/vision/eye.worker.ts`, lancé par `eyeRunner.ts`), une photo à la fois, pendant que l'utilisateur
+  trie. Les modèles de l'analyse sont déjà fermés : leur mémoire ne s'ajoute plus à celle du nouvel œil (environ
+  350 Mo), rendue à l'iPhone quand le fil se ferme.
+- Progression affichée dans Réglages. Les choix déjà faits sur une photo sont complétés quand son résultat arrive.
+- Mesures gardées avec la séance toutes les 50 photos et à la fin, sans toucher à ses réglages, à son état
+  (terminée) ni à la séance ouverte (`updateSessionMeasures`). Une séance reprise ou rouverte n'a plus les photos
+  d'origine : le nouvel œil n'y repasse pas.
+
+### 44. Réglage 14 : stabilité (modèles, mises à jour, reprise) (24/11)
+
+- Modèles du nouvel œil (.onnx, 105 Mo) retirés de la mise à jour de l'app (elle échouait ou traînait) : l'app les
+  télécharge elle-même à l'ouverture, une fois, depuis sa propre adresse, avec une progression sur l'accueil, puis
+  les garde sur l'iPhone (`src/platform/storage/models.ts`). Chaque fichier est vérifié (taille et empreinte SHA-256) ;
+  3 essais seulement en cas de coupure, aucun nouvel essai si le fichier est abîmé ou le stockage plein. Seule
+  exception à « aucun appel réseau après l'installation », bornée par la politique de sécurité (`connect-src 'self'`),
+  un test et ESLint (une seule exception, sur cette ligne). Écart à faire valider par l'utilisateur.
+- Mises à jour en mode « prompt » : une nouvelle version ne prend la main qu'à l'ouverture de l'app, avant tout
+  travail (`applyPendingUpdate`, `src/main.tsx`), ou par le bouton « Installer maintenant » de l'accueil.
+- Analyse interrompue par iOS : chaque photo analysée est gardée tout de suite (`p:<nom|taille>`, 2 jours) ; si
+  l'utilisateur re-choisit les mêmes photos, elles sont reprises sans être refaites. Les photos en échec ne sont pas
+  gardées (retentées). La date du fichier n'entre pas dans la signature : sur l'iPhone, c'est l'heure de la sélection.
+- Lecture et écriture d'une séance gardée dans une seule transaction (réglages et mesures du nouvel œil ne
+  s'écrasent plus). Le nouvel œil ne passe que sur les photos analysées (ni RAW, ni vidéos, ni captures).
+
+### 45. SigLIP 2 à la place de CLIP (24/11)
+
+L'utilisateur : « mes modèles doivent être performants, quitte à ce qu'ils pèsent plus lourd ». CLIP ViT-B/32 avait été
+préféré à SigLIP 2 (approuvé le 21/11) pour sa vitesse, quand le nouvel œil tournait pendant l'analyse. Il tourne
+désormais en arrière-plan pendant le tri (point 43) : la vitesse ne gêne plus, on prend le plus fin.
+- `siglip2_base_int8.onnx` (SigLIP 2 base patch16-224, Google, Apache-2.0, 95 Mo ; ~0,8 s par photo sur un cœur) :
+  image ramenée à 224 × 224, valeurs entre -1 et 1, sortie « pooler_output » (768 valeurs). Cache « nouvel-oeil-v2 »
+  (l'ancien est effacé).
+- Les empreintes CLIP (512 valeurs) des choix du réglage 13 sont ignorées par le classement personnel (`eyeDims`).
+- Rappel : le passage de la mise à jour de 170 à 68 Mo (point 44) n'a enlevé aucun modèle ; ceux du nouvel œil
+  (111 Mo) sont téléchargés à l'ouverture avec une progression. Total sur l'iPhone : environ 180 Mo.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

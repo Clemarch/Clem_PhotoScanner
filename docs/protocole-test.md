@@ -6,9 +6,10 @@ Claude complète la partie « Ce test-ci » à chaque mise à jour.
 ## Toujours
 
 1. Fusionner la pull request indiquée par Claude, attendre 3 minutes.
-2. En Wi-Fi, ouvrir l'app et la laisser ouverte 2 à 3 minutes (la mise à jour télécharge les modèles, environ 170 Mo depuis le réglage 13, une seule fois
-   en tout ; une connexion faible peut la faire échouer, l'ancienne version reste alors en place). Puis la fermer
-   complètement, la rouvrir deux fois, et vérifier la version écrite en bas de l'écran d'accueil.
+2. En Wi-Fi, ouvrir l'app et la laisser ouverte 2 à 3 minutes : la mise à jour se télécharge en arrière-plan et
+   s'installe à la prochaine ouverture (ou bouton « Installer maintenant » sur l'accueil). Fermer complètement l'app,
+   la rouvrir, vérifier la version écrite en bas de l'accueil, et attendre « Modèles d'analyse prêts ✓ » (la première
+   fois, l'app télécharge les modèles du nouvel œil, 111 Mo, avec une barre de progression).
 3. Choisir les photos d'une journée et lancer l'analyse.
 4. **Tri éclair** (s'ouvre tout seul après l'analyse, sinon carte « ⚡ Tri éclair » en haut de l'onglet Trier) :
    pour chaque pose, toucher les photos mal jugées, puis « Valider ». Prendre le temps de regarder : une pose validée
@@ -23,9 +24,10 @@ Claude complète la partie « Ce test-ci » à chaque mise à jour.
    - Après un choix, écrire en quelques mots **pourquoi** dans la zone « Pourquoi ? » : le commentaire arrive dans
      le rapport.
 6. Onglet **Supprimer** : toucher le grand bouton rouge (lots de 49 au plus), vérifier l'aperçu du raccourci, confirmer.
-7. Onglet **Réglages** → « Rapport de cette séance » → **Partager**, puis choisir l'app Claude (ou **Copier** et
-   coller). Les 10 derniers rapports restent sur l'iPhone (Réglages › « Rapports enregistrés ») : on peut les envoyer
-   tous d'un coup.
+7. Onglet **Réglages** → « Envoyer à Claude » → **Partager**, puis choisir l'app Claude (ou **Copier** et
+   coller). Les 10 derniers rapports restent sur l'iPhone (Réglages › « Envoyer à Claude », juste en dessous, ligne
+   « Les … dernières analyses ») : on peut les envoyer tous
+   d'un coup.
 8. Réglages › « Mes goûts » → **Sauvegarder** quand l'app le propose (bouton jaune).
 
 ## Ce qu'il faut écrire à Claude avec le rapport

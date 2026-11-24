@@ -11,6 +11,8 @@ import { formatDateTime, formatMs, formatOrientation, formatSize } from '../form
 import { IconFermer, IconPartager } from '../icons';
 import { useScrolled } from '../useScrolled';
 import { Seances } from '../Seances';
+import { EtatModeles } from '../EtatModeles';
+import type { ModelsState } from '../../platform/storage/models';
 import type { SessionSummary } from '../../platform/storage/sessionStore';
 import { APP_VERSION } from '../version';
 
@@ -26,6 +28,11 @@ interface Props {
   validations: PoseValidation[];
   /** Comparaison du nouvel œil (calculée à part, au calme). */
   shadow: ShadowComparison | null;
+  /** Modèles du nouvel œil : état du téléchargement, et « Réessayer » s'il a échoué. */
+  models: ModelsState | null;
+  onRetryModels: () => void;
+  /** Nouvel œil en arrière-plan sur la séance en cours. */
+  eyeProgress: { done: number; total: number; finished?: boolean } | null;
   seances: SessionSummary[];
   currentId: string | null;
   onReopen: (sessionId: string) => void;
@@ -35,7 +42,7 @@ interface Props {
 }
 
 /** Réglages : sauvegarde des goûts, séances, raccourci, rapports, diagnostic et effacement (caché). */
-export function Reglages({ session, day, records, learned, reports, onRestore, onForget, validations, shadow, seances, currentId, onReopen, onDeleteSession, onClose }: Props) {
+export function Reglages({ session, day, records, learned, reports, onRestore, onForget, validations, shadow, models, onRetryModels, eyeProgress, seances, currentId, onReopen, onDeleteSession, onClose }: Props) {
   const scrolled = useScrolled();
   return (
     <main className={`page${onClose ? ' par-dessus' : ''}`}>
@@ -56,6 +63,13 @@ export function Reglages({ session, day, records, learned, reports, onRestore, o
       <h2 className="titre-groupe">Mes goûts</h2>
       <SauvegardeGouts records={records} onRestore={onRestore} validations={validations} />
       <Justesse validations={validations} shadow={shadow} sessionId={session?.id ?? null} />
+      <EtatModeles models={models} onRetry={onRetryModels} />
+      {eyeProgress && !eyeProgress.finished && (
+        <p className="note marge">
+          Nouvel œil : analyse en arrière-plan, {eyeProgress.done} / {eyeProgress.total} photos. Vous pouvez trier pendant ce
+          temps.
+        </p>
+      )}
 
       <h2 className="titre-groupe">Séances</h2>
       <Seances seances={seances} currentId={currentId} onReopen={onReopen} onDelete={onDeleteSession} />
@@ -66,7 +80,7 @@ export function Reglages({ session, day, records, learned, reports, onRestore, o
       </section>
 
       {session && day && <RapportEtDiagnostic session={session} day={day} records={records} learned={learned} validations={validations} shadow={shadow} />}
-      <h2 className="titre-groupe">Rapports enregistrés</h2>
+      {!session && <h2 className="titre-groupe">Envoyer à Claude</h2>}
       <RapportsEnregistres reports={reports} />
 
       <details className="groupe repli avance">
@@ -149,7 +163,7 @@ function RapportEtDiagnostic({
 
   return (
     <>
-      <h2 className="titre-groupe">Rapport de cette séance</h2>
+      <h2 className="titre-groupe">Envoyer à Claude</h2>
       <section className="groupe">
         <p className="note">{agreementLine(agreement)}</p>
         <div className="rapports-actions">
