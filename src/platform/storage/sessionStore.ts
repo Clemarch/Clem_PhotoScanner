@@ -6,7 +6,11 @@
 // - `s:<id>` : la séance complète (mesures, vignettes, aperçus, réglages) ;
 // - `i:<id>` : son résumé (dates, nombre de photos, terminée ou non), léger, pour la liste des séances ;
 // - `courante` : l'identifiant de la séance ouverte.
+// - `m:<id>:<photo>` (depuis le 24/11) : vignette et aperçu d'une photo, en octets bruts.
 // Avant le 20/11, `courante` contenait la séance elle-même et `reglages` ses réglages : repris à la première lecture.
+//
+// Pourquoi des octets et pas des « Blob » (24/11) : sur l'iPhone, un Blob relu dans IndexedDB après une fermeture de
+// l'app devient souvent illisible (images vides « ? » à la reprise). Des octets bruts se relisent toujours.
 
 import type { AnalyzeResult } from '../image/types';
 import { openDb, runStore, STORES } from './db';
@@ -52,6 +56,112 @@ export interface SessionSummary {
 
 interface FullRecord extends SavedSession {
   id: string;
+  /** Vignettes et aperçus rangés à part, en octets (`m:…`). Absent : anciens Blob dans `results`. */
+  imagesApart?: boolean;
+}
+
+/** Image gardée en octets bruts (relisible sur l'iPhone, contrairement à un Blob). */
+interface StoredImage {
+  type: string;
+  bytes: ArrayBuffer;
+}
+interface ImageRecord {
+  id: string;
+  thumb: StoredImage | null;
+  preview: StoredImage | null;
+}
+
+const toStored = async (blob: Blob | null | undefined): Promise<StoredImage | null> => {
+  if (!blob) return null;
+  try {
+    return { type: blob.type || 'image/jpeg', bytes: await blob.arrayBuffer() };
+  } catch {
+    return null;
+  }
+};
+
+/** Octets → Blob neuf (en mémoire). Un ancien Blob est relu en entier : s'il est devenu illisible, l'image manque. */
+async function revive(value: unknown): Promise<Blob | null> {
+  if (!value) return null;
+  try {
+    if (value instanceof Blob) {
+      // Un Blob abîmé peut ne jamais répondre : au-delà de 3 s, l'image est tenue pour perdue (la reprise n'attend pas).
+      const bytes = await Promise.race([value.arrayBuffer(), new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000))]);
+      return bytes ? new Blob([bytes], { type: value.type || 'image/jpeg' }) : null;
+    }
+    const stored = value as StoredImage;
+    if (stored.bytes instanceof ArrayBuffer) return new Blob([stored.bytes], { type: stored.type || 'image/jpeg' });
+  } catch {
+    // Illisible : l'image manque, l'utilisateur peut la retrouver en re-choisissant ses photos.
+  }
+  return null;
+}
+
+const imageKey = (sessionId: string, photoId: string) => `m:${sessionId}:${photoId}`;
+const imageRange = (sessionId: string) => IDBKeyRange.bound(`m:${sessionId}:`, `m:${sessionId}:\uffff`);
+
+/** Mesures sans images (rangées à part). */
+const measuresOnly = (results: readonly Omit<AnalyzeResult, 'frame'>[]) =>
+  results.map(({ item, diagnostic }) => ({ item, thumbnail: null, preview: null, diagnostic }));
+
+/**
+ * Range les vignettes et aperçus d'une séance, par petits lots (une transaction ne peut pas attendre la lecture d'un
+ * Blob, et tout lire d'un coup chargerait la mémoire de l'iPhone).
+ */
+export async function saveSessionImages(sessionId: string, results: readonly Pick<AnalyzeResult, 'item' | 'thumbnail' | 'preview'>[]): Promise<boolean> {
+  try {
+    for (let i = 0; i < results.length; i += 12) {
+      const batch: ImageRecord[] = [];
+      for (const r of results.slice(i, i + 12)) {
+        if (!r.thumbnail && !r.preview) continue;
+        batch.push({ id: imageKey(sessionId, r.item.id), thumb: await toStored(r.thumbnail), preview: await toStored(r.preview) });
+      }
+      if (batch.length === 0) continue;
+      const db = await openDb();
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const tx = db.transaction(STORES.session, 'readwrite');
+          const store = tx.objectStore(STORES.session);
+          for (const record of batch) store.put(record);
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+          tx.onabort = () => reject(tx.error);
+        });
+      } finally {
+        db.close();
+      }
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Relit les images d'une séance une à une (curseur), chacune changée tout de suite en Blob. */
+async function loadImages(sessionId: string): Promise<Map<string, { thumb: Blob | null; preview: Blob | null }>> {
+  const out = new Map<string, { thumb: Blob | null; preview: Blob | null }>();
+  const prefix = `m:${sessionId}:`;
+  const db = await openDb();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORES.session, 'readonly');
+      const request = tx.objectStore(STORES.session).openCursor(imageRange(sessionId));
+      const fromBytes = (s: StoredImage | null) => (s?.bytes instanceof ArrayBuffer ? new Blob([s.bytes], { type: s.type || 'image/jpeg' }) : null);
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor) return;
+        const record = cursor.value as ImageRecord;
+        out.set(record.id.slice(prefix.length), { thumb: fromBytes(record.thumb), preview: fromBytes(record.preview) });
+        cursor.continue();
+      };
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  } finally {
+    db.close();
+  }
+  return out;
 }
 interface SummaryRecord extends SessionSummary {
   id: string;
@@ -134,10 +244,12 @@ const migrateOnce = (): Promise<void> =>
 
 /** Enregistre une nouvelle séance et en fait la séance ouverte. */
 export async function saveSession(sessionId: string, results: readonly AnalyzeResult[], meta: SavedSessionMeta): Promise<boolean> {
-  const kept = results.map(({ item, thumbnail, preview, diagnostic }) => ({ item, thumbnail, preview, diagnostic }));
+  const kept = measuresOnly(results);
   const savedAt = Date.now();
   try {
-    await put({ id: full(sessionId), sessionId, savedAt, results: kept, meta, settings: null } satisfies FullRecord);
+    // Images d'abord : la séance n'est pointée qu'une fois tout rangé.
+    if (!(await saveSessionImages(sessionId, results))) return false;
+    await put({ id: full(sessionId), sessionId, savedAt, results: kept, meta, settings: null, imagesApart: true } satisfies FullRecord);
     await put(summarize(sessionId, savedAt, kept, null));
     await put({ id: 'courante', sessionId, at: savedAt });
     return true;
@@ -152,8 +264,13 @@ export async function saveSession(sessionId: string, results: readonly AnalyzeRe
  */
 export async function updateSessionMeasures(sessionId: string, results: readonly AnalyzeResult[], meta: SavedSessionMeta): Promise<void> {
   try {
-    const kept = results.map(({ item, thumbnail, preview, diagnostic }) => ({ item, thumbnail, preview, diagnostic }));
-    await updateFull(sessionId, (record) => ({ ...record, results: kept, meta }));
+    await updateFull(sessionId, (record) => {
+      if (record.imagesApart) return { ...record, results: measuresOnly(results), meta };
+      // Ancienne séance (images dans `results`) : on garde ses images telles quelles.
+      const old = new Map(record.results.map((r) => [r.item.id, r]));
+      const results2 = results.map(({ item, diagnostic }) => ({ item, diagnostic, thumbnail: old.get(item.id)?.thumbnail ?? null, preview: old.get(item.id)?.preview ?? null }));
+      return { ...record, results: results2, meta };
+    });
   } catch {
     // Facultatif : au pire, les mesures du nouvel œil manquent à la reprise.
   }
@@ -184,10 +301,52 @@ export async function loadSession(): Promise<SavedSession | null> {
 export async function loadSessionById(sessionId: string): Promise<SavedSession | null> {
   try {
     const record = await get<FullRecord>(full(sessionId));
-    return record && Array.isArray(record.results) ? record : null;
+    if (!record || !Array.isArray(record.results)) return null;
+    if (record.imagesApart) {
+      const images = await loadImages(sessionId).catch(() => new Map<string, { thumb: Blob | null; preview: Blob | null }>());
+      const results = record.results.map((r) => ({ ...r, thumbnail: images.get(r.item.id)?.thumb ?? null, preview: images.get(r.item.id)?.preview ?? null }));
+      return { ...record, results };
+    }
+    // Ancienne séance : chaque Blob est relu ; ceux qui se lisent encore sont rangés au nouveau format.
+    // Par lots, en parallèle : une image qui ne répond pas ne retarde pas toutes les autres.
+    const results: Omit<AnalyzeResult, 'frame'>[] = [];
+    // Un premier lot entièrement illisible : les autres le sont aussi, on n'attend pas plus (reprise rapide).
+    let readable = true;
+    for (let i = 0; i < record.results.length; i += 20) {
+      const batch = record.results.slice(i, i + 20);
+      if (!readable) {
+        results.push(...batch.map((r) => ({ ...r, thumbnail: null, preview: null })));
+        continue;
+      }
+      const revived = await Promise.all(batch.map(async (r) => ({ ...r, thumbnail: await revive(r.thumbnail), preview: await revive(r.preview) })));
+      readable = revived.some((r) => r.thumbnail || r.preview) || batch.every((r) => !r.thumbnail && !r.preview);
+      results.push(...revived);
+    }
+    if (results.some((r) => r.thumbnail || r.preview)) void convertOld(sessionId, results);
+    return { ...record, results };
   } catch {
     return null;
   }
+}
+
+/**
+ * Range toutes les images d'une séance au format en octets (ancienne séance relue, ou images retrouvées en re-choisissant
+ * les photos), puis les retire de la séance elle-même.
+ */
+export async function storeSessionImages(sessionId: string, results: readonly Omit<AnalyzeResult, 'frame'>[]): Promise<boolean> {
+  if (!(await saveSessionImages(sessionId, results))) return false;
+  try {
+    await updateFull(sessionId, (record) => (record.imagesApart ? record : { ...record, results: measuresOnly(record.results), imagesApart: true }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Ancienne séance relue : images rangées en octets, puis retirées de la séance (une seule fois). */
+async function convertOld(sessionId: string, results: readonly Omit<AnalyzeResult, 'frame'>[]): Promise<void> {
+  // Au pire, la conversion sera refaite à la prochaine ouverture.
+  await storeSessionImages(sessionId, results);
 }
 
 /** Toutes les séances gardées, la plus récente d'abord. */
@@ -230,6 +389,7 @@ export async function deleteSession(sessionId: string): Promise<void> {
   try {
     await runStore(STORES.session, 'readwrite', (store) => store.delete(full(sessionId)));
     await runStore(STORES.session, 'readwrite', (store) => store.delete(info(sessionId)));
+    await runStore(STORES.session, 'readwrite', (store) => store.delete(imageRange(sessionId)));
     const pointer = await get<{ sessionId: string }>('courante');
     if (pointer?.sessionId === sessionId) await runStore(STORES.session, 'readwrite', (store) => store.delete('courante'));
   } catch {
@@ -254,7 +414,9 @@ const partialRange = () => IDBKeyRange.bound(PARTIAL, `${PARTIAL}￿`);
 export async function savePartialResult(signature: string, result: AnalyzeResult, version: string): Promise<void> {
   const { item, thumbnail, preview, diagnostic } = result;
   try {
-    await put({ id: `${PARTIAL}${signature}`, at: Date.now(), version, result: { item, thumbnail, preview, diagnostic } });
+    // Images en octets (voir plus haut) : relisibles après la fermeture de l'app par iOS.
+    const images = { thumb: await toStored(thumbnail), preview: await toStored(preview) };
+    await put({ id: `${PARTIAL}${signature}`, at: Date.now(), version, images, result: { item, thumbnail: null, preview: null, diagnostic } });
   } catch {
     // Facultatif : au pire, la photo sera refaite.
   }
@@ -268,10 +430,17 @@ export async function loadPartialResults(version: string): Promise<Map<string, O
       id: string;
       at: number;
       version?: string;
+      images?: { thumb: StoredImage | null; preview: StoredImage | null };
       result: Omit<AnalyzeResult, 'frame'>;
     }[];
-    for (const row of rows)
-      if (Date.now() - row.at < 2 * 86_400_000 && row.version === version && row.result?.item) out.set(row.id.slice(PARTIAL.length), row.result);
+    for (const row of rows) {
+      if (!(Date.now() - row.at < 2 * 86_400_000 && row.version === version && row.result?.item)) continue;
+      const thumbnail = await revive(row.images?.thumb ?? row.result.thumbnail);
+      const preview = await revive(row.images?.preview ?? row.result.preview);
+      // Sans image relisible, la photo est refaite (sinon elle resterait vide à l'écran).
+      if (!thumbnail) continue;
+      out.set(row.id.slice(PARTIAL.length), { ...row.result, thumbnail, preview });
+    }
   } catch {
     // Rien à reprendre.
   }

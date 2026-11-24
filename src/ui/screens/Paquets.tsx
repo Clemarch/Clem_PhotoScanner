@@ -29,6 +29,9 @@ interface Props {
   /** Tri éclair : poses encore à trancher, poses « sûres » non montrées, et total. */
   eclair: { pending: number; sure: number; total: number };
   onEclair: (which: 'suite' | 'sures' | 'tout') => void;
+  /** Images retrouvées en re-choisissant les photos (séance reprise dont les images ne se relisent plus). */
+  recovering: { done: number; total: number; found?: number } | null;
+  onRecoverImages: (files: File[]) => void;
 }
 
 /** Le paquet mêle-t-il plusieurs types de photo (personnes et paysages, par exemple) ? */
@@ -47,9 +50,11 @@ const hintSeen = (): boolean => {
   }
 };
 
-export function Paquets({ session, day, gap, onJoin, onNewDay, choices, previousRun, onChoose, onComment, onGoDelete, eclair, onEclair }: Props) {
+export function Paquets({ session, day, gap, onJoin, onNewDay, choices, previousRun, onChoose, onComment, onGoDelete, eclair, onEclair, recovering, onRecoverImages }: Props) {
   // Séance sur plusieurs jours : la date s'affiche au-dessus du premier paquet de chaque jour.
   const multiDay = new Set(day.packs.map((p) => dayOf(p.pack.startAt))).size > 1;
+  // Photos dont l'image n'a pas pu être relue après une fermeture de l'app (séance reprise ou rouverte).
+  const missing = session.results.filter((r) => r.item.kind === 'photo' && !r.item.isRaw && !r.diagnostic.error && !session.thumbnails.has(r.item.id)).length;
   const [viewing, setViewing] = useState<number | null>(null);
   const [hint, setHint] = useState(() => !hintSeen());
   const scrolled = useScrolled();
@@ -238,18 +243,18 @@ export function Paquets({ session, day, gap, onJoin, onNewDay, choices, previous
         </div>
       )}
 
-      {session.reopened && (
+      {missing > 0 || (recovering && recovering.found === undefined) ? (
+        <ImagesManquantes missing={missing} recovering={recovering} onFiles={onRecoverImages} />
+      ) : recovering?.found !== undefined ? (
+        <p className="info">Images retrouvées : tout est de nouveau visible, et le zoom montre la photo d’origine.</p>
+      ) : session.reopened ? (
+        <p className="info">Séance rouverte. Vos choix sont repris. Le zoom montre l’aperçu, pas la photo d’origine.</p>
+      ) : session.restored ? (
         <p className="info">
-          Séance rouverte. Vos choix sont repris. Le zoom montre l’aperçu, pas la photo d’origine.
+          Séance reprise là où vous l’aviez laissée : vos choix et commentaires sont conservés. Seule différence : le zoom
+          montre l’aperçu, pas la photo d’origine.
         </p>
-      )}
-
-      {session.restored && (
-        <p className="info">
-          Séance reprise : l’iPhone avait fermé l’app pendant que vous étiez ailleurs. Vos choix et commentaires sont
-          conservés. Seule différence : le zoom montre l’aperçu, pas la photo d’origine.
-        </p>
-      )}
+      ) : null}
 
       {session.faceError && (
         <p className="alerte">
@@ -414,5 +419,49 @@ export function Paquets({ session, day, gap, onJoin, onNewDay, choices, previous
         />
       )}
     </main>
+  );
+}
+
+/** Séance reprise dont des images ne se relisent plus : re-choisir les mêmes photos les refait (sans refaire l'analyse). */
+function ImagesManquantes({
+  missing,
+  recovering,
+  onFiles,
+}: {
+  missing: number;
+  recovering: { done: number; total: number; found?: number } | null;
+  onFiles: (files: File[]) => void;
+}) {
+  if (recovering && recovering.found === undefined)
+    return (
+      <p className="info">
+        Images en cours de récupération : {recovering.done} / {recovering.total}…
+      </p>
+    );
+  return (
+    <div className="alerte-bloc info">
+      <p>
+        <strong>{missing > 1 ? `${missing} images ne se sont pas rechargées.` : 'Une image ne s’est pas rechargée.'}</strong> Vos choix
+        sont intacts. Pour revoir les photos : touchez le bouton ci-dessous et choisissez les mêmes photos qu’au départ.
+        L’analyse n’est pas refaite, cela prend quelques secondes.
+      </p>
+      {recovering?.found === 0 && (
+        <p className="note">Aucune des photos choisies ne correspond à cette séance : vérifiez que ce sont bien les mêmes.</p>
+      )}
+      <label className="bouton principal">
+        Retrouver les images
+        <input
+          type="file"
+          accept="image/*"
+          multiple
+          hidden
+          onChange={(event) => {
+            const files = Array.from(event.target.files ?? []);
+            event.target.value = '';
+            if (files.length) onFiles(files);
+          }}
+        />
+      </label>
+    </div>
   );
 }
