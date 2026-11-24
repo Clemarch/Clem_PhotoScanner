@@ -5,7 +5,7 @@ import { finalKeep, stateLook, type Choice, type Choices } from '../choices';
 import { dayEntries } from '../entries';
 import { formatDate, formatTime, plural } from '../format';
 import { Visionneuse } from './Visionneuse';
-import { albumsEnabled, KEPT_ALBUM, runShortcut, shortcutCount, shortcutText, SHORTCUT_BATCH, SHORTCUT_NAME } from '../../platform/shortcut';
+import { albumsEnabled, KEPT_ALBUM, KEPT_BATCH, runKeepShortcut, runShortcut, shortcutCount, shortcutText, SHORTCUT_BATCH, SHORTCUT_NAME } from '../../platform/shortcut';
 import { GuideRaccourci } from '../GuideRaccourci';
 import { IconCoche, IconCorbeille, IconCroix } from '../icons';
 import { useScrolled } from '../useScrolled';
@@ -75,7 +75,7 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
   const [sent, setSent] = useState<Set<string>>(new Set());
   const scrolled = useScrolled();
   useEffect(() => saveDone(done), [done]);
-  // Albums (24/11) : les photos gardées partent avec le premier lot, pour l'album « Triées ».
+  // Albums (24/11) : les photos gardées partent à part, vers « Photo Triage Garder » (album « Triées »).
   const markKept = albumsEnabled();
   const [keptSent, setKeptSentState] = useState(() => keptSentFor() === session.id);
   const setKeptSent = (on: boolean) => {
@@ -108,7 +108,14 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
   const keptPhotos = markKept
     ? session.results.filter((r) => !r.diagnostic.error && !removeIds.has(r.item.id) && findable(r.item)).map((r) => asPhoto(r.item))
     : [];
-  const keptNow = keptSent ? [] : keptPhotos;
+  // Lots de 150 au plus (adresse de taille raisonnable) ; une séance en a rarement plus.
+  const [keptBatch, setKeptBatch] = useState(0);
+  const keptBatches = Math.ceil(keptPhotos.length / KEPT_BATCH);
+  const sendKept = () => {
+    runKeepShortcut(keptPhotos.slice(keptBatch * KEPT_BATCH, (keptBatch + 1) * KEPT_BATCH));
+    if (keptBatch + 1 >= keptBatches) setKeptSent(true);
+    else setKeptBatch((b) => b + 1);
+  };
   const batchDone = Math.ceil(sent.size / SHORTCUT_BATCH);
   const batches = batchDone + Math.ceil(pendingItems.length / SHORTCUT_BATCH);
 
@@ -122,8 +129,7 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
   };
 
   const send = () => {
-    runShortcut(pendingPhotos, keptNow);
-    if (keptNow.length > 0) setKeptSent(true);
+    runShortcut(pendingPhotos);
     const nowSent = new Set([...sent, ...batchItems.map((it) => it.id)]);
     setSent(nowSent);
     // Un paquet est « fait » quand toutes ses photos à supprimer sont parties. S'il en reste à supprimer à la main
@@ -171,20 +177,6 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
           </span>
           <h2>Rien à supprimer</h2>
           <p className="doux">Toutes les photos de la séance sont gardées.</p>
-          {keptPhotos.length > 0 &&
-            (keptSent ? (
-              <p className="note">Envoyées au raccourci pour l’album « {KEPT_ALBUM} ».</p>
-            ) : (
-              <button
-                className="bouton principal"
-                onClick={() => {
-                  runShortcut([], keptPhotos);
-                  setKeptSent(true);
-                }}
-              >
-                Ranger les {plural(keptPhotos.length, 'photo')} dans « {KEPT_ALBUM} »
-              </button>
-            ))}
         </section>
       ) : allSent ? (
         <section className="carte heros">
@@ -202,7 +194,6 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
             className="lien"
             onClick={() => {
               setSent(new Set());
-              setKeptSent(false);
               reopen(todo.map((p) => p.pack.key));
             }}
           >
@@ -239,13 +230,41 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
             Le raccourci montre d’abord les photos trouvées : vérifiez qu’il y en a <strong>{sendable}</strong>, touchez
             « Terminé », puis confirmez.
             {batches > 1 && ' L’iPhone n’en accepte que 49 à la fois : revenez ici après chaque lot.'}
-            {keptNow.length > 0 &&
-              ` Il range aussi les ${plural(keptNow.length, 'photo')} gardée${keptNow.length > 1 ? 's' : ''} dans l’album « ${KEPT_ALBUM} » (comptez une minute de plus).`}
           </p>
           <details className="note">
             <summary>Liste envoyée (pour vérifier)</summary>
-            <pre className="liste-envoyee">{shortcutText(pendingPhotos, keptNow)}</pre>
+            <pre className="liste-envoyee">{shortcutText(pendingPhotos)}</pre>
           </details>
+        </section>
+      )}
+
+      {keptPhotos.length > 0 && (
+        <section className="groupe">
+          <div className="ligne-info">
+            <div>
+              <strong>Album « {KEPT_ALBUM} »</strong>
+              <span className="note bloc">
+                {keptSent
+                  ? `Les ${plural(keptPhotos.length, 'photo')} gardée${keptPhotos.length > 1 ? 's' : ''} sont parties vers « ${KEPT_ALBUM} ».`
+                  : `${plural(keptPhotos.length, 'photo')} gardée${keptPhotos.length > 1 ? 's' : ''} à ranger, pour qu’elle${keptPhotos.length > 1 ? 's' : ''} ne revienne${keptPhotos.length > 1 ? 'nt' : ''} plus dans « À trier ». Rien n’est supprimé.`}
+              </span>
+            </div>
+          </div>
+          {keptSent ? (
+            <button
+              className="lien"
+              onClick={() => {
+                setKeptBatch(0);
+                setKeptSent(false);
+              }}
+            >
+              Ranger à nouveau
+            </button>
+          ) : (
+            <button className="bouton principal" onClick={sendKept}>
+              {keptBatches > 1 ? `Ranger le lot ${keptBatch + 1} sur ${keptBatches}` : `Ranger dans « ${KEPT_ALBUM} »`}
+            </button>
+          )}
         </section>
       )}
 
