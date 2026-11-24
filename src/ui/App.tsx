@@ -48,6 +48,10 @@ import {
   saveSessionSettings,
   setSessionClosed,
   updateSessionMeasures,
+  clearPartialResults,
+  fileSignature,
+  loadPartialResults,
+  savePartialResult,
   type SavedSession,
   type SessionSummary,
 } from '../platform/storage/sessionStore';
@@ -72,6 +76,8 @@ import {
 } from '../platform/vision/sceneModels';
 import { createAnalyzer } from '../platform/worker/analyzer';
 import { runEyeInBackground, type EyeRun } from '../platform/vision/eyeRunner';
+import { setBusy } from '../platform/update';
+import { ensureModels, modelsState, type ModelsState } from '../platform/storage/models';
 import type { SavedSessionMeta } from '../platform/storage/sessionStore';
 import type { AnalyzeResult } from '../platform/image/types';
 import type { Session } from './session';
@@ -109,6 +115,13 @@ export function App() {
   // Nouvel œil en arrière-plan : progression (affichée dans Réglages) et tâche en cours.
   const [eyeProgress, setEyeProgress] = useState<{ sessionId: string; done: number; total: number; finished?: boolean } | null>(null);
   const eyeRun = useRef<EyeRun | null>(null);
+  const eyeToken = useRef(0);
+  // Modèles du nouvel œil : état du téléchargement (accueil) et attente avant de lancer l'œil.
+  const [models, setModels] = useState<ModelsState | null>(null);
+  const modelsPromise = useRef<Promise<ModelsState> | null>(null);
+  const retryModels = () => {
+    modelsPromise.current = ensureModels(setModels);
+  };
   // Une analyse vient de se terminer : le tri éclair s'ouvre de lui-même.
   const [justAnalyzed, setJustAnalyzed] = useState(false);
   const refreshSeances = () => void listSessions().then(setSeances);
@@ -135,6 +148,11 @@ export function App() {
       setSession(openSaved(saved, 'reprise'));
     });
     refreshSeances();
+    // Modèles du nouvel œil : vérifiés, et téléchargés s'il le faut, dès l'ouverture (progression sur l'accueil).
+    modelsPromise.current = modelsState().then((state) => {
+      setModels(state);
+      return state.ready ? state : ensureModels(setModels);
+    });
     // Protège les choix enregistrés contre l'effacement automatique de Safari.
     void requestPersistentStorage();
   }, []);
@@ -175,6 +193,8 @@ export function App() {
     } else {
       const saved = await loadSessionById(sessionId);
       if (!saved) return;
+      // Nouvel œil de la séance précédente : arrêté, y compris s'il attendait encore ses modèles.
+      eyeToken.current++;
       eyeRun.current?.cancel();
       eyeRun.current = null;
       releaseUrls(session);
@@ -199,6 +219,9 @@ export function App() {
     await deleteSession(sessionId);
     refreshSeances();
   };
+
+  // Une mise à jour arrivée en retard ne recharge jamais l'app pendant un travail (analyse, séance ouverte).
+  useEffect(() => setBusy(Boolean(progress || session)), [progress, session]);
 
   // Choix de l'utilisateur, et goûts appris à partir de tous ses choix enregistrés sur l'appareil.
   const choices = useMemo<Choices>(() => ({ byKey: new Map(records.map((r) => [r.key, r])) }), [records]);
@@ -259,11 +282,26 @@ export function App() {
    * Nouvel œil en arrière-plan : une photo à la fois. Chaque résultat complète la photo (empreinte CLIP, émotions des
    * visages) et les choix déjà faits sur elle ; à la fin, la séance est réenregistrée avec ces mesures.
    */
+  /** Le nouvel œil attend que ses modèles soient sur l'iPhone (téléchargés à l'ouverture), puis se lance. */
   const startEye = (sessionId: string, results: AnalyzeResult[], originals: Map<string, File>, meta: SavedSessionMeta) => {
+    const token = ++eyeToken.current;
+    void (modelsPromise.current ?? Promise.resolve(null)).catch(() => null).then((state) => {
+      if (token !== eyeToken.current) return; // une autre analyse a commencé entre-temps
+      if (!state?.ready) {
+        meta.eyeInfo ??= `modèles pas encore téléchargés${state?.error ? ` (${state.error})` : ''}`;
+        setSession((s) => (s && s.id === sessionId ? { ...s, eyeInfo: meta.eyeInfo } : s));
+        return;
+      }
+      runEye(sessionId, results, originals, meta);
+    });
+  };
+
+  const runEye = (sessionId: string, results: AnalyzeResult[], originals: Map<string, File>, meta: SavedSessionMeta) => {
     eyeRun.current?.cancel();
     const byId = new Map(results.map((r) => [r.item.id, r]));
+    // Photos réellement analysées seulement : RAW et vidéos sont mis de côté, jamais décodés ; captures non plus.
     const photos = results
-      .filter((r) => r.item.camera !== false && !r.diagnostic.error && originals.has(r.item.id))
+      .filter((r) => r.item.kind === 'photo' && !r.item.isRaw && r.item.camera !== false && !r.diagnostic.error && originals.has(r.item.id))
       .map((r) => ({ id: r.item.id, file: originals.get(r.item.id)!, boxes: mainFaces(r.item.faces).map((f) => f.box) }));
     if (photos.length === 0) return;
     setEyeProgress({ sessionId, done: 0, total: photos.length });
@@ -283,13 +321,14 @@ export function App() {
           const emo = emotionSummary(result.item);
           const existing = recordsRef.current.find((r) => r.key === key);
           if (existing && !existing.clip && (clip || emo)) {
-            const updated = { ...existing, ...(clip ? { clip } : {}), ...(emo ? { emo } : {}) };
-            setRecords((list) => list.map((r) => (r.key === key ? updated : r)));
-            void saveChoice(updated);
+            const patch = { ...(clip ? { clip } : {}), ...(emo ? { emo } : {}) };
+            // Complété sur la version en cours du choix (un choix plus récent n'est pas remplacé par l'ancien).
+            setRecords((list) => list.map((r) => (r.key === key && !r.clip ? { ...r, ...patch } : r)));
+            void saveChoice({ ...existing, ...patch });
           }
         } else meta.eyeInfo ??= response.error;
         // Mesures gardées au fur et à mesure : si iOS ferme l'app en route, elles ne sont pas perdues.
-        if (++handled % 20 === 0) void updateSessionMeasures(sessionId, results, meta);
+        if (++handled % 50 === 0) void updateSessionMeasures(sessionId, results, meta);
         setEyeProgress((p) => (p && p.sessionId === sessionId ? { ...p, done: p.done + 1 } : p));
       },
       (error) => {
@@ -306,6 +345,7 @@ export function App() {
 
   const start = async (files: File[]) => {
     startedRef.current = true;
+    eyeToken.current++;
     eyeRun.current?.cancel();
     eyeRun.current = null;
     // La séance précédente n'est plus « ouverte » : si iOS ferme l'app pendant l'analyse, elle n'est pas reprise.
@@ -357,11 +397,27 @@ export function App() {
     const startedAt = performance.now();
     const launchedAt = Date.now();
 
+    // Analyse interrompue (iOS a fermé l'app) : les photos déjà analysées sont reprises telles quelles.
+    const partial = await loadPartialResults();
+    let reused = 0;
+
     for (let i = 0; i < files.length && !cancelRef.current; i++) {
       const file = files[i]!;
       setProgress({ done: i, total: files.length, name: file.name });
       markProgress(i + 1, files.length);
       void wake.ensure();
+      const signature = fileSignature(file);
+      const previous = partial.get(signature);
+      if (previous) {
+        const id = `m${i + 1}`;
+        const result: AnalyzeResult = { ...previous, item: { ...previous.item, id }, diagnostic: { ...previous.diagnostic, id }, frame: null };
+        reused++;
+        results.push(result);
+        originals.set(id, file);
+        if (result.thumbnail) thumbnails.set(id, URL.createObjectURL(result.thumbnail));
+        if (result.preview) previews.set(id, URL.createObjectURL(result.preview));
+        continue;
+      }
       const result = await analyzer.analyze(`m${i + 1}`, file);
       const frame = result.frame;
       result.frame = null;
@@ -422,6 +478,9 @@ export function App() {
         frame.bitmap.close();
       }
       results.push(result);
+      // Gardée tout de suite : si iOS ferme l'app plus loin, elle ne sera pas refaite. Une photo en échec (souvent faute
+      // de mémoire, juste avant la fermeture) n'est pas gardée : elle sera retentée.
+      if (!result.diagnostic.error) void savePartialResult(signature, result);
       // Le fichier d'origine reste sur l'iPhone ; on garde seulement sa référence, pour le zoom en pleine définition.
       originals.set(result.item.id, file);
       if (result.thumbnail) thumbnails.set(result.item.id, URL.createObjectURL(result.thumbnail));
@@ -440,6 +499,8 @@ export function App() {
     const wakeInfo = wake.describe();
     wake.release();
     clearProgress();
+    // Analyse finie (ou arrêtée par l'utilisateur) : plus rien à reprendre.
+    void clearPartialResults();
     const device = await readDeviceReport();
     // Ordre de la journée : le numéro d'une photo est le même dans les deux onglets.
     const order = new Map(sortChronologically(results.map((r) => r.item)).map((item, i) => [item.id, i]));
@@ -466,6 +527,7 @@ export function App() {
       heapAfterMB: readJsHeapMB(),
       device,
       faceError,
+      resumed: reused,
       eyeInfo: null as string | null,
     };
     setSession({ id: String(launchedAt), results, thumbnails, previews, originals, ...meta });
@@ -624,6 +686,8 @@ export function App() {
         onRestore={restore}
         onSettings={() => setSettingsOpen(true)}
         seances={seances.length}
+        models={models}
+        onRetryModels={retryModels}
       />
     );
   }

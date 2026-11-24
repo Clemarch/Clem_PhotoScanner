@@ -35,11 +35,24 @@ describe('contraintes non négociables', () => {
     expect(sources.length).toBeGreaterThan(10);
   });
 
+  // Seule exception : le téléchargement des modèles du nouvel œil à l'ouverture, depuis l'adresse de l'app elle-même
+  // (audit du 24/11, `docs/decisions.md` point 44). La politique de sécurité (connect-src 'self') interdit tout autre site.
+  const MODEL_DOWNLOAD = join('src', 'platform', 'storage', 'models.ts');
+
   it('aucun appel réseau ni adresse externe dans src/', () => {
     const offenders = sources.flatMap(({ path, code }) =>
-      NETWORK.filter((pattern) => pattern.test(code)).map((pattern) => `${path} : ${pattern}`),
+      NETWORK.filter((pattern) => !(path === MODEL_DOWNLOAD && pattern.source === '\\bfetch\\s*\\(') && pattern.test(code)).map(
+        (pattern) => `${path} : ${pattern}`,
+      ),
     );
     expect(offenders).toEqual([]);
+  });
+
+  it('le téléchargement des modèles ne vise que l’adresse de l’app (aucune adresse écrite en dur)', () => {
+    const code = sources.find(({ path }) => path === MODEL_DOWNLOAD)!.code;
+    expect(code).toMatch(/document\.baseURI/);
+    expect(/https?:\/\//.test(code)).toBe(false);
+    expect((code.match(/\bfetch\s*\(/g) ?? []).length).toBe(1);
   });
 
   it('la bibliothèque de visages (MediaPipe) est figée sur une version sans envoi de statistiques', () => {

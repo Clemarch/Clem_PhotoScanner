@@ -117,7 +117,7 @@ export function buildReport(
     `Appareil : ${d.userAgent}`,
     `Écran : ${d.screen} · cœurs : ${d.cores ?? '?'} · installée : ${d.installed ? 'oui' : 'non'} · hors ligne prêt : ${d.offlineReady ? 'oui' : 'non'}`,
     `Fonctions : ${Object.entries(d.support).map(([k, v]) => `${k} ${v ? 'oui' : 'NON'}`).join(', ')}`,
-    `Stockage : ${d.storageUsedMB?.toFixed(1) ?? '?'} / ${d.storageQuotaMB?.toFixed(0) ?? '?'} Mo · durable : ${d.persisted === null ? '?' : d.persisted ? 'oui' : 'NON'} · base des choix : ${choiceStorage.database}${lastDbError ? ` (${lastDbError})` : ''} · repris de la copie de secours : ${choiceStorage.recoveredFromMirror} · séance reprise après fermeture : ${session.restored ? 'oui' : 'non'}`,
+    `Stockage : ${d.storageUsedMB?.toFixed(1) ?? '?'} / ${d.storageQuotaMB?.toFixed(0) ?? '?'} Mo · durable : ${d.persisted === null ? '?' : d.persisted ? 'oui' : 'NON'} · base des choix : ${choiceStorage.database}${lastDbError ? ` (${lastDbError})` : ''} · repris de la copie de secours : ${choiceStorage.recoveredFromMirror} · séance reprise après fermeture : ${session.restored ? 'oui' : 'non'}${session.resumed ? ` · photos reprises d'une analyse interrompue : ${session.resumed}` : ''}`,
     '',
     `Fichiers : ${s.total} · avec date : ${s.withDate} · SANS date : ${s.withoutDate} · RAW mis de côté : ${s.raw} · erreurs : ${s.errors}`,
     `Mis de côté : ${counts(Object.fromEntries([...day.setAside.reduce((m, it) => m.set(asideKind(it) ?? '?', (m.get(asideKind(it) ?? '?') ?? 0) + 1), new Map<string, number>())]))}`,

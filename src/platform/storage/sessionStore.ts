@@ -9,7 +9,7 @@
 // Avant le 20/11, `courante` contenait la séance elle-même et `reglages` ses réglages : repris à la première lecture.
 
 import type { AnalyzeResult } from '../image/types';
-import { runStore, STORES } from './db';
+import { openDb, runStore, STORES } from './db';
 
 export interface SavedSessionMeta {
   totalMs: number;
@@ -22,6 +22,8 @@ export interface SavedSessionMeta {
   faceError: string | null;
   /** « Nouvel œil » : raison s'il n'a pas pu tourner (absent des séances d'avant le 21/11). */
   eyeInfo?: string | null;
+  /** Photos reprises d'une analyse interrompue (non refaites). */
+  resumed?: number;
 }
 
 export interface SessionSettings {
@@ -64,6 +66,30 @@ const info = (sessionId: string) => `i:${sessionId}`;
 const get = async <T,>(key: string): Promise<T | undefined> =>
   (await runStore(STORES.session, 'readonly', (store) => store.get(key))) as T | undefined;
 const put = (value: object) => runStore(STORES.session, 'readwrite', (store) => store.put(value));
+
+/**
+ * Lit et réécrit une séance complète dans une seule transaction : deux mises à jour proches (réglages, mesures du
+ * nouvel œil) ne peuvent plus s'écraser l'une l'autre. Ne fait rien si la séance n'existe plus.
+ */
+async function updateFull(sessionId: string, change: (record: FullRecord) => FullRecord): Promise<void> {
+  const db = await openDb();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORES.session, 'readwrite');
+      const store = tx.objectStore(STORES.session);
+      const request = store.get(full(sessionId));
+      request.onsuccess = () => {
+        const record = request.result as FullRecord | undefined;
+        if (record) store.put(change(record));
+      };
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+    });
+  } finally {
+    db.close();
+  }
+}
 
 function summarize(sessionId: string, savedAt: number, results: readonly Omit<AnalyzeResult, 'frame'>[], closedAt: number | null): SummaryRecord {
   const dates = results.map((r) => r.item.capturedAt).filter((t): t is number => t !== null);
@@ -126,10 +152,8 @@ export async function saveSession(sessionId: string, results: readonly AnalyzeRe
  */
 export async function updateSessionMeasures(sessionId: string, results: readonly AnalyzeResult[], meta: SavedSessionMeta): Promise<void> {
   try {
-    const record = await get<FullRecord>(full(sessionId));
-    if (!record) return;
     const kept = results.map(({ item, thumbnail, preview, diagnostic }) => ({ item, thumbnail, preview, diagnostic }));
-    await put({ ...record, results: kept, meta } satisfies FullRecord);
+    await updateFull(sessionId, (record) => ({ ...record, results: kept, meta }));
   } catch {
     // Facultatif : au pire, les mesures du nouvel œil manquent à la reprise.
   }
@@ -137,8 +161,7 @@ export async function updateSessionMeasures(sessionId: string, results: readonly
 
 export async function saveSessionSettings(sessionId: string, settings: SessionSettings): Promise<void> {
   try {
-    const record = await get<FullRecord>(full(sessionId));
-    if (record) await put({ ...record, settings });
+    await updateFull(sessionId, (record) => ({ ...record, settings }));
   } catch {
     // Facultatif.
   }
@@ -209,6 +232,51 @@ export async function deleteSession(sessionId: string): Promise<void> {
     await runStore(STORES.session, 'readwrite', (store) => store.delete(info(sessionId)));
     const pointer = await get<{ sessionId: string }>('courante');
     if (pointer?.sessionId === sessionId) await runStore(STORES.session, 'readwrite', (store) => store.delete('courante'));
+  } catch {
+    // Rien à effacer.
+  }
+}
+
+// ——— Analyse interrompue (iOS ferme l'app en pleine analyse) : chaque photo analysée est gardée tout de suite, sous
+// `p:<signature du fichier>` ; si l'utilisateur re-choisit les mêmes photos, elles ne sont pas refaites (24/11). ———
+
+/**
+ * Signature d'un fichier choisi : nom et taille, identiques quand on re-choisit la même photo. Pas la date du fichier :
+ * sur l'iPhone, c'est souvent l'heure de la sélection, différente à chaque fois (voir `FileDiagnostic.fileModifiedAt`).
+ */
+export const fileSignature = (file: File): string => `${file.name}|${file.size}`;
+
+const PARTIAL = 'p:';
+const partialRange = () => IDBKeyRange.bound(PARTIAL, `${PARTIAL}￿`);
+
+export async function savePartialResult(signature: string, result: AnalyzeResult): Promise<void> {
+  const { item, thumbnail, preview, diagnostic } = result;
+  try {
+    await put({ id: `${PARTIAL}${signature}`, at: Date.now(), result: { item, thumbnail, preview, diagnostic } });
+  } catch {
+    // Facultatif : au pire, la photo sera refaite.
+  }
+}
+
+/** Photos déjà analysées lors d'une analyse interrompue, par signature de fichier (moins de 2 jours). */
+export async function loadPartialResults(): Promise<Map<string, Omit<AnalyzeResult, 'frame'>>> {
+  const out = new Map<string, Omit<AnalyzeResult, 'frame'>>();
+  try {
+    const rows = (await runStore(STORES.session, 'readonly', (store) => store.getAll(partialRange()))) as {
+      id: string;
+      at: number;
+      result: Omit<AnalyzeResult, 'frame'>;
+    }[];
+    for (const row of rows) if (Date.now() - row.at < 2 * 86_400_000 && row.result?.item) out.set(row.id.slice(PARTIAL.length), row.result);
+  } catch {
+    // Rien à reprendre.
+  }
+  return out;
+}
+
+export async function clearPartialResults(): Promise<void> {
+  try {
+    await runStore(STORES.session, 'readwrite', (store) => store.delete(partialRange()));
   } catch {
     // Rien à effacer.
   }

@@ -74,7 +74,7 @@ export function Reglages({ session, day, records, learned, reports, onRestore, o
       </section>
 
       {session && day && <RapportEtDiagnostic session={session} day={day} records={records} learned={learned} validations={validations} shadow={shadow} />}
-      <h2 className="titre-groupe">Rapports enregistrés</h2>
+      {!session && <h2 className="titre-groupe">Envoyer à Claude</h2>}
       <RapportsEnregistres reports={reports} />
 
       <details className="groupe repli avance">
@@ -157,7 +157,7 @@ function RapportEtDiagnostic({
 
   return (
     <>
-      <h2 className="titre-groupe">Rapport de cette séance</h2>
+      <h2 className="titre-groupe">Envoyer à Claude</h2>
       <section className="groupe">
         <p className="note">{agreementLine(agreement)}</p>
         <div className="rapports-actions">

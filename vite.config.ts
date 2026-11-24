@@ -38,15 +38,17 @@ export default defineConfig({
     react(),
     cspPlugin(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // « prompt » : une nouvelle version ne prend jamais la main pendant qu'on utilise l'app ; elle s'installe à la
+      // prochaine ouverture (src/main.tsx), avant tout travail (audit du 24/11).
+      registerType: 'prompt',
       injectRegister: 'script',
       includeAssets: ['apple-touch-icon.png', 'icon.svg'],
       workbox: {
         // Le modèle de visages et son moteur sont mis en cache avec l'app : tout marche hors ligne.
-        // Modèles du « nouvel œil » (.onnx, réglage 13) compris : téléchargés une fois avec la mise à jour, comme les
-        // autres (règle : aucun appel réseau après l'installation), puis seulement s'ils changent.
-        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,wasm,task,tflite,onnx,mp4}'],
-        maximumFileSizeToCacheInBytes: 100 * 1024 * 1024,
+        // Les modèles du « nouvel œil » (.onnx, 105 Mo) n'en font pas partie : l'app les télécharge elle-même à
+        // l'ouverture, avec une progression visible et une vérification (src/platform/storage/models.ts, audit du 24/11).
+        globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,wasm,task,tflite,mp4}'],
+        maximumFileSizeToCacheInBytes: 25 * 1024 * 1024,
       },
       manifest: {
         name: 'Photo Triage',

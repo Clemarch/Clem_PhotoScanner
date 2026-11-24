@@ -9,6 +9,8 @@ Décisions prises et écarts : `docs/decisions.md` — à mettre à jour à chaq
 ## Contraintes non négociables
 
 - Tout reste sur l'iPhone : aucun appel réseau après l'installation, aucune télémétrie, modèles d'IA embarqués.
+  Seule exception (demande de l'utilisateur, 24/11) : les modèles du nouvel œil sont téléchargés par l'app à
+  l'ouverture, depuis sa propre adresse, jusqu'à ce qu'ils soient là (`src/platform/storage/models.ts`, point 44).
 - Pas d'ordinateur côté utilisateur : tout se teste sur iPhone via l'URL GitHub Pages.
 - Aucune suppression automatique. L'écran final rend la suppression la plus simple possible : bouton qui passe la
   liste au raccourci « Photo Triage » (app Raccourcis), une recherche par photo (nom + fenêtre de ±2 s), aperçu puis confirmation d'iOS

@@ -8,6 +8,7 @@
 // œil à la formule actuelle (`src/engine/learning/ranker.ts`).
 
 import type { Box, FaceEmotion } from '../../engine';
+import { readModel } from '../storage/models';
 
 type Ort = typeof import('onnxruntime-web/wasm');
 type Session = import('onnxruntime-web/wasm').InferenceSession;
@@ -62,18 +63,24 @@ const softmax = (x: readonly number[]): number[] => {
   return e.map((v) => v / s);
 };
 
-/** Charge les deux modèles. Lève une erreur si le moteur ou un modèle manque (l'analyse continue alors sans). */
-/** `base` : adresse complète du dossier des modèles (dans un fil séparé, une adresse relative ne part pas du même
+/** Charge les deux modèles. Lève une erreur si le moteur ou un modèle manque (l'analyse continue alors sans).
+ *  `base` : adresse complète du dossier des modèles (dans un fil séparé, une adresse relative ne part pas du même
  *  endroit que dans la page). */
 export async function createEye(base = new URL('./models/onnx/', document.baseURI).href): Promise<Eye> {
   const ort: Ort = await import('onnxruntime-web/wasm');
   ort.env.wasm.numThreads = 1;
   ort.env.wasm.proxy = false;
   const options = { executionProviders: ['wasm'], graphOptimizationLevel: 'all' as const };
-  const clipSession: Session = await ort.InferenceSession.create(`${base}clip_vit_b32_int8.onnx`, options);
+  // Modèles lus dans le stockage de l'app (téléchargés et vérifiés à l'ouverture, `src/platform/storage/models.ts`).
+  const load = async (file: string): Promise<Session> => {
+    const bytes = await readModel(base, file);
+    if (!bytes) throw new Error(`modèle ${file} pas encore téléchargé`);
+    return ort.InferenceSession.create(bytes, options);
+  };
+  const clipSession: Session = await load('clip_vit_b32_int8.onnx');
   let faceSession: Session;
   try {
-    faceSession = await ort.InferenceSession.create(`${base}hsemotion_b0_va.onnx`, options);
+    faceSession = await load('hsemotion_b0_va.onnx');
   } catch (e) {
     // Mémoire iOS : le premier modèle (89 Mo) n'est pas laissé chargé si le second manque.
     void clipSession.release();
