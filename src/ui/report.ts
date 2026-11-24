@@ -161,8 +161,9 @@ export function buildReport(
       // Chargé si au moins une photo est passée par lui ; une erreur en cours d'analyse n'est pas un échec de chargement.
       const ms = session.results.flatMap((r) => (r.diagnostic.eyeMs === undefined ? [] : [r.diagnostic.eyeMs]));
       if (!ms.length) return session.eyeInfo ? `non chargé (${session.eyeInfo})` : 'non lancé';
-      const withClip = session.results.filter((r) => r.item.clip).length;
-      return `analyse moyenne ${formatMs(ms.reduce((a, b) => a + b, 0) / ms.length)} · empreinte CLIP sur ${withClip}/${ms.length} photos${session.eyeInfo ? ` · erreur : ${session.eyeInfo}` : ''}`;
+      // Empreintes du modèle actuel seulement (une séance rouverte du réglage 13 a des empreintes CLIP, 512 valeurs).
+      const withClip = session.results.filter((r) => r.item.clip?.length === config.ranker.eyeDims).length;
+      return `analyse moyenne ${formatMs(ms.reduce((a, b) => a + b, 0) / ms.length)} · empreinte SigLIP 2 sur ${withClip}/${ms.length} photos${session.eyeInfo ? ` · erreur : ${session.eyeInfo}` : ''}`;
     })()}`,
     `Vos choix enregistrés : ${records.length}${records.some((r) => r.implicit) ? ` (dont ${records.filter((r) => r.implicit).length} laissés tels quels)` : ''} · goûts appris : ${
       Object.entries(learned)

@@ -28,8 +28,9 @@ scope.onmessage = async (event: MessageEvent<EyeRequest>) => {
     const model = await eye;
     const t = performance.now();
     // Même décodage que l'analyse (orientation de la photo comprise), en plus petit : les boîtes restent justes.
-    // Comme l'analyse : si le décodage réduit échoue, la photo est décodée en pleine taille.
-    const bitmap = await createImageBitmap(file, { resizeWidth: 1024, resizeQuality: 'medium' }).catch(() => createImageBitmap(file));
+    // Jamais en pleine taille ici : ce fil porte déjà les modèles (~350 Mo). Si le décodage réduit échoue, la photo
+    // est simplement sautée (elle n'aura pas les mesures du nouvel œil).
+    const bitmap = await createImageBitmap(file, { resizeWidth: 1024, resizeQuality: 'medium' });
     try {
       const clip = await model.clip(bitmap);
       const emotions = boxes.length ? await model.emotions(bitmap, boxes) : [];

@@ -45,7 +45,7 @@ export default defineConfig({
       includeAssets: ['apple-touch-icon.png', 'icon.svg'],
       workbox: {
         // Le modèle de visages et son moteur sont mis en cache avec l'app : tout marche hors ligne.
-        // Les modèles du « nouvel œil » (.onnx, 105 Mo) n'en font pas partie : l'app les télécharge elle-même à
+        // Les modèles du « nouvel œil » (.onnx, 111 Mo) n'en font pas partie : l'app les télécharge elle-même à
         // l'ouverture, avec une progression visible et une vérification (src/platform/storage/models.ts, audit du 24/11).
         globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,wasm,task,tflite,mp4}'],
         maximumFileSizeToCacheInBytes: 25 * 1024 * 1024,

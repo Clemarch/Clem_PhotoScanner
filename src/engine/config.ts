@@ -347,8 +347,10 @@ export const config = {
   },
   /** « Nouvel œil » en coulisse (réglage 13) : classement personnel appris sur les poses validées. */
   ranker: {
-    /** Poids de l'empreinte CLIP face aux mesures (ses 512 valeurs sont petites une fois normalisées). */
+    /** Poids de l'empreinte d'image face aux mesures (ses 768 valeurs sont petites une fois normalisées). */
     clipScale: 3,
+    /** Taille de l'empreinte du modèle actuel (SigLIP 2) ; les autres (CLIP, 512) sont ignorées. */
+    eyeDims: 768,
     /** Frein contre l'apprentissage par cœur, pas et nombre de passes de l'apprentissage. */
     lambda: 0.05,
     rate: 0.5,

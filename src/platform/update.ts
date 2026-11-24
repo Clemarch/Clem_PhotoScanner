@@ -48,15 +48,24 @@ export async function applyPendingUpdate(): Promise<boolean> {
       navigator.serviceWorker.addEventListener(
         'controllerchange',
         () => {
-          // Bascule tardive (l'app a déjà démarré) : rechargement seulement si l'app ne fait rien ; sinon la nouvelle
-          // version sera simplement là à la prochaine ouverture.
-          if (started && isBusy()) return;
+          // Bascule tardive (l'app a déjà démarré) : la nouvelle version a déjà effacé les morceaux de l'ancienne, la
+          // page doit donc la charger ; pendant un travail, ce sera dès que l'app ne fera plus rien (`setBusy`).
+          if (started && isBusy()) {
+            reloadWhenIdle = true;
+            return;
+          }
           window.location.reload();
           resolve(true);
         },
         { once: true },
       );
-      setTimeout(() => resolve(false), 15000);
+      setTimeout(() => {
+        // Bascule commencée mais lente : on recharge quand même, l'app n'a encore rien fait.
+        if (waiting.state === 'activating' || waiting.state === 'activated') {
+          window.location.reload();
+          resolve(true);
+        } else resolve(false);
+      }, 15000);
     });
     waiting.postMessage({ type: 'SKIP_WAITING' });
     const ok = await switched;
@@ -69,7 +78,10 @@ export async function applyPendingUpdate(): Promise<boolean> {
 
 /** L'app est-elle occupée (analyse, séance ouverte) ? Tenu à jour par l'app : une mise à jour n'interrompt jamais un travail. */
 let busy = false;
+/** Nouvelle version mise en place pendant un travail : la page la chargera dès que l'app ne fera plus rien. */
+let reloadWhenIdle = false;
 export const setBusy = (value: boolean): void => {
   busy = value;
+  if (!value && reloadWhenIdle) window.location.reload();
 };
 const isBusy = (): boolean => busy;

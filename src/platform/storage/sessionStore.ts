@@ -249,25 +249,29 @@ export const fileSignature = (file: File): string => `${file.name}|${file.size}`
 const PARTIAL = 'p:';
 const partialRange = () => IDBKeyRange.bound(PARTIAL, `${PARTIAL}￿`);
 
-export async function savePartialResult(signature: string, result: AnalyzeResult): Promise<void> {
+/** `version` : version de l'app qui a analysé la photo (une mise à jour s'installe souvent à la réouverture qui suit
+ *  une fermeture par iOS : ses mesures ne doivent pas se mêler à celles de l'ancienne version). */
+export async function savePartialResult(signature: string, result: AnalyzeResult, version: string): Promise<void> {
   const { item, thumbnail, preview, diagnostic } = result;
   try {
-    await put({ id: `${PARTIAL}${signature}`, at: Date.now(), result: { item, thumbnail, preview, diagnostic } });
+    await put({ id: `${PARTIAL}${signature}`, at: Date.now(), version, result: { item, thumbnail, preview, diagnostic } });
   } catch {
     // Facultatif : au pire, la photo sera refaite.
   }
 }
 
-/** Photos déjà analysées lors d'une analyse interrompue, par signature de fichier (moins de 2 jours). */
-export async function loadPartialResults(): Promise<Map<string, Omit<AnalyzeResult, 'frame'>>> {
+/** Photos déjà analysées lors d'une analyse interrompue, par signature de fichier (moins de 2 jours, même version). */
+export async function loadPartialResults(version: string): Promise<Map<string, Omit<AnalyzeResult, 'frame'>>> {
   const out = new Map<string, Omit<AnalyzeResult, 'frame'>>();
   try {
     const rows = (await runStore(STORES.session, 'readonly', (store) => store.getAll(partialRange()))) as {
       id: string;
       at: number;
+      version?: string;
       result: Omit<AnalyzeResult, 'frame'>;
     }[];
-    for (const row of rows) if (Date.now() - row.at < 2 * 86_400_000 && row.result?.item) out.set(row.id.slice(PARTIAL.length), row.result);
+    for (const row of rows)
+      if (Date.now() - row.at < 2 * 86_400_000 && row.version === version && row.result?.item) out.set(row.id.slice(PARTIAL.length), row.result);
   } catch {
     // Rien à reprendre.
   }

@@ -1,4 +1,4 @@
-// Modèles du « nouvel œil » (105 Mo) : téléchargés par l'app elle-même à l'ouverture, une seule fois, avec une
+// Modèles du « nouvel œil » (111 Mo) : téléchargés par l'app elle-même à l'ouverture, une seule fois, avec une
 // progression visible, vérifiés (taille et empreinte SHA-256), puis gardés sur l'iPhone (Cache Storage). Ils viennent
 // de la même adresse que l'app, jamais d'un autre site. Tant qu'ils ne sont pas là, l'analyse marche sans eux.
 // (Ils ne passent plus par la mise à jour de l'app : une mise à jour de 170 Mo échouait ou traînait — audit du 24/11.)
@@ -10,12 +10,12 @@ export interface ModelFile {
 }
 
 export const EYE_MODELS: readonly ModelFile[] = [
-  { file: 'clip_vit_b32_int8.onnx', bytes: 88_648_877, sha256: '0ab0c1b3ace708e539633af1744d5a95247fe4e14d3e08ff197ef82a6cb9bd93' },
+  { file: 'siglip2_base_int8.onnx', bytes: 94_553_333, sha256: '0dd31785a2713f1113ef2272472165c69d580473dae38d7b47568ac587795e70' },
   { file: 'hsemotion_b0_va.onnx', bytes: 16_049_834, sha256: 'c43e056ad388d4a8dc911832b8291435b2af537f967e5870ebd731574ec7e812' },
 ];
 
 /** Nom versionné : un modèle changé un jour aura un nouveau cache, l'ancien sera effacé. */
-export const MODEL_CACHE = 'nouvel-oeil-v1';
+export const MODEL_CACHE = 'nouvel-oeil-v2';
 const TOTAL = EYE_MODELS.reduce((n, m) => n + m.bytes, 0);
 
 export const modelUrl = (base: string, file: string): string => new URL(file, base).href;
@@ -42,7 +42,7 @@ async function sha256(data: Uint8Array<ArrayBuffer>): Promise<string> {
 
 const message = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
-/** Erreur qu'un nouvel essai ne corrigerait pas (fichier abîmé, stockage plein) : inutile de retélécharger 88 Mo. */
+/** Erreur qu'un nouvel essai ne corrigerait pas (fichier abîmé, stockage plein) : inutile de retélécharger 95 Mo. */
 class FinalError extends Error {}
 
 /** État actuel, sans rien télécharger. Ne lève jamais d'erreur : un stockage inaccessible est rendu comme une erreur. */
@@ -62,9 +62,9 @@ export async function modelsState(): Promise<ModelsState> {
 /**
  * Télécharge les modèles manquants, un par un, avec la progression ; 3 essais par fichier en cas de coupure. Chaque
  * fichier n'est gardé que s'il est complet et intact (empreinte vérifiée). Renvoie l'état final, sans jamais lever
- * d'erreur.
+ * d'erreur. `signal` : arrêt voulu par l'app (une analyse commence) ; rien n'est alors affiché comme une erreur.
  */
-export async function ensureModels(onProgress: (state: ModelsState) => void): Promise<ModelsState> {
+export async function ensureModels(onProgress: (state: ModelsState) => void, signal?: AbortSignal): Promise<ModelsState> {
   if (typeof caches === 'undefined') return { ready: false, done: 0, total: TOTAL, error: 'stockage indisponible' };
   let done = 0;
   let error: string | null = null;
@@ -81,17 +81,17 @@ export async function ensureModels(onProgress: (state: ModelsState) => void): Pr
       }
       let ok = false;
       let retry = true;
-      for (let attempt = 0; attempt < 3 && !ok && retry; attempt++) {
+      for (let attempt = 0; attempt < 3 && !ok && retry && !signal?.aborted; attempt++) {
         try {
           // Seule exception à la règle « aucun appel réseau » : les modèles, depuis l'adresse de l'app elle-même.
           // eslint-disable-next-line no-restricted-globals -- téléchargement des modèles du nouvel œil (même adresse que l'app)
-          const response = await fetch(modelUrl(base, m.file), { cache: 'no-store' });
+          const response = await fetch(modelUrl(base, m.file), { cache: 'no-store', signal });
           if (!response.ok || !response.body) throw new Error(`réponse ${response.status}`);
           const reader = response.body.getReader();
-          // Mémoire iOS : un seul tampon de la taille du fichier, rempli au fur et à mesure (pas de copies en plus).
+          // Mémoire iOS : un seul tampon de la taille du fichier, rempli au fur et à mesure.
           const data = new Uint8Array(m.bytes);
           let got = 0;
-          let shownAt = 0;
+          let shownPct = -1;
           for (;;) {
             const { done: end, value } = await reader.read();
             if (end) break;
@@ -101,10 +101,11 @@ export async function ensureModels(onProgress: (state: ModelsState) => void): Pr
             }
             data.set(value, got);
             got += value.byteLength;
-            // Progression affichée au plus 5 fois par seconde : chaque mise à jour redessine l'app.
-            const now = performance.now();
-            if (now - shownAt > 200) {
-              shownAt = now;
+            // Progression affichée seulement quand le pourcentage change (une centaine de fois en tout) : chaque mise à
+            // jour redessine toute l'app, y compris pendant le tri.
+            const pct = Math.floor(((done + got) / TOTAL) * 100);
+            if (pct !== shownPct) {
+              shownPct = pct;
               onProgress({ ready: false, done: done + got, total: TOTAL, error: null });
             }
           }
@@ -126,6 +127,7 @@ export async function ensureModels(onProgress: (state: ModelsState) => void): Pr
           if (e instanceof FinalError) retry = false;
         }
       }
+      if (signal?.aborted) break;
       onProgress({ ready: false, done, total: TOTAL, error });
       if (!ok) break;
     }
@@ -133,7 +135,8 @@ export async function ensureModels(onProgress: (state: ModelsState) => void): Pr
     error = message(e);
   }
   const state = { ready: done === TOTAL, done, total: TOTAL, error: done === TOTAL ? null : error };
-  onProgress(state);
+  // Arrêt voulu (analyse en cours) : pas d'erreur affichée, le téléchargement reprendra après l'analyse.
+  if (!signal?.aborted) onProgress(state);
   return state;
 }
 

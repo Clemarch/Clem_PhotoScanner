@@ -135,7 +135,7 @@ describe('tri éclair : file des poses', () => {
 describe('nouvel œil en coulisse (réglage 13)', () => {
   // Empreintes CLIP de deux « styles » de photos : l'utilisateur garde toujours le style A.
   const unit = (seed: number) => {
-    const v = Array.from({ length: 512 }, (_, i) => Math.sin(i * 0.37 + seed));
+    const v = Array.from({ length: 768 }, (_, i) => Math.sin(i * 0.37 + seed));
     const n = Math.hypot(...v);
     return v.map((x) => x / n);
   };

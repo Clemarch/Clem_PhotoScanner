@@ -753,7 +753,7 @@ sécurité actuelle (`wasm-unsafe-eval`).
   trie. Les modèles de l'analyse sont déjà fermés : leur mémoire ne s'ajoute plus à celle du nouvel œil (environ
   350 Mo), rendue à l'iPhone quand le fil se ferme.
 - Progression affichée dans Réglages. Les choix déjà faits sur une photo sont complétés quand son résultat arrive.
-- Mesures gardées avec la séance toutes les 20 photos et à la fin, sans toucher à ses réglages, à son état
+- Mesures gardées avec la séance toutes les 50 photos et à la fin, sans toucher à ses réglages, à son état
   (terminée) ni à la séance ouverte (`updateSessionMeasures`). Une séance reprise ou rouverte n'a plus les photos
   d'origine : le nouvel œil n'y repasse pas.
 
@@ -772,6 +772,18 @@ sécurité actuelle (`wasm-unsafe-eval`).
   gardées (retentées). La date du fichier n'entre pas dans la signature : sur l'iPhone, c'est l'heure de la sélection.
 - Lecture et écriture d'une séance gardée dans une seule transaction (réglages et mesures du nouvel œil ne
   s'écrasent plus). Le nouvel œil ne passe que sur les photos analysées (ni RAW, ni vidéos, ni captures).
+
+### 45. SigLIP 2 à la place de CLIP (24/11)
+
+L'utilisateur : « mes modèles doivent être performants, quitte à ce qu'ils pèsent plus lourd ». CLIP ViT-B/32 avait été
+préféré à SigLIP 2 (approuvé le 21/11) pour sa vitesse, quand le nouvel œil tournait pendant l'analyse. Il tourne
+désormais en arrière-plan pendant le tri (point 43) : la vitesse ne gêne plus, on prend le plus fin.
+- `siglip2_base_int8.onnx` (SigLIP 2 base patch16-224, Google, Apache-2.0, 95 Mo ; ~0,8 s par photo sur un cœur) :
+  image ramenée à 224 × 224, valeurs entre -1 et 1, sortie « pooler_output » (768 valeurs). Cache « nouvel-oeil-v2 »
+  (l'ancien est effacé).
+- Les empreintes CLIP (512 valeurs) des choix du réglage 13 sont ignorées par le classement personnel (`eyeDims`).
+- Rappel : le passage de la mise à jour de 170 à 68 Mo (point 44) n'a enlevé aucun modèle ; ceux du nouvel œil
+  (111 Mo) sont téléchargés à l'ouverture avec une progression. Total sur l'iPhone : environ 180 Mo.
 
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 

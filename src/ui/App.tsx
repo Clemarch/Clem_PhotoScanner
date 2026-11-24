@@ -16,6 +16,7 @@ import {
   config,
   learnWeights,
   emotionSummary,
+  decodeEmbedding,
   encodeEmbedding,
   mainFaces,
   mergeChoices,
@@ -81,6 +82,7 @@ import { ensureModels, modelsState, type ModelsState } from '../platform/storage
 import type { SavedSessionMeta } from '../platform/storage/sessionStore';
 import type { AnalyzeResult } from '../platform/image/types';
 import type { Session } from './session';
+import { APP_VERSION } from './version';
 import { Accueil } from './screens/Accueil';
 import { Analyse } from './screens/Analyse';
 import { Reglages } from './screens/Reglages';
@@ -118,10 +120,43 @@ export function App() {
   const eyeToken = useRef(0);
   // Modèles du nouvel œil : état du téléchargement (accueil) et attente avant de lancer l'œil.
   const [models, setModels] = useState<ModelsState | null>(null);
-  const modelsPromise = useRef<Promise<ModelsState> | null>(null);
-  const retryModels = () => {
-    modelsPromise.current = ensureModels(setModels);
+  const modelsPromise = useRef<Promise<ModelsState | null> | null>(null);
+  // Téléchargement en cours (un seul à la fois), analyse en cours, et téléchargement à reprendre après elle.
+  const modelsDownload = useRef<AbortController | null>(null);
+  const analysing = useRef(false);
+  const resumeModels = useRef(false);
+  /**
+   * Télécharge les modèles manquants. Jamais deux fois en même temps (« Réessayer » touché deux fois), ni pendant une
+   * analyse : son tampon de 95 Mo s'ajouterait à la mémoire de l'analyse, celle qu'iOS surveille ; il reprend après.
+   */
+  const downloadModels = (): Promise<ModelsState | null> => {
+    if (modelsDownload.current && modelsPromise.current) return modelsPromise.current;
+    if (analysing.current) {
+      resumeModels.current = true;
+      return Promise.resolve(null);
+    }
+    const controller = new AbortController();
+    modelsDownload.current = controller;
+    const promise = ensureModels(setModels, controller.signal)
+      .then((state) => {
+        // Séance qui attendait ses modèles (téléchargement échoué puis relancé) : le nouvel œil s'y met maintenant.
+        const waiting = pendingEye.current;
+        if (state?.ready && waiting) {
+          pendingEye.current = null;
+          waiting.meta.eyeInfo = null;
+          runEye(waiting.sessionId, waiting.results, waiting.originals, waiting.meta);
+        }
+        return state;
+      })
+      .finally(() => {
+        if (modelsDownload.current === controller) modelsDownload.current = null;
+      });
+    modelsPromise.current = promise;
+    return promise;
   };
+  const retryModels = () => void downloadModels();
+  // Séance dont le nouvel œil attend ses modèles.
+  const pendingEye = useRef<{ sessionId: string; results: AnalyzeResult[]; originals: Map<string, File>; meta: SavedSessionMeta } | null>(null);
   // Une analyse vient de se terminer : le tri éclair s'ouvre de lui-même.
   const [justAnalyzed, setJustAnalyzed] = useState(false);
   const refreshSeances = () => void listSessions().then(setSeances);
@@ -151,7 +186,7 @@ export function App() {
     // Modèles du nouvel œil : vérifiés, et téléchargés s'il le faut, dès l'ouverture (progression sur l'accueil).
     modelsPromise.current = modelsState().then((state) => {
       setModels(state);
-      return state.ready ? state : ensureModels(setModels);
+      return state.ready ? state : downloadModels();
     });
     // Protège les choix enregistrés contre l'effacement automatique de Safari.
     void requestPersistentStorage();
@@ -278,16 +313,13 @@ export function App() {
     if (session) void saveSessionSettings(session.id, { gap, joined: [...joined] });
   }, [session, gap, joined]);
 
-  /**
-   * Nouvel œil en arrière-plan : une photo à la fois. Chaque résultat complète la photo (empreinte CLIP, émotions des
-   * visages) et les choix déjà faits sur elle ; à la fin, la séance est réenregistrée avec ces mesures.
-   */
   /** Le nouvel œil attend que ses modèles soient sur l'iPhone (téléchargés à l'ouverture), puis se lance. */
   const startEye = (sessionId: string, results: AnalyzeResult[], originals: Map<string, File>, meta: SavedSessionMeta) => {
     const token = ++eyeToken.current;
     void (modelsPromise.current ?? Promise.resolve(null)).catch(() => null).then((state) => {
       if (token !== eyeToken.current) return; // une autre analyse a commencé entre-temps
       if (!state?.ready) {
+        pendingEye.current = { sessionId, results, originals, meta };
         meta.eyeInfo ??= `modèles pas encore téléchargés${state?.error ? ` (${state.error})` : ''}`;
         setSession((s) => (s && s.id === sessionId ? { ...s, eyeInfo: meta.eyeInfo } : s));
         return;
@@ -296,6 +328,10 @@ export function App() {
     });
   };
 
+  /**
+   * Nouvel œil en arrière-plan : une photo à la fois. Chaque résultat complète la photo (empreinte SigLIP 2, émotions
+   * des visages) et les choix déjà faits sur elle ; à la fin, la séance est réenregistrée avec ces mesures.
+   */
   const runEye = (sessionId: string, results: AnalyzeResult[], originals: Map<string, File>, meta: SavedSessionMeta) => {
     eyeRun.current?.cancel();
     const byId = new Map(results.map((r) => [r.item.id, r]));
@@ -319,11 +355,13 @@ export function App() {
           const key = photoKey(result.item);
           const clip = encodeEmbedding(response.clip);
           const emo = emotionSummary(result.item);
+          // Une empreinte d'un autre modèle (CLIP, 512 valeurs, réglage 13) ne compte pas : elle est remplacée.
+          const hasEyeClip = (r: ChoiceRecord) => decodeEmbedding(r.clip)?.length === config.ranker.eyeDims;
           const existing = recordsRef.current.find((r) => r.key === key);
-          if (existing && !existing.clip && (clip || emo)) {
+          if (existing && !hasEyeClip(existing) && (clip || emo)) {
             const patch = { ...(clip ? { clip } : {}), ...(emo ? { emo } : {}) };
             // Complété sur la version en cours du choix (un choix plus récent n'est pas remplacé par l'ancien).
-            setRecords((list) => list.map((r) => (r.key === key && !r.clip ? { ...r, ...patch } : r)));
+            setRecords((list) => list.map((r) => (r.key === key && !hasEyeClip(r) ? { ...r, ...patch } : r)));
             void saveChoice({ ...existing, ...patch });
           }
         } else meta.eyeInfo ??= response.error;
@@ -346,6 +384,7 @@ export function App() {
   const start = async (files: File[]) => {
     startedRef.current = true;
     eyeToken.current++;
+    pendingEye.current = null;
     eyeRun.current?.cancel();
     eyeRun.current = null;
     // La séance précédente n'est plus « ouverte » : si iOS ferme l'app pendant l'analyse, elle n'est pas reprise.
@@ -358,6 +397,13 @@ export function App() {
     setInterrupted(null);
     cancelRef.current = false;
     setProgress({ done: 0, total: files.length, name: '' });
+    // Mémoire iOS : le téléchargement des modèles du nouvel œil s'arrête pendant l'analyse, il reprend juste après.
+    analysing.current = true;
+    if (modelsDownload.current) {
+      modelsDownload.current.abort();
+      modelsDownload.current = null;
+      resumeModels.current = true;
+    }
 
     const heapBeforeMB = readJsHeapMB();
     // Écran tenu allumé pendant toute l'analyse ; redemandé à chaque photo au cas où iOS l'aurait retiré.
@@ -398,8 +444,10 @@ export function App() {
     const launchedAt = Date.now();
 
     // Analyse interrompue (iOS a fermé l'app) : les photos déjà analysées sont reprises telles quelles.
-    const partial = await loadPartialResults();
+    const partial = await loadPartialResults(APP_VERSION);
     let reused = 0;
+    // Tous les modèles ont démarré : sinon les photos analysées sans eux ne sont pas gardées pour une reprise.
+    const allModels = Boolean(detector && objectDetector && segmenter && embedder && classifier && gestures);
 
     for (let i = 0; i < files.length && !cancelRef.current; i++) {
       const file = files[i]!;
@@ -421,6 +469,8 @@ export function App() {
       const result = await analyzer.analyze(`m${i + 1}`, file);
       const frame = result.frame;
       result.frame = null;
+      // Un modèle a échoué sur cette photo (souvent faute de mémoire) : mesures incomplètes, à refaire en cas de reprise.
+      let incomplete = false;
       // Capture d'écran ou image enregistrée : mise de côté, sans passer par les modèles.
       if (frame && result.item.camera === false) frame.bitmap.close();
       else if (frame) {
@@ -431,6 +481,7 @@ export function App() {
             result.item.objects = objectDetector.detect(frame.bitmap);
             result.diagnostic.objectMs = performance.now() - t;
           } catch (e) {
+            incomplete = true;
             faceError ??= `objets : ${e instanceof Error ? e.message : String(e)}`;
           }
         }
@@ -445,6 +496,7 @@ export function App() {
             result.diagnostic.faceCount = observations.length;
             result.diagnostic.faceRetry = retried;
           } catch (e) {
+            incomplete = true;
             faceError ??= e instanceof Error ? e.message : String(e);
           }
         }
@@ -471,6 +523,7 @@ export function App() {
             // Gestes : seulement s'il y a des personnes à juger.
             if (gestures && (result.item.faces?.length ?? 0) > 0) result.item.hands = gestures.find(frame.bitmap);
           } catch (e) {
+            incomplete = true;
             faceError ??= `modèles : ${e instanceof Error ? e.message : String(e)}`;
           }
           if (segmenter || embedder || classifier || gestures) result.diagnostic.modelsMs = performance.now() - t;
@@ -478,9 +531,9 @@ export function App() {
         frame.bitmap.close();
       }
       results.push(result);
-      // Gardée tout de suite : si iOS ferme l'app plus loin, elle ne sera pas refaite. Une photo en échec (souvent faute
-      // de mémoire, juste avant la fermeture) n'est pas gardée : elle sera retentée.
-      if (!result.diagnostic.error) void savePartialResult(signature, result);
+      // Gardée tout de suite : si iOS ferme l'app plus loin, elle ne sera pas refaite. Une photo en échec ou mesurée sans
+      // tous les modèles (souvent faute de mémoire, juste avant la fermeture) n'est pas gardée : elle sera retentée.
+      if (!result.diagnostic.error && !incomplete && allModels) void savePartialResult(signature, result, APP_VERSION);
       // Le fichier d'origine reste sur l'iPhone ; on garde seulement sa référence, pour le zoom en pleine définition.
       originals.set(result.item.id, file);
       if (result.thumbnail) thumbnails.set(result.item.id, URL.createObjectURL(result.thumbnail));
@@ -501,6 +554,12 @@ export function App() {
     clearProgress();
     // Analyse finie (ou arrêtée par l'utilisateur) : plus rien à reprendre.
     void clearPartialResults();
+    // Modèles de l'analyse fermés : le téléchargement des modèles du nouvel œil peut reprendre.
+    analysing.current = false;
+    if (resumeModels.current) {
+      resumeModels.current = false;
+      void downloadModels();
+    }
     const device = await readDeviceReport();
     // Ordre de la journée : le numéro d'une photo est le même dans les deux onglets.
     const order = new Map(sortChronologically(results.map((r) => r.item)).map((item, i) => [item.id, i]));
@@ -665,6 +724,8 @@ export function App() {
       }}
       validations={validations}
       shadow={shadow}
+      models={models}
+      onRetryModels={retryModels}
       eyeProgress={eyeProgress && eyeProgress.sessionId === session?.id ? eyeProgress : null}
       seances={seances}
       currentId={closed ? null : (session?.id ?? null)}
