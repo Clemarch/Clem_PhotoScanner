@@ -22,8 +22,8 @@ import { IconChevron } from './icons';
  */
 export function GuideAlbums({ records }: { records: ChoiceRecord[] }) {
   const [on, setOn] = useState(albumsEnabled);
-  const [shown, setShown] = useState<'' | 'maj' | 'prep'>('');
-  const toggle = (which: 'maj' | 'prep') => setShown((v) => (v === which ? '' : which));
+  const [shown, setShown] = useState<'' | 'albums' | 'maj' | 'prep'>('');
+  const toggle = (which: 'albums' | 'maj' | 'prep') => setShown((v) => (v === which ? '' : which));
 
   return (
     <>
@@ -33,105 +33,177 @@ export function GuideAlbums({ records }: { records: ChoiceRecord[] }) {
         récentes qui en ont).
       </p>
 
+      <p className="note">
+        À savoir dans l’app Raccourcis : une action ajoutée depuis la recherche arrive <strong>tout en bas</strong>.
+        Maintenez-la appuyée puis faites-la glisser à l’endroit indiqué. Un <strong>mot bleu</strong> se touche pour être
+        changé ; pour y mettre une variable, touchez-le puis choisissez-la dans la liste (ou appui long, « Sélectionner
+        la variable »).
+      </p>
+
+      <button className={`titre-aide${shown === 'albums' ? ' ouvert' : ''}`} onClick={() => toggle('albums')} aria-expanded={shown === 'albums'}>
+        <span>1. Créer les deux albums (une seule fois)</span>
+        <IconChevron size={14} className="chevron" />
+      </button>
+      {shown === 'albums' && (
+        <ol className="etapes">
+          <li>
+            Ouvrez l’app <strong>Photos</strong>, faites défiler jusqu’à la rubrique <strong>Albums</strong> (sur
+            certaines versions : onglet <strong>Collections</strong>).
+          </li>
+          <li>
+            Touchez <strong>+</strong> (ou « Voir tout » puis <strong>+</strong>), puis <strong>Nouvel album</strong>.
+          </li>
+          <li>
+            Nommez-le exactement <strong>{KEPT_ALBUM}</strong> (T majuscule, é accentué), touchez{' '}
+            <strong>Enregistrer</strong>. Si Photos propose de choisir des photos, touchez <strong>OK</strong> sans en
+            choisir.
+          </li>
+          <li>
+            Recommencez pour <strong>{TODO_ALBUM}</strong> (A majuscule avec accent : « À »).
+          </li>
+        </ol>
+      )}
+
       <button className={`titre-aide${shown === 'maj' ? ' ouvert' : ''}`} onClick={() => toggle('maj')} aria-expanded={shown === 'maj'}>
-        <span>1. Mettre à jour « {SHORTCUT_NAME} » (une seule fois)</span>
+        <span>2. Mettre à jour « {SHORTCUT_NAME} » (une seule fois)</span>
         <IconChevron size={14} className="chevron" />
       </button>
       {shown === 'maj' && (
         <>
           <ol className="etapes">
             <li>
-              Dans l’app <strong>Photos</strong> : onglet <strong>Albums</strong> (ou faites défiler jusqu’à « Albums »),
-              touchez <strong>+</strong>, <strong>Nouvel album</strong>, nommez-le <strong>{KEPT_ALBUM}</strong>. Faites de
-              même pour <strong>{TODO_ALBUM}</strong>. Pas besoin d’y mettre de photos.
+              App <strong>Raccourcis</strong>, onglet <strong>Raccourcis</strong> : appui long sur «{' '}
+              {SHORTCUT_NAME} », puis <strong>Modifier</strong>.
             </li>
             <li>
-              App <strong>Raccourcis</strong> : touchez les <strong>…</strong> du raccourci « {SHORTCUT_NAME} » pour
-              l’ouvrir.
+              Dans le bloc <strong>Rechercher Photos</strong> : s’il reste un filtre « Album n’est pas Choisir » (essai
+              d’hier), touchez le <strong>⊖</strong> à sa droite pour l’enlever. Il ne doit rester que « Date de création
+              est entre Début et Fin » et « Nom est Nom photo ».
             </li>
             <li>
-              Bloc qui donne la variable <strong>Fin</strong> : touchez <strong>Dernier élément</strong> et choisissez{' '}
-              <strong>Élément à l’index</strong>, puis tapez <strong>3</strong>.
+              Juste au-dessus de « Définir la variable <strong>Fin</strong> » : le bloc « Obtenir{' '}
+              <strong>Dernier élément</strong> de Texte scindé ». Touchez <strong>Dernier élément</strong>, choisissez{' '}
+              <strong>Élément à l’index</strong>, touchez le chiffre apparu et tapez <strong>3</strong>.
             </li>
             <li>
-              Juste sous « Rechercher Photos » : supprimez le bloc « Ajouter <strong>Photos</strong> à{' '}
-              <strong>A supprimer</strong> » (la croix ✕ à droite). Vous allez le remettre à l’étape 6.
+              En bas, barre <strong>Rechercher</strong> : tapez « si » et touchez l’action <strong>Si</strong>. Elle
+              arrive en bas avec « Sinon » et « Fin si ». Faites glisser la ligne <strong>Si</strong> juste sous le bloc
+              « Ajouter Photos à A supprimer », donc encore <strong>au-dessus</strong> de « Fin de la répétition ».
             </li>
             <li>
-              À sa place (toujours dans la répétition), ajoutez <strong>Si</strong>. Touchez « Entrée » et choisissez{' '}
-              <strong>Élément de répétition</strong> ; condition <strong>se termine par</strong> ; texte{' '}
-              <strong>|G</strong>.
+              Dans « Si » : touchez <strong>Entrée</strong>, choisissez <strong>Élément de répétition</strong>.
+              Touchez <strong>Condition</strong>, choisissez <strong>se termine par</strong>. Touchez <strong>Texte</strong>{' '}
+              et tapez <strong>|G</strong> (« | » : touches 123, puis #+=).
             </li>
             <li>
-              Entre « Si » et « Sinon » : action <strong>Ajouter à l’album</strong> (tapez « ajouter » dans la recherche).
-              Touchez son premier mot bleu et choisissez <strong>Photos</strong> (le résultat de la recherche), puis
-              l’album <strong>{KEPT_ALBUM}</strong>. Entre « Sinon » et « Fin si » : <strong>Ajouter à la variable</strong>{' '}
-              « Ajouter <strong>Photos</strong> à <strong>A supprimer</strong> ».
+              Faites glisser le bloc « Ajouter <strong>Photos</strong> à <strong>A supprimer</strong> » entre{' '}
+              <strong>Sinon</strong> et <strong>Fin si</strong>.
             </li>
             <li>
-              Sous « Fin de la répétition » : ajoutez <strong>Si</strong> « <strong>A supprimer</strong>{' '}
-              <strong>a une valeur</strong> », puis faites glisser <strong>dedans</strong> (avant « Fin si ») les blocs
-              « Afficher le résultat » et « Supprimer les photos ». Touchez <strong>OK</strong>.
+              Barre Rechercher : tapez « créer un album » et touchez <strong>Créer un album photo</strong>. Faites-le
+              glisser entre <strong>Si</strong> et <strong>Sinon</strong>. Touchez le nom de l’album et tapez exactement{' '}
+              <strong>{KEPT_ALBUM}</strong> ; touchez le mot bleu du contenu et choisissez <strong>Photos</strong> (le
+              résultat de « Rechercher Photos »). Si l’album existe déjà, les photos y sont ajoutées, sans copie.
+            </li>
+            <li>
+              Barre Rechercher : encore <strong>Si</strong>. Faites-le glisser juste <strong>sous</strong> « Fin de la
+              répétition ». Entrée : <strong>A supprimer</strong> ; condition : <strong>a une valeur</strong>.
+            </li>
+            <li>
+              Faites glisser les blocs qui étaient sous « Fin de la répétition » (« Afficher le résultat » ou « Coup
+              d’œil », puis « Supprimer les photos ») entre ce nouveau <strong>Si</strong> et son <strong>Sinon</strong>.
+              Laissez « Sinon » vide.
+            </li>
+            <li>
+              Touchez <strong>OK</strong> en haut à droite.
             </li>
           </ol>
           <p className="note">
-            N’utilisez pas « Enregistrer dans l’album photo » : cette action fait une copie de chaque photo. Si « Ajouter à
-            l’album » n’existe pas sur votre iPhone, arrêtez-vous et dites-le à Claude.
+            Résultat attendu, de haut en bas : Scinder le texte · Répéter avec chaque élément · Scinder le texte (|) ·
+            Nom photo · Début · Fin (index 3) · Rechercher Photos · <strong>Si</strong> se termine par |G → Créer un album
+            photo « {KEPT_ALBUM} » · <strong>Sinon</strong> → Ajouter à A supprimer · Fin si · Fin de la répétition ·{' '}
+            <strong>Si</strong> A supprimer a une valeur → Afficher · Supprimer les photos · Fin si.
+          </p>
+          <p className="note">
+            N’utilisez pas « Enregistrer dans l’album photo » : cette action fait une copie de chaque photo.
           </p>
         </>
       )}
 
       <button className={`titre-aide${shown === 'prep' ? ' ouvert' : ''}`} onClick={() => toggle('prep')} aria-expanded={shown === 'prep'}>
-        <span>2. Créer « {PREP_SHORTCUT_NAME} » (une seule fois)</span>
+        <span>3. Créer « {PREP_SHORTCUT_NAME} » (une seule fois)</span>
         <IconChevron size={14} className="chevron" />
       </button>
       {shown === 'prep' && (
         <>
           <ol className="etapes">
             <li>
-              App <strong>Raccourcis</strong>, touchez <strong>+</strong>, renommez-le exactement{' '}
-              <strong>{PREP_SHORTCUT_NAME}</strong> (touchez le titre, puis Renommer).
+              App <strong>Raccourcis</strong>, touchez <strong>+</strong> en haut à droite. Touchez le titre en haut,{' '}
+              <strong>Renommer</strong>, tapez exactement <strong>{PREP_SHORTCUT_NAME}</strong>.
             </li>
             <li>
-              <strong>Rechercher des photos</strong>, un filtre : <strong>Album est {TODO_ALBUM}</strong>. Pas de limite.
+              Ajoutez <strong>Rechercher des photos</strong>. Touchez <strong>Ajouter un filtre</strong> ; touchez le
+              premier mot bleu, choisissez <strong>Album</strong> ; laissez <strong>est</strong> ; touchez le dernier mot
+              bleu, choisissez <strong>{TODO_ALBUM}</strong>. Laissez « Limite » éteint.
             </li>
             <li>
-              <strong>Si</strong> « <strong>Photos</strong> <strong>a une valeur</strong> ». Dedans :{' '}
-              <strong>Supprimer de l’album photo</strong> « <strong>Photos</strong> de <strong>{TODO_ALBUM}</strong> ».
-              Cette action retire seulement les photos de l’album : elles restent dans votre photothèque.
+              Ajoutez <strong>Si</strong> (il se place dessous). Entrée : <strong>Photos</strong> ; condition :{' '}
+              <strong>a une valeur</strong>.
             </li>
             <li>
-              Sous « Fin si » : <strong>Répéter</strong>, touchez « 1 fois » et mettez <strong>26</strong> (26 fois 2
-              semaines : 1 an). Les blocs suivants, jusqu’à l’étape 9, vont <strong>dans</strong> la répétition.
+              Ajoutez <strong>Supprimer de l’album photo</strong> et faites-le glisser entre <strong>Si</strong> et{' '}
+              <strong>Sinon</strong>. Contenu : <strong>Photos</strong> ; album : <strong>{TODO_ALBUM}</strong>. Cette
+              action retire seulement les photos de l’album : elles restent dans votre photothèque.
             </li>
             <li>
-              <strong>Calculer</strong> : « <strong>Index de répétition</strong> × <strong>14</strong> ».
+              Ajoutez <strong>Répéter</strong> (il doit être <strong>sous</strong> « Fin si »). Touchez « 1 fois » et
+              mettez <strong>26</strong> (26 fois 2 semaines = 1 an). Les étapes 6 à 12 se placent{' '}
+              <strong>entre</strong> « Répéter » et « Fin de la répétition ».
             </li>
             <li>
-              <strong>Ajuster la date</strong> : « <strong>Soustraire</strong> <strong>Résultat du calcul</strong>{' '}
-              <strong>jours</strong> de <strong>Date actuelle</strong> ». Puis <strong>Définir la variable</strong>{' '}
-              <strong>Début</strong>.
+              Ajoutez <strong>Calculer</strong>. Premier nombre : variable <strong>Index de répétition</strong> ; touchez
+              « + » et choisissez <strong>×</strong> ; second nombre : <strong>14</strong>.
             </li>
             <li>
-              <strong>Ajuster la date</strong> : « <strong>Ajouter</strong> <strong>14</strong> <strong>jours</strong> à{' '}
-              <strong>Début</strong> ». Puis <strong>Définir la variable</strong> <strong>Fin</strong>.
+              Ajoutez <strong>Ajuster la date</strong>. Touchez <strong>Ajouter</strong> et choisissez{' '}
+              <strong>Soustraire</strong> ; nombre : variable <strong>Résultat du calcul</strong> ; unité :{' '}
+              <strong>jours</strong> ; date : variable <strong>Date actuelle</strong>.
             </li>
             <li>
-              <strong>Rechercher des photos</strong> (« lorsque <strong>l’ensemble</strong> des éléments suivants sont
-              vrais »), filtres : <strong>Date de création est entre</strong> Début et Fin ; <strong>Album n’est pas{' '}
-              {KEPT_ALBUM}</strong> ; <strong>Type de média est Image</strong> ; et, s’il est proposé,{' '}
-              <strong>Est une capture d’écran</strong> désactivé. Pas de limite.
+              Ajoutez <strong>Définir la variable</strong>, nommez-la <strong>Début</strong> (elle reçoit « Date
+              ajustée »).
             </li>
             <li>
-              <strong>Si</strong> « <strong>Photos</strong> <strong>a une valeur</strong> ». Dedans :{' '}
-              <strong>Ajouter à l’album</strong> « <strong>Photos</strong> à <strong>{TODO_ALBUM}</strong> », puis{' '}
+              Ajoutez <strong>Ajuster la date</strong> : laissez <strong>Ajouter</strong> ; nombre :{' '}
+              <strong>14</strong> ; unité : <strong>jours</strong> ; date : variable <strong>Début</strong>. Puis{' '}
+              <strong>Définir la variable</strong> <strong>Fin</strong>.
+            </li>
+            <li>
+              Ajoutez <strong>Rechercher des photos</strong>, avec ces filtres (bouton « Ajouter un filtre » pour
+              chacun) : <strong>Date de création est entre</strong> Début et Fin (appui long sur chaque date, «
+              Sélectionner la variable ») ; <strong>Album n’est pas {KEPT_ALBUM}</strong> ; <strong>Type de média est
+              Image</strong> ; et, s’il est proposé, <strong>Est une capture d’écran</strong> éteint. En haut du bloc :
+              « lorsque <strong>l’ensemble</strong> des éléments ». Limite éteinte.
+            </li>
+            <li>
+              Ajoutez <strong>Si</strong>. Entrée : <strong>Photos</strong> (celles de cette dernière recherche) ;
+              condition : <strong>a une valeur</strong>.
+            </li>
+            <li>
+              Entre ce <strong>Si</strong> et son <strong>Sinon</strong> : <strong>Créer un album photo</strong>{' '}
+              (nom : <strong>{TODO_ALBUM}</strong> ; contenu : <strong>Photos</strong>), puis{' '}
               <strong>Arrêter ce raccourci</strong>.
             </li>
             <li>
-              Sous « Fin de la répétition » : <strong>Afficher l’alerte</strong> « Tout est trié sur l’année écoulée ».
-              Touchez <strong>OK</strong>.
+              Tout en bas, sous « Fin de la répétition » : <strong>Afficher l’alerte</strong>, texte « Tout est trié sur
+              l’année écoulée ». Touchez <strong>OK</strong> en haut à droite.
             </li>
           </ol>
+          <p className="note">
+            Résultat attendu : Rechercher (Album est {TODO_ALBUM}) · Si → Supprimer de l’album · Fin si · Répéter 26 fois
+            → Calculer · Ajuster (Début) · Ajuster (Fin) · Rechercher · Si → Créer un album photo « {TODO_ALBUM} » ·
+            Arrêter ce raccourci · Fin si · Fin de la répétition · Afficher l’alerte.
+          </p>
           <p className="note">
             Il prend les 2 dernières semaines ; si elles sont déjà triées, les 2 semaines d’avant, et ainsi de suite. Une
             photo qui revient sans cesse dans « {TODO_ALBUM} » (photo sans date, par exemple) : ajoutez-la vous-même à

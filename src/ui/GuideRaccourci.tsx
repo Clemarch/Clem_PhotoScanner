@@ -59,20 +59,20 @@ export function GuideRaccourci({ open = false }: { open?: boolean }) {
             </li>
             <li>
               <strong>Si</strong> : « Si <strong>Élément de répétition</strong> <strong>se termine par</strong>{' '}
-              <strong>|G</strong> ». Dans le premier bloc : <strong>Ajouter à l’album</strong> « Ajouter{' '}
-              <strong>Photos</strong> à <strong>{KEPT_ALBUM}</strong> » (touchez le mot bleu de l’entrée et choisissez
-              « Photos », le résultat de la recherche). Après <strong>Sinon</strong> : <strong>Ajouter à la variable</strong>{' '}
+              <strong>|G</strong> ». Entre « Si » et « Sinon » : <strong>Créer un album photo</strong>, nom{' '}
+              <strong>{KEPT_ALBUM}</strong>, contenu <strong>Photos</strong> (le résultat de la recherche ; l’album
+              existant reçoit les photos, sans copie). Entre « Sinon » et « Fin si » : <strong>Ajouter à la variable</strong>{' '}
               « Ajouter <strong>Photos</strong> à <strong>A supprimer</strong> ».
             </li>
             <li>
               Sous « Fin de la répétition » : <strong>Si</strong> « <strong>A supprimer</strong>{' '}
-              <strong>a une valeur</strong> », et dedans : <strong>Afficher le résultat</strong> (A supprimer), puis{' '}
+              <strong>a une valeur</strong> », et entre « Si » et « Sinon » : <strong>Afficher le résultat</strong> (A supprimer), puis{' '}
               <strong>Supprimer les photos</strong> (A supprimer). Touchez <strong>OK</strong>.
             </li>
           </ol>
           <p className="note">
-            L’album « {KEPT_ALBUM} » doit exister dans Photos avant l’étape 9 (Photos › Albums › + › Nouvel album). Pièges
-            connus : une action qui affiche « Filtrer Entrée de raccourci » ou « Filtrer Élément de répétition »
+            Une action ajoutée arrive tout en bas : maintenez-la appuyée et faites-la glisser à sa place. « Créer un album
+            photo » crée l’album « {KEPT_ALBUM} » s’il n’existe pas encore. Pièges connus : une action qui affiche « Filtrer Entrée de raccourci » ou « Filtrer Élément de répétition »
             au lieu de « Rechercher Photos » (touchez le mot bleu, puis Effacer) ; un bloc placé sous la recherche alors
             qu’elle en a besoin (l’ordre compte, de haut en bas).
           </p>

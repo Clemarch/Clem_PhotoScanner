@@ -818,7 +818,9 @@ reculant de 2 semaines en 2 semaines tant que les plus récentes sont déjà tri
 
 - iOS n'a pas d'album intelligent sur iPhone et une app web ne peut pas écrire dans Photos : tout passe par
   l'app Raccourcis, qui sait chercher « Album n'est pas … » (vérifié par l'utilisateur) et « Supprimer de l'album
-  photo » (retire de l'album sans supprimer la photo).
+  photo » (retire de l'album sans supprimer la photo). Il n'existe pas d'action « Ajouter à l'album » : on
+  utilise « Créer un album photo », qui ajoute les photos à l'album s'il porte déjà ce nom (vérifié par l'utilisateur,
+  24/11), et jamais « Enregistrer dans l'album photo », qui copierait les photos.
 - Raccourci « Photo Triage » : les lignes des photos gardées finissent par « |G » et vont dans l'album « Triées » ;
   les lignes à supprimer gardent leur forme (un raccourci pas encore mis à jour marche toujours). La date de fin se
   lit à l'index 3. La suppression n'a lieu que si « A supprimer » a une valeur. Les photos gardées partent avec le
