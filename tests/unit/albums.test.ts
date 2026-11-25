@@ -52,3 +52,4 @@ describe('nouvel œil : choix complétés après coup (25/11)', () => {
     expect(typeof patches[0]!.clip).toBe('string');
   });
 });
+

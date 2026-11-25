@@ -36,7 +36,7 @@ import {
 } from '../engine';
 import { clearValidations, loadValidations, saveValidation } from '../platform/storage/validations';
 import { TriEclair, type EclairResult } from './screens/TriEclair';
-import { clearChoices, loadChoices, removeChoice, saveChoice } from '../platform/storage/choices';
+import { clearChoices, loadChoices, removeChoice, saveChoice, saveChoices } from '../platform/storage/choices';
 import { loadReports, saveReport, type SavedReport } from '../platform/storage/reports';
 import { loadLastRun, runSignature, saveLastRun, type LastRun } from '../platform/storage/lastRun';
 import {
@@ -404,7 +404,7 @@ export function App() {
    * Nouvel œil en arrière-plan : une photo à la fois. Chaque résultat complète la photo (empreinte SigLIP 2, émotions
    * des visages) et les choix déjà faits sur elle ; à la fin, la séance est réenregistrée avec ces mesures.
    */
-  const runEye = (sessionId: string, results: AnalyzeResult[], originals: Map<string, File>, meta: SavedSessionMeta) => {
+  const runEye = (sessionId: string, results: AnalyzeResult[], originals: Map<string, Blob>, meta: SavedSessionMeta) => {
     eyeRun.current?.cancel();
     const byId = new Map(results.map((r) => [r.item.id, r]));
     // Photos réellement analysées seulement : RAW et vidéos sont mis de côté, jamais décodés ; captures non plus.
@@ -455,6 +455,32 @@ export function App() {
     );
   };
 
+  // Séance reprise ou rouverte (iOS a fermé l'app, mise à jour installée) : le nouvel œil s'était arrêté en route et
+  // ne repartait jamais ; il reprend sur les aperçus gardés, pour les photos qui n'ont pas encore ses mesures (25/11).
+  const eyeResumed = useRef<string | null>(null);
+  useEffect(() => {
+    if (!session || session.originals.size > 0 || !models?.ready || eyeRun.current || eyeResumed.current === session.id) return;
+    eyeResumed.current = session.id;
+    const missing = new Map<string, Blob>();
+    for (const r of session.results)
+      if (r.preview && r.item.kind === 'photo' && !r.item.isRaw && r.item.camera !== false && !r.diagnostic.error && r.item.clip?.length !== config.ranker.eyeDims)
+        missing.set(r.item.id, r.preview);
+    if (missing.size === 0) return;
+    const meta: SavedSessionMeta = {
+      totalMs: session.totalMs,
+      cancelled: session.cancelled,
+      wakeLock: session.wakeLock,
+      wakeLockInfo: session.wakeLockInfo,
+      heapBeforeMB: session.heapBeforeMB,
+      heapAfterMB: session.heapAfterMB,
+      device: session.device,
+      faceError: session.faceError,
+      eyeInfo: session.eyeInfo ?? null,
+      resumed: session.resumed,
+    };
+    runEye(session.id, session.results, missing, meta);
+  }, [session, models]);
+
   /** Complète les choix sans mesures du nouvel œil avec celles des photos données (voir `eyePatches`). */
   const applyEyePatches = (items: MediaItem[]) => {
     const patches = new Map(eyePatches(recordsRef.current, items).map((r) => [r.key, r]));
@@ -464,7 +490,7 @@ export function App() {
       const p = patches.get(r.key);
       if (p && !r.clip) merged.push({ ...r, clip: p.clip, ...(r.emo ?? p.emo ? { emo: r.emo ?? p.emo } : {}) });
     }
-    for (const r of merged) void saveChoice(r);
+    void saveChoices(merged);
     const byKey = new Map(merged.map((r) => [r.key, r]));
     setRecords((list) => list.map((r) => (byKey.has(r.key) && !r.clip ? { ...r, clip: byKey.get(r.key)!.clip, emo: r.emo ?? byKey.get(r.key)!.emo } : r)));
   };

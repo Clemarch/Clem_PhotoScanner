@@ -115,6 +115,8 @@ export function decisionText(
       if (decision.differences?.length)
         return `Un peu différente de ${n} (${differenceText(decision.differences)}) : à vous de trancher. Sans choix de votre part, elle est gardée`;
       return `Presque aussi bien notée que ${n}, la meilleure de sa pose (${mine} contre ${note(decision.refId ? scoreOf(decision.refId) : undefined)} sur 100) : à vous de trancher. Sans choix de votre part, elle est gardée`;
+    case 'presque':
+      return `Presque aussi bien notée que ${n}${decision.differences?.length ? ` et un peu différente (${differenceText(decision.differences)})` : ''} (${mine} contre ${note(decision.refId ? scoreOf(decision.refId) : undefined)} sur 100) : proposée à la suppression. Touchez « Garder » pour la repêcher`;
     case 'seule':
       return 'Seule photo de son paquet';
     case 'minimum':

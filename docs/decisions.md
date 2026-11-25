@@ -928,6 +928,27 @@ Avec une seule séance mesurée, la comparaison (apprendre sur une séance, test
   l'app garde, l'utilisateur supprime (67 contre 14, puis 28 contre 6). Proposition à faire : garder plus rarement une
   2e photo de la même pose (à soumettre à l'utilisateur, point 37).
 
+### 55. Une photo par pose, sauf vraie différence ; « à vérifier » proposées à la suppression (25/11)
+
+Accord de l'utilisateur sur les deux propositions du point 54. Simulation sur ses 111 poses validées (note de base des
+choix) : app actuelle 23 % des poses justes (2,13 gardées par pose) ; meilleure seule 42 % (1,00) ; meilleure plus les
+photos à moins de 0,02 : 35 % (1,41) ; à moins de 0,08 : 29 % (1,90).
+
+- `selection.keepMargin` 0,08 → 0,02 : une 2e photo de la pose n'est gardée que si elle est nettement différente ET
+  presque aussi bien notée.
+- Les « à vérifier » (un peu différentes, ou un peu moins bonnes) deviennent `presque` : proposées à la suppression,
+  signalées « presque aussi bonne » dans le tri éclair ; un toucher pour les garder. Les photos seules « prises par
+  erreur » restent « à vérifier » (au moins une photo par paquet).
+- Limite connue : quand l'utilisateur ne garde qu'une photo, la mieux notée est la sienne 47 fois sur 73 ; le reste
+  dépend du classement (formule, puis nouvel œil).
+
+Audit des réglages 16 ter à 16 quinquies :
+- Le nouvel œil s'arrêtait dès qu'iOS fermait l'app ou qu'une mise à jour était installée, et ne reprenait jamais :
+  d'où des séances entières sans ses mesures. Il reprend maintenant tout seul sur une séance reprise ou rouverte, à
+  partir des aperçus gardés (les photos d'origine ne sont plus accessibles), pour les photos qui n'ont pas encore ses
+  mesures ; les choix sont complétés à la fin.
+- Complément des choix en une seule écriture (`saveChoices`) au lieu d'une par choix (centaines au lancement).
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

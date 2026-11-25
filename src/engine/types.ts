@@ -205,7 +205,9 @@ export type DecisionCode =
   | 'veto'
   | 'ratee'
   | 'a-verifier'
-  | 'differente';
+  | 'differente'
+  /** Presque aussi bonne et un peu différente : proposée à la suppression, à repêcher d'un toucher (25/11). */
+  | 'presque';
 
 export interface Decision {
   keep: boolean;

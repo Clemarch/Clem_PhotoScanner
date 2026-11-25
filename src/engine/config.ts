@@ -303,8 +303,11 @@ export const config = {
     /** Dans une pose, la meilleure photo est gardée. Une autre l'est aussi si elle est bonne (à moins de `keepMargin`
      *  de la meilleure, sans défaut bloquant) ET nettement différente de chaque photo déjà gardée (tête, expression,
      *  regard, geste, personnes qui bougent, cadrage) ; légèrement différente, ou un peu moins bonne (jusqu'à
-     *  `reviewMargin`), elle est « à vérifier » ; identique, elle est supprimée (utilisateur, 19/11, point 37). */
-    keepMargin: 0.08,
+     *  `reviewMargin`), elle est « à vérifier » ; identique, elle est supprimée (utilisateur, 19/11, point 37).
+     *  25/11 (point 55) : sur 111 poses validées, l'utilisateur garde 1,4 photo par pose et l'app 2,1 ; une 2e photo
+     *  n'est gardée que si elle est presque aussi bien notée (0,02 au lieu de 0,08), et les « à vérifier » sont
+     *  proposées à la suppression (code `presque`). */
+    keepMargin: 0.02,
     reviewMargin: 0.12,
     /** Seuils de différence entre deux photos : « nette » (Strong) et « légère » (Light). */
     different: {

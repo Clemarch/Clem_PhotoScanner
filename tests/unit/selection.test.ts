@@ -180,7 +180,8 @@ describe('sélection', () => {
     for (const sc of scores.values()) sc.expectedFaces = 1;
     const d = selectPack(items, scores, [{ id: 'p', label: 'A', items }]);
     expect(d.get('b')).toMatchObject({ keep: false, code: 'trop-proche', refId: 'a' });
-    expect(d.get('c')).toMatchObject({ keep: true, review: true });
+    // Presque aussi bonne : proposée à la suppression depuis le 25/11 (point 55).
+    expect(d.get('c')).toMatchObject({ keep: false, code: 'presque' });
   });
 
   it('garde la photo seule d’un paquet', () => {
