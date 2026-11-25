@@ -24,6 +24,8 @@ export interface Session {
   faceError: string | null;
   /** « Nouvel œil » : raison s'il n'a pas pu tourner (absent des séances d'avant le 21/11). */
   eyeInfo?: string | null;
+  /** « Nouvel œil » : comment s'est passé son dernier démarrage (mémoire de l'analyse rendue, essais), pour le rapport. */
+  eyeStart?: string | null;
   /** Photos reprises d'une analyse interrompue (non refaites). */
   resumed?: number;
   /** Séance reprise après une fermeture de l'app par iOS (les photos d'origine ne sont plus accessibles). */

@@ -27,6 +27,31 @@ const FACE_MARGIN = 0.12;
 /** Au plus N visages par photo (les plus grands), pour garder l'analyse rapide. */
 const MAX_FACES = 4;
 
+/**
+ * Plafond de mémoire du moteur (25/11, point 58). onnxruntime-web crée sa mémoire « partagée » avec un plafond de
+ * 4 Go, écrit en dur. Une mémoire partagée ne peut pas être déplacée en grandissant : Safari doit réserver d'un bloc
+ * 4 Go d'adresses au démarrage. Juste après l'analyse, l'espace de la page est encore occupé par les six moteurs
+ * MediaPipe (~330 Mo, 2 Go de plafond chacun) : la réservation échoue (« RangeError: Out of memory »), avant même de
+ * lire un modèle. Mesuré : les deux modèles du nouvel œil tournent dans 206 Mo, chargement et analyses compris.
+ * 1 Go laisse 5 fois cette place et divise la réservation par 4.
+ */
+export const EYE_MEMORY_MAX_MB = 1024;
+
+/** Dans le fil du nouvel œil seulement : toute mémoire partagée créée ensuite est plafonnée à `EYE_MEMORY_MAX_MB`.
+ *  Un plafond plus bas que celui du moteur est permis (une mémoire fournie peut être plus petite que celle demandée). */
+export function capSharedWasmMemory(maxMB = EYE_MEMORY_MAX_MB): void {
+  const Native = WebAssembly.Memory as typeof WebAssembly.Memory & { capped?: true };
+  if (Native.capped) return;
+  const pages = (maxMB * 1024 * 1024) / 65536;
+  const Capped = function (descriptor: WebAssembly.MemoryDescriptor) {
+    const d = descriptor.shared && (descriptor.maximum ?? Infinity) > pages ? { ...descriptor, maximum: Math.max(pages, descriptor.initial) } : descriptor;
+    return new Native(d);
+  } as unknown as typeof WebAssembly.Memory & { capped?: true };
+  Capped.prototype = Native.prototype;
+  Capped.capped = true;
+  WebAssembly.Memory = Capped;
+}
+
 export interface Eye {
   /** Empreinte d'image normalisée (SigLIP 2, 768 nombres), ou null si le calcul échoue. */
   clip(bitmap: ImageBitmap): Promise<number[] | null>;
@@ -72,14 +97,8 @@ export async function createEye(base = new URL('./models/onnx/', document.baseUR
   const ort: Ort = await import('onnxruntime-web/wasm');
   ort.env.wasm.numThreads = 1;
   ort.env.wasm.proxy = false;
-  // Mémoire iOS (25/11 : « Out of memory » au chargement) : pas de réserve de mémoire gardée entre deux photos, ni de
-  // plan de mémoire précalculé ; un peu plus lent, beaucoup moins gourmand.
-  const options = {
-    executionProviders: ['wasm'],
-    graphOptimizationLevel: 'all' as const,
-    enableCpuMemArena: false,
-    enableMemPattern: false,
-  };
+  // Réserve de mémoire du moteur gardée (25/11, mesuré : 206 Mo avec ou sans, aucun gain à l'éteindre).
+  const options = { executionProviders: ['wasm'], graphOptimizationLevel: 'all' as const };
   // Modèles lus dans le stockage de l'app (téléchargés et vérifiés à l'ouverture, `src/platform/storage/models.ts`).
   const load = async (file: string): Promise<Session> => {
     const bytes = await readModel(base, file);

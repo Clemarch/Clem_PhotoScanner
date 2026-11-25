@@ -980,9 +980,43 @@ s'il en faut aucune sur 7 photos, 1 sur 5 ou 3 sur 3. »
   « trop proche » juste 4 fois sur 5. Ce qui manque est un goût de l'image, le rôle du nouvel œil.
 - Or le nouvel œil n'a pas pu se charger sur les séances du 25/11 (« no available backend found … RangeError: Out of
   memory ») : juste après l'analyse, la mémoire de l'iPhone est encore prise. Il réessaie maintenant seul dans un fil
-  neuf, 20 s puis 60 s plus tard (le moteur garde son échec dans un même fil), et ses sessions n'ont plus de réserve de
-  mémoire gardée entre deux photos (`enableCpuMemArena`, `enableMemPattern` éteints). S'il échoue encore, il repasse
-  au prochain lancement (reprise ou rattrapage, point 56).
+  neuf, 20 s puis 60 s plus tard (le moteur garde son échec dans un même fil). S'il échoue encore, il repasse au
+  prochain lancement (reprise ou rattrapage, point 56). Ce n'est qu'un filet : la cause est traitée au point 58.
+
+### 58. Mémoire du nouvel œil : diagnostic et correction (25/11)
+
+Utilisateur : « Tu dis seulement de recommencer plus tard. Ce n'est pas une solution. De quelle mémoire parle-t-on ? »
+
+Diagnostic (rapports du 25/11 et mesures) :
+- Quelle mémoire : pas la mémoire vive de l'iPhone (6 Go) ni le stockage (360 Mo sur 39 Go), mais l'espace mémoire de
+  la page Photo Triage dans Safari. Tous ses fils (page, analyse, nouvel œil) vivent dans un même processus d'iOS,
+  dont l'espace d'adresses et la mémoire sont limités.
+- Le message « no available backend found … RangeError: Out of memory » vient du démarrage du moteur
+  (onnxruntime-web), avant toute lecture de modèle : la création de sa mémoire WebAssembly échoue.
+- Cette mémoire est « partagée » (moteur multi-fils), avec un plafond de 4 Go écrit en dur dans le moteur
+  (`new WebAssembly.Memory({ initial: 256, maximum: 65536, shared: true })`). Une mémoire partagée ne peut pas être
+  déplacée en grandissant : Safari doit réserver les 4 Go d'un bloc dès le démarrage.
+- Or il n'en utilise que 206 Mo (mesuré : chargement de SigLIP 2 et HSEmotion, puis 5 analyses ; identique avec ou sans
+  réserve interne du moteur ; échec sous 200 Mo).
+- Au même moment, la page porte encore les six moteurs MediaPipe de l'analyse (visages, objets, silhouette, empreinte,
+  scène, gestes) : un moteur WebAssembly chacun, 2 Go de plafond chacun, ~330 Mo occupés en tout (mesuré : 46 + 46 +
+  97 + 33 + 32 + 74 Mo). Les fermer ne rend pas leur mémoire : elle part au prochain passage du ramasse-miettes de la
+  page, que le fil du nouvel œil ne peut pas déclencher (chaque fil a le sien).
+- Les rapports le confirment : échec sur les deux séances où MediaPipe venait de tourner (170 photos ; 113 photos,
+  reprise d'analyse) ; réussite (284/284) sur celle où le nouvel œil a tourné à la réouverture, sans analyse avant.
+
+Correction, sans toucher aux autres modèles :
+- Plafond de la mémoire du nouvel œil abaissé de 4 Go à 1 Go (`capSharedWasmMemory`, dans son fil seulement) :
+  réservation divisée par 4, 5 fois la place mesurée. Les mémoires MediaPipe ne sont pas concernées (non partagées,
+  dans la page).
+- Le nouvel œil attend (jusqu'à 45 s) que Safari ait rendu la mémoire des moteurs de l'analyse, suivis par des
+  références faibles (`waitForRelease`) ; mesuré dans Chromium : rendue après 16 s.
+- Jamais de nouvel œil pendant une analyse (rattrapage ou reprise qui démarrerait pendant qu'elle tourne).
+- Rapport : ligne « démarrage » (mémoire rendue après N s, chargé du premier coup ou au Ne essai, erreur d'avant).
+- Les options `enableCpuMemArena` / `enableMemPattern` du point 57 sont retirées : sans effet mesuré.
+
+Piste écartée pour l'instant : réunir les six moteurs MediaPipe en un seul (non prévu par la bibliothèque) ou les
+faire tourner dans un fil fermé à la fin (rendu immédiat), trop de risques pour les modèles qui marchent.
 
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 

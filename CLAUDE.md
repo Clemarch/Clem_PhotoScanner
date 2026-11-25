@@ -47,6 +47,8 @@ propre à ce test.
 - `src/platform` : tout ce qui dépend de Safari (décodage, Worker, MediaPipe, appareil). Importe `engine`.
 - `src/ui` : React. Importe `engine` et `platform`.
 - Mémoire iOS : une photo décodée à la fois, réduite à 1536 px, `close()` et canvas remis à zéro après usage.
+  Nouvel œil : mémoire plafonnée à 1 Go (le moteur réserve 4 Go d'un bloc), lancé une fois la mémoire des moteurs de
+  l'analyse rendue, jamais pendant une analyse (point 58).
 - Notation : le contenu (expression, masquage, arrière-plan, objets, cadrage, couleurs selon le type de photo) classe ;
   la technique (netteté, yeux) ne sert qu'à repérer des défauts. Voir `docs/decisions.md`, points 14 à 17.
 - Enchaînement d'une journée : `src/engine/pipeline.ts` (paquets → notes → poses → sélection). Paquets toujours

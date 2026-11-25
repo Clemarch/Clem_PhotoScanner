@@ -62,7 +62,7 @@ import { SeanceTerminee } from './screens/SeanceTerminee';
 import { forgetLastBackupCount } from '../platform/storage/backupFile';
 import type { DeviceReport } from '../platform/device';
 import { buildReport } from './report';
-import { formatDate } from './format';
+import { formatDate, formatMs } from './format';
 import { eyePatches, makeRecord, type Choice, type Choices } from './choices';
 import { createFaceDetector, type FaceDetector } from '../platform/vision/faceDetector';
 import { createObjectDetector, type ObjectDetector } from '../platform/vision/objectDetector';
@@ -79,7 +79,7 @@ import {
 } from '../platform/vision/sceneModels';
 import { BandeauMiseAJour } from './BandeauMiseAJour';
 import { createAnalyzer } from '../platform/worker/analyzer';
-import { runEyeInBackground, type EyeRun } from '../platform/vision/eyeRunner';
+import { EYE_RELEASE_WAIT_MS, runEyeInBackground, waitForRelease, type EyeRun } from '../platform/vision/eyeRunner';
 import { setBusy, watchForegroundUpdates } from '../platform/update';
 import { ensureModels, modelsState, type ModelsState } from '../platform/storage/models';
 import type { SavedSessionMeta } from '../platform/storage/sessionStore';
@@ -386,25 +386,41 @@ export function App() {
   }, [session, gap, joined]);
 
   /** Le nouvel œil attend que ses modèles soient sur l'iPhone (téléchargés à l'ouverture), puis se lance. */
-  const startEye = (sessionId: string, results: AnalyzeResult[], originals: Map<string, File>, meta: SavedSessionMeta) => {
+  const startEye = (
+    sessionId: string,
+    results: AnalyzeResult[],
+    originals: Map<string, File>,
+    meta: SavedSessionMeta,
+    engines: readonly WeakRef<object>[] = [],
+  ) => {
     const token = ++eyeToken.current;
-    void (modelsPromise.current ?? Promise.resolve(null)).catch(() => null).then((state) => {
-      if (token !== eyeToken.current) return; // une autre analyse a commencé entre-temps
-      if (!state?.ready) {
-        pendingEye.current = { sessionId, results, originals, meta };
-        meta.eyeInfo ??= `modèles pas encore téléchargés${state?.error ? ` (${state.error})` : ''}`;
-        setSession((s) => (s && s.id === sessionId ? { ...s, eyeInfo: meta.eyeInfo } : s));
-        return;
-      }
-      runEye(sessionId, results, originals, meta);
-    });
+    // Mémoire (25/11, point 58) : le nouvel œil attend aussi que Safari ait rendu la mémoire des moteurs de l'analyse.
+    void Promise.all([(modelsPromise.current ?? Promise.resolve(null)).catch(() => null), waitForRelease(engines, EYE_RELEASE_WAIT_MS)]).then(
+      ([state, release]) => {
+        if (token !== eyeToken.current) return; // une autre analyse a commencé entre-temps
+        const note = engines.length
+          ? release.freed
+            ? `mémoire de l’analyse rendue après ${formatMs(release.ms)}`
+            : `mémoire de l’analyse pas encore rendue après ${formatMs(release.ms)}, lancé quand même`
+          : null;
+        if (!state?.ready) {
+          pendingEye.current = { sessionId, results, originals, meta };
+          meta.eyeInfo ??= `modèles pas encore téléchargés${state?.error ? ` (${state.error})` : ''}`;
+          setSession((s) => (s && s.id === sessionId ? { ...s, eyeInfo: meta.eyeInfo } : s));
+          return;
+        }
+        runEye(sessionId, results, originals, meta, note);
+      },
+    );
   };
 
   /**
    * Nouvel œil en arrière-plan : une photo à la fois. Chaque résultat complète la photo (empreinte SigLIP 2, émotions
    * des visages) et les choix déjà faits sur elle ; à la fin, la séance est réenregistrée avec ces mesures.
    */
-  const runEye = (sessionId: string, results: AnalyzeResult[], originals: Map<string, Blob>, meta: SavedSessionMeta) => {
+  const runEye = (sessionId: string, results: AnalyzeResult[], originals: Map<string, Blob>, meta: SavedSessionMeta, note: string | null = null) => {
+    // Jamais pendant une analyse : ses six moteurs et le nouvel œil ne doivent pas se disputer la mémoire (point 58).
+    if (analysing.current) return;
     eyeRun.current?.cancel();
     const byId = new Map(results.map((r) => [r.item.id, r]));
     // Photos réellement analysées seulement : RAW et vidéos sont mis de côté, jamais décodés ; captures non plus.
@@ -413,13 +429,18 @@ export function App() {
       .map((r) => ({ id: r.item.id, file: originals.get(r.item.id)!, boxes: mainFaces(r.item.faces).map((f) => f.box) }));
     if (photos.length === 0) return;
     setEyeProgress({ sessionId, done: 0, total: photos.length });
+    // Les informations du rapport décrivent ce passage-ci (une erreur d'un passage précédent n'est plus vraie).
+    meta.eyeInfo = null;
+    meta.eyeStart = null;
     let handled = 0;
+    let succeeded = 0;
     eyeRun.current = runEyeInBackground(
       photos,
       (response) => {
         const result = byId.get(response.id);
         if (!result) return;
         if (response.ok) {
+          succeeded++;
           result.item.clip = response.clip;
           mainFaces(result.item.faces).forEach((face, i) => (face.emotion = response.emotions[i] ?? null));
           result.diagnostic.eyeMs = response.ms;
@@ -441,11 +462,18 @@ export function App() {
         if (++handled % 50 === 0) void updateSessionMeasures(sessionId, results, meta);
         setEyeProgress((p) => (p && p.sessionId === sessionId ? { ...p, done: p.done + 1 } : p));
       },
-      (error) => {
+      (error, attempts, firstError) => {
         if (error) meta.eyeInfo ??= error;
+        const load =
+          error && succeeded === 0
+            ? `non chargé après ${attempts} essai${attempts > 1 ? 's' : ''}`
+            : attempts > 1
+              ? `chargé au ${attempts}e essai (avant : ${firstError ?? '?'})`
+              : 'chargé du premier coup';
+        meta.eyeStart = [note, load].filter(Boolean).join(' · ');
         eyeRun.current = null;
         setEyeProgress((p) => (p && p.sessionId === sessionId ? { ...p, total: p.done, finished: true } : p));
-        setSession((s) => (s && s.id === sessionId ? { ...s, eyeInfo: meta.eyeInfo } : s));
+        setSession((s) => (s && s.id === sessionId ? { ...s, eyeInfo: meta.eyeInfo, eyeStart: meta.eyeStart } : s));
         // Mesures gardées avec la séance (reprise, réouverture), sans toucher à ses réglages, à son état (terminée) ni à
         // la séance ouverte ; rien si elle a été effacée entre-temps.
         void updateSessionMeasures(sessionId, results, meta);
@@ -459,7 +487,7 @@ export function App() {
   // ne repartait jamais ; il reprend sur les aperçus gardés, pour les photos qui n'ont pas encore ses mesures (25/11).
   const eyeResumed = useRef<string | null>(null);
   useEffect(() => {
-    if (!session || session.originals.size > 0 || !models?.ready || eyeRun.current || eyeResumed.current === session.id) return;
+    if (!session || session.originals.size > 0 || !models?.ready || eyeRun.current || analysing.current || eyeResumed.current === session.id) return;
     eyeResumed.current = session.id;
     const missing = new Map<string, Blob>();
     for (const r of session.results)
@@ -476,6 +504,7 @@ export function App() {
       device: session.device,
       faceError: session.faceError,
       eyeInfo: session.eyeInfo ?? null,
+      eyeStart: null,
       resumed: session.resumed,
     };
     runEye(session.id, session.results, missing, meta);
@@ -486,7 +515,7 @@ export function App() {
   // ses aperçus ; la suivante au prochain lancement. Les choix sont complétés à la fin.
   const eyeCaughtUp = useRef(false);
   useEffect(() => {
-    if (!models?.ready || (session && !closed) || eyeRun.current || eyeCaughtUp.current) return;
+    if (!models?.ready || (session && !closed) || eyeRun.current || analysing.current || eyeCaughtUp.current) return;
     eyeCaughtUp.current = true;
     void (async () => {
       const needs = (it: MediaItem) => it.kind === 'photo' && !it.isRaw && it.camera !== false && it.clip?.length !== config.ranker.eyeDims;
@@ -494,7 +523,7 @@ export function App() {
         if (s.sessionId === session?.id) continue;
         if (!(await loadSessionItems(s.sessionId)).some(needs)) continue;
         const saved = await loadSessionById(s.sessionId);
-        if (!saved || eyeRun.current) return;
+        if (!saved || eyeRun.current || analysing.current) return;
         const results = saved.results.map((r) => ({ ...r, frame: null })) as AnalyzeResult[];
         const missing = new Map<string, Blob>();
         for (const r of results) if (r.preview && !r.diagnostic.error && needs(r.item)) missing.set(r.item.id, r.preview);
@@ -694,6 +723,8 @@ export function App() {
     }
 
     analyzer.dispose();
+    // Moteurs de l'analyse suivis sans être retenus : le nouvel œil attend que Safari ait rendu leur mémoire.
+    const engines = [detector, objectDetector, segmenter, embedder, classifier, gestures].flatMap((e) => (e ? [new WeakRef<object>(e)] : []));
     detector?.close();
     objectDetector?.close();
     segmenter?.close();
@@ -747,7 +778,7 @@ export function App() {
     void saveSession(String(launchedAt), results, meta).then(refreshSeances);
     // « Nouvel œil » après l'analyse, dans son propre fil, pendant que l'utilisateur trie (réglage 13 bis) : les modèles
     // de l'analyse sont déjà fermés, la mémoire ne s'additionne plus.
-    if (!cancelRef.current) startEye(String(launchedAt), results, originals, meta);
+    if (!cancelRef.current) startEye(String(launchedAt), results, originals, meta, engines);
     setProgress(null);
     setTab('paquets');
     setJustAnalyzed(true);

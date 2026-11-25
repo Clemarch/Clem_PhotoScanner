@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { runEyeInBackground } from '../../src/platform/vision/eyeRunner';
+import { runEyeInBackground, waitForRelease } from '../../src/platform/vision/eyeRunner';
 import type { EyeResponse } from '../../src/platform/vision/eye.worker';
 
 // Fil factice : `loadOk` dit si le chargement du nouvel œil réussit pour le n-ième fil créé.
@@ -66,5 +66,42 @@ describe('nouvel œil : nouvel essai après un chargement raté (25/11, point 57
     expect(created).toBe(3);
     expect(results).toHaveLength(0);
     expect(error).toMatch(/Out of memory/);
+  });
+});
+
+describe('mémoire du nouvel œil (25/11, point 58)', () => {
+  it('plafonne les mémoires partagées à 1 Go, sans toucher aux autres', async () => {
+    const { capSharedWasmMemory } = await import('../../src/platform/vision/eye');
+    const Native = WebAssembly.Memory;
+    try {
+      capSharedWasmMemory(1024);
+      capSharedWasmMemory(1024); // une seule fois
+      // Comme onnxruntime-web : 16 Mo au départ, 4 Go de plafond.
+      const shared = new WebAssembly.Memory({ initial: 256, maximum: 65536, shared: true });
+      expect(shared).toBeInstanceOf(Native);
+      expect(shared).toBeInstanceOf(WebAssembly.Memory);
+      expect(() => shared.grow(16384 - 256)).not.toThrow(); // jusqu'à 1 Go : permis
+      expect(() => shared.grow(1)).toThrow(RangeError); // au-delà : refusé
+      // Mémoire non partagée (MediaPipe) : inchangée.
+      const plain = new WebAssembly.Memory({ initial: 1, maximum: 32768 });
+      expect(() => plain.grow(20000)).not.toThrow();
+    } finally {
+      WebAssembly.Memory = Native;
+    }
+  });
+});
+
+describe('attente de la mémoire de l’analyse', () => {
+  it('rien à attendre : tout de suite', async () => {
+    vi.useRealTimers();
+    expect(await waitForRelease([], 1000)).toEqual({ freed: true, ms: expect.any(Number) });
+  });
+  it('moteur toujours vivant : lancé quand même après l’attente maximale', async () => {
+    vi.useRealTimers();
+    const alive = { moteur: true };
+    const r = await waitForRelease([new WeakRef(alive)], 120, 20);
+    expect(r.freed).toBe(false);
+    expect(r.ms).toBeGreaterThanOrEqual(120);
+    expect(alive.moteur).toBe(true);
   });
 });
