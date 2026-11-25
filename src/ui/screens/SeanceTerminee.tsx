@@ -1,7 +1,6 @@
 import type { Session } from '../session';
-import type { DayAnalysis } from '../../engine';
-import type { Choices } from '../choices';
-import { EtapesAlbums } from '../Rangement';
+import type { ChoiceRecord } from '../../engine';
+import { ProchainTri } from '../Rangement';
 import { formatDate, plural } from '../format';
 import { IconCoche, IconPlus } from '../icons';
 
@@ -10,15 +9,14 @@ interface Props {
   onReopen: () => void;
   onNewDay: (files: File[]) => void;
   onSeances: () => void;
-  day: DayAnalysis;
-  choices: Choices;
+  records: ChoiceRecord[];
 }
 
 /**
  * Séance terminée : tout est parti à la suppression, ses photos ne s'affichent plus (utilisateur, 20/11). On peut la
  * rouvrir, en commencer une nouvelle, ou retrouver les précédentes dans Réglages.
  */
-export function SeanceTerminee({ session, onReopen, onNewDay, onSeances, day, choices }: Props) {
+export function SeanceTerminee({ session, onReopen, onNewDay, onSeances, records }: Props) {
   const dates = session.results.map((r) => r.item.capturedAt).filter((t): t is number => t !== null);
   const first = dates.length ? Math.min(...dates) : null;
   const last = dates.length ? Math.max(...dates) : null;
@@ -27,7 +25,7 @@ export function SeanceTerminee({ session, onReopen, onNewDay, onSeances, day, ch
       <header className="grand-titre">
         <h1>Terminé</h1>
       </header>
-      <EtapesAlbums session={session} day={day} choices={choices} />
+      <ProchainTri records={records} include={session.id} />
       <section className="carte heros">
         <span className="heros-icone vert">
           <IconCoche size={30} />

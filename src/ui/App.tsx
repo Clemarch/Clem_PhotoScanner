@@ -837,8 +837,7 @@ export function App() {
       onReopen={() => void reopen(session.id)}
       onNewDay={(files) => void start(files)}
       onSeances={() => goTab('reglages')}
-      day={day}
-      choices={choices}
+      records={records}
     />
   );
 

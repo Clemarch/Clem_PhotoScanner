@@ -477,3 +477,5 @@ dd { margin: 0; text-align: right; overflow-wrap: anywhere; font-variant-numeric
 .loupe-points span.garde { background: var(--ok); }
 .loupe-points span.jete { background: var(--alerte); }
 .loupe-points span.actif { opacity: 1; transform: scale(1.3); }
+.prochain-tri { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.prochain-tri > strong { font-size: 17px; }

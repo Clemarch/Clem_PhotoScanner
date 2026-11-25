@@ -80,6 +80,19 @@ export function runKeepShortcut(photos: readonly ShortcutPhoto[]): void {
   window.location.href = shortcutUrl(photos, KEEP_SHORTCUT_NAME);
 }
 
+/**
+ * « Préparer le prochain tri » en un seul toucher (utilisateur, 25/11 : « je n'irai jamais dans Raccourcis ») : les
+ * photos gardées partent vers « Photo Triage Garder », et dès qu'il a fini, iOS lance « Préparer le tri » (lien de
+ * retour `x-success`, prévu par l'app Raccourcis). Aucun raccourci à modifier.
+ */
+export function keepThenPrepUrl(photos: readonly ShortcutPhoto[]): string {
+  const then = encodeURIComponent(prepShortcutUrl());
+  return `shortcuts://x-callback-url/run-shortcut?name=${encodeURIComponent(KEEP_SHORTCUT_NAME)}&input=text&text=${encodeURIComponent(shortcutText(photos))}&x-success=${then}`;
+}
+export function runKeepThenPrep(photos: readonly ShortcutPhoto[]): void {
+  window.location.href = photos.length > 0 ? keepThenPrepUrl(photos) : prepShortcutUrl();
+}
+
 /** Ouvre « Préparer le tri » (pas un appel réseau : iOS ouvre l'app Raccourcis). */
 export const prepShortcutUrl = (): string => `shortcuts://run-shortcut?name=${encodeURIComponent(PREP_SHORTCUT_NAME)}`;
 export function runPrepShortcut(): void {
@@ -87,21 +100,21 @@ export function runPrepShortcut(): void {
 }
 
 /** Photos gardées envoyées par lots (adresse de taille raisonnable). */
-export const KEPT_BATCH = 150;
+export const KEPT_BATCH = 300;
 
 const ALBUMS_KEY = 'photo-triage.albums';
-/** L'utilisateur a créé les raccourcis des albums : l'app propose de ranger les photos gardées et de préparer le tri. */
+/** Albums « Triées » / « À trier » utilisés (par défaut) : l'accueil propose « Préparer le prochain tri ». */
 export function albumsEnabled(): boolean {
   try {
-    return localStorage.getItem(ALBUMS_KEY) === '1';
+    // Activé par défaut (25/11) : seul un « non » explicite (« 0 ») le coupe.
+    return localStorage.getItem(ALBUMS_KEY) !== '0';
   } catch {
     return false;
   }
 }
 export function setAlbumsEnabled(on: boolean): void {
   try {
-    if (on) localStorage.setItem(ALBUMS_KEY, '1');
-    else localStorage.removeItem(ALBUMS_KEY);
+    localStorage.setItem(ALBUMS_KEY, on ? '1' : '0');
   } catch {
     // Mémoire seulement.
   }

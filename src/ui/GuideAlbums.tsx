@@ -1,20 +1,14 @@
 import { useState } from 'react';
-import { photoKey, type ChoiceRecord } from '../engine';
 import {
   albumsEnabled,
   KEEP_SHORTCUT_NAME,
   KEPT_ALBUM,
-  KEPT_BATCH,
   PREP_LIMIT,
   PREP_SHORTCUT_NAME,
-  runKeepShortcut,
   setAlbumsEnabled,
   SHORTCUT_NAME,
   TODO_ALBUM,
-  type ShortcutPhoto,
 } from '../platform/shortcut';
-import { listSessions, loadSessionItems } from '../platform/storage/sessionStore';
-import { plural } from './format';
 import { IconChevron } from './icons';
 
 /**
@@ -24,7 +18,7 @@ import { IconChevron } from './icons';
  * - « Préparer le tri » : vide « À trier », puis y met les 200 photos non triées les plus récentes.
  * Voir `docs/decisions.md`, point 48.
  */
-export function GuideAlbums({ records }: { records: ChoiceRecord[] }) {
+export function GuideAlbums() {
   const [on, setOn] = useState(albumsEnabled);
   const [shown, setShown] = useState<'' | 'albums' | 'garder' | 'prep'>('');
   const toggle = (which: 'albums' | 'garder' | 'prep') => setShown((v) => (v === which ? '' : which));
@@ -40,6 +34,10 @@ export function GuideAlbums({ records }: { records: ChoiceRecord[] }) {
       <p className="note">
         Les photos gardées vont dans un album « {KEPT_ALBUM} » ; un raccourci remplit un album « {TODO_ALBUM} » avec les
         photos pas encore triées, les plus récentes d’abord. Votre raccourci « {SHORTCUT_NAME} » ne change pas.
+      </p>
+      <p className="note">
+        Ne lancez pas ces raccourcis vous-même depuis l’app Raccourcis : c’est l’app Photo Triage qui leur envoie la liste
+        des photos. Lancé seul, « {KEEP_SHORTCUT_NAME} » ne trouve rien.
       </p>
       <p className="note">
         Dans l’app Raccourcis, une action ajoutée arrive tout en bas, à la suite : ajoutez-les dans l’ordre indiqué. Un{' '}
@@ -146,9 +144,10 @@ export function GuideAlbums({ records }: { records: ChoiceRecord[] }) {
 
       <label className="ligne-reglage">
         <span>
-          <strong>Mes raccourcis sont prêts</strong>
+          <strong>Utiliser les albums</strong>
           <span className="note bloc">
-            L’onglet Supprimer propose alors de ranger les photos gardées, et l’accueil « {PREP_SHORTCUT_NAME} ».
+            L’accueil propose alors « Préparer le prochain tri » : il range les photos gardées et remplit « {TODO_ALBUM} »
+            d’un seul toucher.
           </span>
         </span>
         <input
@@ -162,75 +161,6 @@ export function GuideAlbums({ records }: { records: ChoiceRecord[] }) {
         />
       </label>
 
-      {on && <AnciennesSeances records={records} />}
     </>
-  );
-}
-
-/**
- * Photos triées avant les albums : celles des séances terminées (tout envoyé à la suppression), sauf celles que vous
- * avez supprimées, partent vers « Triées » par lots.
- */
-function AnciennesSeances({ records }: { records: ChoiceRecord[] }) {
-  const [photos, setPhotos] = useState<ShortcutPhoto[] | null>(null);
-  const [open, setOpen] = useState(0);
-  const [batch, setBatch] = useState(0);
-  const [busy, setBusy] = useState(false);
-
-  const prepare = async () => {
-    setBusy(true);
-    const removed = new Set(records.filter((r) => r.choice === 'supprimer').map((r) => r.key));
-    const sessions = await listSessions();
-    const seen = new Set<string>();
-    const list: ShortcutPhoto[] = [];
-    for (const s of sessions) {
-      if (!s.closedAt) continue;
-      for (const item of await loadSessionItems(s.sessionId)) {
-        const at = item.instant ?? item.capturedAt;
-        const key = photoKey(item);
-        if (at === null || removed.has(key) || seen.has(key)) continue;
-        seen.add(key);
-        list.push({ fileName: item.fileName, at });
-      }
-    }
-    setOpen(sessions.filter((s) => !s.closedAt).length);
-    setPhotos(list);
-    setBatch(0);
-    setBusy(false);
-  };
-
-  if (!photos)
-    return (
-      <div className="albums-actions">
-        <p className="note">Vos photos déjà triées avant les albums peuvent rejoindre « {KEPT_ALBUM} » en une fois.</p>
-        <button className="bouton" disabled={busy} onClick={() => void prepare()}>
-          {busy ? 'Recherche…' : `Ranger mes anciennes photos triées`}
-        </button>
-      </div>
-    );
-
-  const batches = Math.ceil(photos.length / KEPT_BATCH);
-  return (
-    <div className="albums-actions">
-      <p className="note">
-        {photos.length === 0
-          ? 'Aucune photo gardée dans vos séances terminées.'
-          : `${plural(photos.length, 'photo')} gardée${photos.length > 1 ? 's' : ''} dans vos séances terminées.`}
-        {open > 0 && ` ${plural(open, 'séance')} pas encore terminée${open > 1 ? 's' : ''} : ses photos partiront à la suppression.`}
-      </p>
-      {batch < batches ? (
-        <button
-          className="bouton principal"
-          onClick={() => {
-            runKeepShortcut(photos.slice(batch * KEPT_BATCH, (batch + 1) * KEPT_BATCH));
-            setBatch((b) => b + 1);
-          }}
-        >
-          {batches > 1 ? `Envoyer le lot ${batch + 1} sur ${batches}` : `Ranger ${plural(photos.length, 'photo')} dans « ${KEPT_ALBUM} »`}
-        </button>
-      ) : (
-        photos.length > 0 && <p className="note">Envoyé. Revenez ici si un lot a échoué : rouvrez Réglages pour recommencer.</p>
-      )}
-    </div>
   );
 }

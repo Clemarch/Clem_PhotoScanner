@@ -887,6 +887,22 @@ quitter la vue en grand plus facilement pour valider ; « comment mettre à jour
   Supprimer n'était plus visible. L'écran « Séance terminée » montre désormais « Pour la prochaine séance » : 1. ranger
   les gardées, 2. préparer « À trier » (`src/ui/Rangement.tsx`).
 
+### 52. Prochain tri en un toucher, depuis l'accueil (25/11)
+
+Retour de l'utilisateur : « Je dois pouvoir le faire directement et automatiquement depuis l'app […] Je vais jamais
+aller dans Raccourcis » ; « Photo Triage Garder » lancé à la main n'avait rien rangé (normal : sans la liste envoyée
+par l'app, il ne cherche rien ; et l'interrupteur des albums, éteint par défaut, cachait les boutons de l'app).
+
+- Albums utilisés par défaut (interrupteur « Utiliser les albums » dans Réglages, pour les couper).
+- Carte « Prochain tri » sur l'accueil et sur l'écran « Séance terminée » : un seul bouton « Préparer le prochain
+  tri ». L'app envoie les photos gardées des séances terminées pas encore rangées à « Photo Triage Garder », avec un
+  lien de retour `x-success` qui lance « Préparer le tri » dès qu'il a fini : les deux raccourcis s'enchaînent sans
+  rien modifier. Sans rien à ranger, « Préparer le tri » directement. Séances rangées retenues sur l'iPhone.
+- Photos gardées d'une séance terminée : toutes ses photos datées, sauf celles que l'utilisateur a supprimées (choix
+  « supprimer », explicite ou accord silencieux). Lots de 300 au plus.
+- Plus de carte de rangement dans l'onglet Supprimer ni de bouton « anciennes séances » dans Réglages : la carte
+  « Prochain tri » les couvre.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

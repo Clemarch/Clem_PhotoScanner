@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { KEEP_SHORTCUT_NAME, prepShortcutUrl, shortcutText, shortcutUrl } from '../../src/platform/shortcut';
+import { KEEP_SHORTCUT_NAME, keepThenPrepUrl, prepShortcutUrl, shortcutText, shortcutUrl } from '../../src/platform/shortcut';
 
 // Albums « Triées » et « À trier » (24/11, point 48).
 describe('albums', () => {
@@ -22,5 +22,13 @@ describe('albums', () => {
 
   it('le raccourci « Préparer le tri » s’ouvre par son nom', () => {
     expect(prepShortcutUrl()).toBe('shortcuts://run-shortcut?name=Pr%C3%A9parer%20le%20tri');
+  });
+
+  it('« Préparer le prochain tri » : ranger, puis préparer dès que le rangement a réussi', () => {
+    const url = new URL(keepThenPrepUrl(photos).replace('shortcuts://', 'https://x/'));
+    expect(url.pathname).toBe('/x-callback-url/run-shortcut');
+    expect(url.searchParams.get('name')).toBe('Photo Triage Garder');
+    expect(url.searchParams.get('text')).toBe(shortcutText(photos));
+    expect(url.searchParams.get('x-success')).toBe(prepShortcutUrl());
   });
 });
