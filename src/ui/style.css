@@ -481,3 +481,19 @@ dd { margin: 0; text-align: right; overflow-wrap: anywhere; font-variant-numeric
 .loupe-points span.actif { opacity: 1; transform: scale(1.3); }
 .prochain-tri { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
 .prochain-tri > strong { font-size: 17px; }
+
+/* Nouvel œil : carte de progression (26/11) */
+.carte-oeil { padding: 12px 14px; border-radius: 14px; background: var(--carte); display: flex; flex-direction: column; gap: 8px; }
+.carte-oeil-tete { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 15px; }
+.carte-oeil-tete .doux { font-size: 13px; font-variant-numeric: tabular-nums; }
+.carte-oeil .note { margin: 0; }
+.carte-oeil .bouton { align-self: flex-start; }
+.barre.attente div { opacity: 0.35; animation: attente-oeil 1.4s ease-in-out infinite; }
+@keyframes attente-oeil { 50% { opacity: 0.9; } }
+
+/* Progrès séance par séance */
+table.progres { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+table.progres th { text-align: right; font-weight: 500; color: var(--doux); font-size: 12px; padding: 4px 2px; }
+table.progres th:first-child, table.progres td:first-child { text-align: left; }
+table.progres td { text-align: right; padding: 6px 2px; border-top: 1px solid var(--trait); }
+table.progres tr.hors td { color: var(--doux-2); }

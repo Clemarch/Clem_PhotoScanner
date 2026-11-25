@@ -84,6 +84,8 @@ export interface ShadowComparison {
   formula: number;
   /** Paires où le nouvel œil met la photo gardée devant. */
   eye: number;
+  /** Même décompte, séance par séance (séances testées seulement). */
+  bySession: { sessionId: string; tested: number; formula: number; eye: number }[];
 }
 
 /** Comparaison honnête, séance par séance, entre la formule et le classement personnel. */
@@ -116,7 +118,7 @@ export function shadowCompare(validations: readonly PoseValidation[], records: r
         pairsBySession.set(v.sessionId, list);
       }
   }
-  const out: ShadowComparison = { sessions: pairsBySession.size, pairs: 0, tested: 0, formula: 0, eye: 0 };
+  const out: ShadowComparison = { sessions: pairsBySession.size, pairs: 0, tested: 0, formula: 0, eye: 0, bySession: [] };
   for (const list of pairsBySession.values()) out.pairs += list.length;
   for (const [session, test] of pairsBySession) {
     // Une même photo peut figurer dans plusieurs séances (journée analysée deux fois) : ses paires sont retirées de
@@ -131,11 +133,16 @@ export function shadowCompare(validations: readonly PoseValidation[], records: r
     const step = Math.max(1, train.length / config.ranker.maxTrainPairs);
     const sample = train.length > config.ranker.maxTrainPairs ? Array.from({ length: config.ranker.maxTrainPairs }, (_, i) => train[Math.floor(i * step)]!) : train;
     const model = trainRanker(sample)!;
+    const here = { sessionId: session, tested: 0, formula: 0, eye: 0 };
     for (const p of test) {
-      out.tested++;
-      if (p.formula) out.formula++;
-      if (rankScore(model, p.keep) > rankScore(model, p.drop)) out.eye++;
+      here.tested++;
+      if (p.formula) here.formula++;
+      if (rankScore(model, p.keep) > rankScore(model, p.drop)) here.eye++;
     }
+    out.tested += here.tested;
+    out.formula += here.formula;
+    out.eye += here.eye;
+    out.bySession.push(here);
   }
   return out;
 }

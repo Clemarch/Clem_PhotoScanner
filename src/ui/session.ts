@@ -35,3 +35,13 @@ export interface Session {
   /** Séance rouverte depuis la liste des séances (les photos d'origine ne sont plus accessibles). */
   reopened?: boolean;
 }
+
+/** Nouvel œil en arrière-plan : séance regardée (nom lisible), progression, attente de mémoire. */
+export interface EyeProgress {
+  sessionId: string;
+  label: string;
+  done: number;
+  total: number;
+  finished?: boolean;
+  waiting?: boolean;
+}

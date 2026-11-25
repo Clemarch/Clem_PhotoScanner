@@ -10,6 +10,8 @@ import { IconChevron, IconNuage, IconReglages, IconTrier } from '../icons';
 import { APP_VERSION } from '../version';
 import type { ModelsState } from '../../platform/storage/models';
 import { EtatModeles } from '../EtatModeles';
+import { BarreOeil } from '../BarreOeil';
+import type { EyeProgress } from '../session';
 import { ProchainTri } from '../Rangement';
 import { albumsEnabled, TODO_ALBUM } from '../../platform/shortcut';
 
@@ -28,9 +30,11 @@ interface Props {
   /** Modèles du nouvel œil : téléchargement et état. */
   models: ModelsState | null;
   onRetryModels: () => void;
+  /** Nouvel œil en arrière-plan (rattrapage d'une séance gardée). */
+  eyeProgress: EyeProgress | null;
 }
 
-export function Accueil({ onFiles, interrupted, lastRun, records, recordsLoaded, onRestore, onSettings, seances, models, onRetryModels }: Props) {
+export function Accueil({ onFiles, interrupted, lastRun, records, recordsLoaded, onRestore, onSettings, seances, models, onRetryModels, eyeProgress }: Props) {
   const [update, setUpdate] = useState<UpdateStatus>(null);
   useEffect(() => watchUpdate(setUpdate), []);
   const installed = isInstalled();
@@ -91,9 +95,10 @@ export function Accueil({ onFiles, interrupted, lastRun, records, recordsLoaded,
       )}
 
       <EtatModeles models={models} onRetry={onRetryModels} />
+      <BarreOeil progress={eyeProgress} />
 
       <section className="groupe">
-        {lastRun && (
+        {lastRun && !albumsEnabled() && (
           <div className="ligne-info">
             <span className="icone-ronde">
               <IconChevron size={16} />

@@ -269,11 +269,6 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
             « Terminé », puis confirmez.
             {batches > 1 && ' L’iPhone n’en accepte que 49 à la fois : revenez ici après chaque lot.'}
           </p>
-          {batchItems.length > 3 && (
-            <button className="lien" onClick={sendTest}>
-              Faire d’abord un essai avec 3 photos
-            </button>
-          )}
           {someDone && (
             <button
               className="lien"
@@ -285,8 +280,13 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
             </button>
           )}
           <details className="note">
-            <summary>Liste envoyée (pour vérifier)</summary>
+            <summary>Vérifier : liste envoyée, essai</summary>
             <pre className="liste-envoyee">{shortcutText(pendingPhotos)}</pre>
+            {batchItems.length > 3 && (
+              <button className="lien" onClick={sendTest}>
+                Faire un essai avec 3 photos
+              </button>
+            )}
           </details>
         </section>
       )}
