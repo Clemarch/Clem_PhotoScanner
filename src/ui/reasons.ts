@@ -117,6 +117,8 @@ export function decisionText(
       return `Presque aussi bien notée que ${n}, la meilleure de sa pose (${mine} contre ${note(decision.refId ? scoreOf(decision.refId) : undefined)} sur 100) : à vous de trancher. Sans choix de votre part, elle est gardée`;
     case 'presque':
       return `Presque aussi bien notée que ${n}${decision.differences?.length ? ` et un peu différente (${differenceText(decision.differences)})` : ''} (${mine} contre ${note(decision.refId ? scoreOf(decision.refId) : undefined)} sur 100) : proposée à la suppression. Touchez « Garder » pour la repêcher`;
+    case 'grande-serie':
+      return `Longue série : gardée avec ${n}, la meilleure, pour en garder au moins deux (${mine} contre ${note(decision.refId ? scoreOf(decision.refId) : undefined)} sur 100)`;
     case 'seule':
       return 'Seule photo de son paquet';
     case 'minimum':

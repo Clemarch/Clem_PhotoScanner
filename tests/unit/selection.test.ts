@@ -356,3 +356,24 @@ describe('journée complète', () => {
     expect(day.packs[0]!.key).toBe(String(T0));
   });
 });
+
+describe('grande série (25/11, point 56)', () => {
+  const v = (x: number) => [x, 1 - x, 0.3];
+  it('5 photos de la même pose : au moins 2 gardées', () => {
+    const items = [0.1, 0.3, 0.5, 0.7, 0.9].map((x, i) => item(`p${i}`, i, { embedding: v(x) }));
+    const scores = scoresOf({ p0: 0.9, p1: 0.8, p2: 0.85, p3: 0.7, p4: 0.6 });
+    for (const sc of scores.values()) sc.expectedFaces = 1;
+    const d = selectPack(items, scores, [{ id: 'p', label: 'A', items }]);
+    const kept = [...d.entries()].filter(([, x]) => x.keep).map(([id]) => id);
+    expect(kept).toHaveLength(2);
+    expect(kept).toContain('p0');
+    expect(kept).toContain('p2');
+  });
+  it('3 photos : toujours une seule si les autres ne sont pas nettement différentes et aussi bonnes', () => {
+    const items = [0.1, 0.5, 0.9].map((x, i) => item(`q${i}`, i, { embedding: v(x) }));
+    const scores = scoresOf({ q0: 0.9, q1: 0.8, q2: 0.7 });
+    for (const sc of scores.values()) sc.expectedFaces = 1;
+    const d = selectPack(items, scores, [{ id: 'q', label: 'A', items }]);
+    expect([...d.values()].filter((x) => x.keep)).toHaveLength(1);
+  });
+});

@@ -207,7 +207,9 @@ export type DecisionCode =
   | 'a-verifier'
   | 'differente'
   /** Presque aussi bonne et un peu différente : proposée à la suppression, à repêcher d'un toucher (25/11). */
-  | 'presque';
+  | 'presque'
+  /** Grande série (5 photos ou plus) : 2e photo gardée pour qu'il en reste au moins 2 (25/11). */
+  | 'grande-serie';
 
 export interface Decision {
   keep: boolean;

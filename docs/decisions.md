@@ -949,6 +949,23 @@ Audit des réglages 16 ter à 16 quinquies :
   mesures ; les choix sont complétés à la fin.
 - Complément des choix en une seule écriture (`saveChoices`) au lieu d'une par choix (centaines au lancement).
 
+### 56. Grandes séries : au moins 2 photos gardées ; rattrapage du nouvel œil (25/11)
+
+Retour de l'utilisateur après la première séance en « une photo par pose » : « peut-être que tu cherches trop souvent
+à garder qu'une seule photo, surtout quand il y a 5+ photos ». Sauvegarde de 21 h 26 (721 choix, 146 poses validées) :
+- séance de 21 h 09 (règle du point 55) : 29 % des poses justes (24 % avant), 69 % des photos (60 à 63 % avant) ; mais
+  l'app garde 0,96 photo par pose contre 1,52 pour l'utilisateur, et l'erreur s'est inversée (25 photos supprimées
+  par l'app et gardées par l'utilisateur, 10 dans l'autre sens) ;
+- sur toutes les poses : 2 photos → l'utilisateur en garde 1,02 ; 3 → 1,18 ; 4 → 1,33 ; 5 → 2,44 ; 6 et plus → 3,00.
+  Dans les 25 poses de 5 photos ou plus, il en a toujours gardé au moins 2.
+
+- `selection.bigPose` : dès 5 photos, écart toléré 0,08 pour une photo nettement différente, au moins 2 gardées
+  (code `grande-serie`), au plus 2 (3 à partir de 6 photos). Petites poses inchangées.
+- Constat : la séance de 21 h 09 n'a toujours aucune mesure du nouvel œil (comme celle de 11 h 26). Rattrapage
+  automatique : quand aucune séance n'est en cours d'utilisation, le nouvel œil repasse, à partir des aperçus, sur une
+  séance gardée dont des photos n'ont pas ses mesures (une par lancement), puis complète les choix. Cause du manque
+  sur la séance de 21 h 09 à confirmer avec le rapport (ligne « nouvel œil »).
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

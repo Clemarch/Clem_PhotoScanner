@@ -26,7 +26,7 @@ Décisions prises et écarts : `docs/decisions.md` — à mettre à jour à chaq
   sauf si toutes sont ratées (accord de l'utilisateur, 17/11). Dans une pose : la meilleure, plus celles nettement
   différentes (tête, expression, geste, personnes, cadrage), presque aussi bien notées (écart ≤ 0,02) et sans défaut ;
   identiques : supprimées (19/11, point 37). Presque aussi bonnes et un peu différentes : proposées à la suppression,
-  signalées dans le tri éclair (accord de l'utilisateur, 25/11, point 55 : il garde 1,4 photo par pose, l'app 2,1). En groupe, tout le monde doit regarder ; seule, une personne peut regarder ailleurs (point 39).
+  signalées dans le tri éclair (accord de l'utilisateur, 25/11, point 55 : il garde 1,4 photo par pose, l'app 2,1). Séries de 5 photos ou plus : au moins 2 gardées, au plus 2 (3 dès 6) (point 56). En groupe, tout le monde doit regarder ; seule, une personne peut regarder ailleurs (point 39).
   Netteté jugée sur les visages ; jambes coupées par le bas : cadre naturel ; objet tenu (planche…) : partie du sujet.
 
 ## Utilisateur
