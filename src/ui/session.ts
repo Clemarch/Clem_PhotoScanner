@@ -28,6 +28,8 @@ export interface Session {
   eyeStart?: string | null;
   /** Photos reprises d'une analyse interrompue (non refaites). */
   resumed?: number;
+  /** Photos qui avaient déjà un choix avant cette séance (déjà triées une première fois). */
+  retriaged?: number;
   /** Séance reprise après une fermeture de l'app par iOS (les photos d'origine ne sont plus accessibles). */
   restored?: boolean;
   /** Séance rouverte depuis la liste des séances (les photos d'origine ne sont plus accessibles). */

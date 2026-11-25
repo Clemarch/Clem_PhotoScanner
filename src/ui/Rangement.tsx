@@ -109,7 +109,8 @@ export function ProchainTri({ records, include }: { records: ChoiceRecord[]; inc
       {launched && (
         <span className="note bloc">
           L’app Raccourcis s’en occupe (quelques secondes). Revenez ensuite par « ◀ Photo Triage » en haut à gauche,
-          touchez « Choisir les photos », puis l’album « {TODO_ALBUM} » et glissez le doigt sur les photos.
+          touchez « Choisir les photos », puis l’album « {TODO_ALBUM} ». Pour en choisir plusieurs, posez le doigt sur la
+          photo la plus à droite et glissez vers la gauche, puis vers le bas (vers la droite, iOS referme l’album).
         </span>
       )}
       {(launched || n === 0) && (

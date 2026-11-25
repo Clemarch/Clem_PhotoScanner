@@ -152,7 +152,11 @@ export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, o
                   <IconEtoile size={11} />
                 </span>
               )}
-              {task.review.has(it.id) && <span className="eclair-presque">presque aussi bonne</span>}
+              {task.review.has(it.id) && (
+                <span className="eclair-presque">
+                  {task.pack.decisions.get(it.id)?.code === 'presque' ? 'presque aussi bonne' : 'prise par erreur ?'}
+                </span>
+              )}
               <span className={`eclair-etat ${keep ? 'garde' : 'jete'}`}>{keep ? <IconCoche size={15} /> : <IconCroix size={13} />}</span>
               <span
                 className="eclair-loupe"

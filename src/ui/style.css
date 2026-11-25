@@ -411,6 +411,8 @@ dd { margin: 0; text-align: right; overflow-wrap: anywhere; font-variant-numeric
 .seances li { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-top: 0.5px solid var(--trait); }
 .seances li:first-child { border-top: 0; padding-top: 0; }
 .seance-texte { flex: 1; min-width: 0; font-size: 15px; }
+.seance-stats { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 13px; color: var(--doux); }
+.seance-stats input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
 .rond.petit-rond { width: 30px; height: 30px; color: var(--doux); }
 .icone-ronde.gris { background: var(--carte-3); }
 

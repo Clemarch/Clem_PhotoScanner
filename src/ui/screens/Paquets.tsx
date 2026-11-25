@@ -9,6 +9,7 @@ import { dayEntries } from '../entries';
 import type { LastRun } from '../../platform/storage/lastRun';
 import { IconCoche, IconCroix, IconEtoile, IconFleche, IconPlus } from '../icons';
 import { useScrolled } from '../useScrolled';
+import { ProgressionOeil } from './Reglages';
 
 interface Props {
   session: Session;
@@ -32,6 +33,8 @@ interface Props {
   /** Images retrouvées en re-choisissant les photos (séance reprise dont les images ne se relisent plus). */
   recovering: { done: number; total: number; found?: number } | null;
   onRecoverImages: (files: File[]) => void;
+  /** Nouvel œil en arrière-plan sur cette séance (visible pendant qu'on trie). */
+  eyeProgress: { done: number; total: number; finished?: boolean; waiting?: boolean } | null;
 }
 
 /** Le paquet mêle-t-il plusieurs types de photo (personnes et paysages, par exemple) ? */
@@ -50,7 +53,7 @@ const hintSeen = (): boolean => {
   }
 };
 
-export function Paquets({ session, day, gap, onJoin, onNewDay, choices, previousRun, onChoose, onComment, onGoDelete, eclair, onEclair, recovering, onRecoverImages }: Props) {
+export function Paquets({ session, day, gap, onJoin, onNewDay, choices, previousRun, onChoose, onComment, onGoDelete, eclair, onEclair, recovering, onRecoverImages, eyeProgress }: Props) {
   // Séance sur plusieurs jours : la date s'affiche au-dessus du premier paquet de chaque jour.
   const multiDay = new Set(day.packs.map((p) => dayOf(p.pack.startAt))).size > 1;
   // Photos dont l'image n'a pas pu être relue après une fermeture de l'app (séance reprise ou rouverte).
@@ -195,6 +198,8 @@ export function Paquets({ session, day, gap, onJoin, onNewDay, choices, previous
         </section>
       )}
 
+      {eyeProgress && !eyeProgress.finished && <ProgressionOeil progress={eyeProgress} />}
+
       {totals.total > 0 && (
         <p className="legende" aria-label="Légende">
           <span>
@@ -210,7 +215,7 @@ export function Paquets({ session, day, gap, onJoin, onNewDay, choices, previous
             gardée
           </span>
           <span>
-            <i className="verifier">?</i>à départager
+            <i className="verifier">?</i>prise par erreur ?
           </span>
           <span>
             <i className="supprimer">
@@ -225,7 +230,8 @@ export function Paquets({ session, day, gap, onJoin, onNewDay, choices, previous
         <div className="astuce">
           <p>
             Touchez une photo pour la voir en grand et changer la décision si besoin. Ce que vous ne touchez pas, vous
-            l’acceptez. Les photos marquées <span className="bleu">?</span> sont à départager dans leur paquet.
+            l’acceptez. Les photos marquées <span className="bleu">?</span> ont peut-être été prises par erreur : à vous de
+            trancher (sans choix, elles sont gardées).
           </p>
           <button
             className="lien fort"
@@ -259,7 +265,7 @@ export function Paquets({ session, day, gap, onJoin, onNewDay, choices, previous
       {session.faceError && (
         <p className="alerte">
           La recherche de visages ou d’objets n’a pas pu démarrer : le classement est moins fiable. Envoyez-moi le rapport
-          (Réglages › Rapport).
+          (Réglages › Envoyer à Claude).
         </p>
       )}
 
@@ -309,9 +315,8 @@ export function Paquets({ session, day, gap, onJoin, onNewDay, choices, previous
               {!mixed(pack) && <p className="cherche">On cherche : {sceneGoal[pack.scene]}.</p>}
               {review > 0 && (
                 <p className="a-trancher-note">
-                  {review > 1 ? `${review} photos presque aussi bonnes` : 'Une photo presque aussi bonne'} que la meilleure
-                  (pastille <span className="bleu">?</span>) : comparez avec les autres, puis gardez ou supprimez. Sans
-                  choix, elle est gardée.
+                  {review > 1 ? `${review} photos peut-être prises par erreur` : 'Une photo peut-être prise par erreur'} (pastille{' '}
+                  <span className="bleu">?</span>) : gardez ou supprimez. Sans choix, {review > 1 ? 'elles sont gardées' : 'elle est gardée'}.
                 </p>
               )}
               {overlaps && (

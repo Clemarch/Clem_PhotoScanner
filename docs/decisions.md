@@ -1018,6 +1018,31 @@ Correction, sans toucher aux autres modèles :
 Piste écartée pour l'instant : réunir les six moteurs MediaPipe en un seul (non prévu par la bibliothèque) ou les
 faire tourner dans un fil fermé à la fin (rendu immédiat), trop de risques pour les modèles qui marchent.
 
+### 59. Nouvel œil confirmé, séances déjà triées, sélection dans un album, revue de l'app (25/11)
+
+Rapport et sauvegarde de 23 h 01 (séance du 18/11 au 20/11, 138 photos, 748 choix) :
+- Le nouvel œil a tourné après l'analyse (138/138), chargé du premier coup malgré une mémoire de l'analyse pas encore
+  rendue au bout de 45 s : le plafond de 1 Go (point 58) suffit. La comparaison honnête est enfin calculée : formule
+  204/325 (63 %), nouvel œil 206/325 (63 %), égalité.
+- Mais 5,2 s par photo (1,9 s sur la séance de 285 photos, regardée sur les aperçus) : il lisait les photos d'origine
+  (12 Mpx). Il regarde maintenant les aperçus (1080 px, déjà tournés), comme à la reprise d'une séance.
+- « Je ne vois pas l'œil avancer » : la progression n'était affichée que dans Réglages. Elle s'affiche aussi dans
+  l'onglet Trier, dès l'attente de mémoire (« démarre dans un instant »).
+
+Photos déjà triées : cette séance reprenait des photos triées le 19/11 avec une version précédente (les survivantes de
+ce premier tri). L'app y propose de supprimer des photos que l'utilisateur a déjà choisi de garder : la justesse est
+faussée. Réglages › Séances : « Compter dans la justesse » (case par séance, `excludedSessions.ts`). Une séance décochée
+sort de la justesse « depuis le début », de la confiance du tri éclair et de la comparaison du nouvel œil ; elle reste
+mesurée seule ; ses choix restent et apprennent toujours. Le rapport indique « déjà triées avant cette séance : N ».
+
+Sélection dans l'album « À trier » : depuis iOS 26, glisser vers la droite n'importe où dans un album revient en arrière
+(geste du système, que l'app ne peut pas désactiver dans la fenêtre de Photos). Consigne : sélectionner en glissant de
+droite à gauche, puis vers le bas.
+
+Revue de l'app (chaque bouton touché par un essai automatique, chaque texte relu) : textes faux depuis le point 55 (le
+« ? » ne veut plus dire « à départager » mais « peut-être prise par erreur ») corrigés dans la légende, l'astuce, la
+note du paquet et le tri éclair ; « Réglages › Rapport » devient « Réglages › Envoyer à Claude ».
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

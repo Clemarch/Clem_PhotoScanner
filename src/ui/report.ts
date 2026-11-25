@@ -76,10 +76,13 @@ const counts = (record: Record<string, number>): string =>
 
 /** Rapport en texte, à copier puis coller dans la conversation avec Claude. Ne contient aucune image. */
 /** Justesse de l'app mesurée sur les poses validées dans le tri éclair : séance, et depuis le début. */
-export function eclairLine(validations: readonly PoseValidation[], sessionId: string | null): string {
+export function eclairLine(all0: readonly PoseValidation[], sessionId: string | null, excluded: ReadonlySet<string> = new Set()): string {
   const pct = (a: { right: number; total: number }) => (a.total ? `${a.right}/${a.total} (${Math.round((a.right / a.total) * 100)} %)` : '—');
-  const here = accuracy(validations.filter((v) => v.sessionId === sessionId));
+  // Cette séance : toujours mesurée ; « depuis le début » et les tranches : séances hors statistiques écartées.
+  const here = accuracy(all0.filter((v) => v.sessionId === sessionId));
+  const validations = all0.filter((v) => !excluded.has(v.sessionId));
   const all = accuracy(validations);
+  const out = new Set(all0.filter((v) => excluded.has(v.sessionId)).map((v) => v.sessionId)).size;
   // Libellés des tranches tirés de la config (ils suivent les seuils s'ils changent).
   const edges = config.triage.marginBuckets.map((e) => String(e).replace('.', ','));
   const label = (i: number): string => (i === 0 ? `<${edges[0]}` : i >= edges.length ? `≥${edges[edges.length - 1]}` : `${edges[i - 1]}-${edges[i]}`);
@@ -87,8 +90,8 @@ export function eclairLine(validations: readonly PoseValidation[], sessionId: st
     .buckets.map((b, i) => `${label(i)} : ${b.poses ? `${b.right}/${b.poses}` : '—'}`)
     .join(' · ');
   return (
-    `Tri éclair — justesse de l'app : cette séance ${pct(here.poses)} poses, ${pct(here.photos)} photos · ` +
-    `depuis le début ${pct(all.poses)} poses, ${pct(all.photos)} photos · par écart de note : ${cal}`
+    `Tri éclair — justesse de l'app : cette séance ${pct(here.poses)} poses, ${pct(here.photos)} photos${sessionId && excluded.has(sessionId) ? ' (séance hors statistiques)' : ''} · ` +
+    `depuis le début ${pct(all.poses)} poses, ${pct(all.photos)} photos${out ? ` (${out} séance${out > 1 ? 's' : ''} hors statistiques)` : ''} · par écart de note : ${cal}`
   );
 }
 
@@ -109,6 +112,8 @@ export function buildReport(
   validations: readonly PoseValidation[] = [],
   /** Comparaison du nouvel œil, calculée à part (au calme) pour ne pas ralentir l'app. */
   shadow: ShadowComparison | null = null,
+  /** Séances hors statistiques (photos déjà triées avant, par exemple). */
+  excluded: ReadonlySet<string> = new Set(),
 ): string {
   const s = summarize(session);
   const d = session.device;
@@ -119,7 +124,7 @@ export function buildReport(
     `Fonctions : ${Object.entries(d.support).map(([k, v]) => `${k} ${v ? 'oui' : 'NON'}`).join(', ')}`,
     `Stockage : ${d.storageUsedMB?.toFixed(1) ?? '?'} / ${d.storageQuotaMB?.toFixed(0) ?? '?'} Mo · durable : ${d.persisted === null ? '?' : d.persisted ? 'oui' : 'NON'} · base des choix : ${choiceStorage.database}${lastDbError ? ` (${lastDbError})` : ''} · repris de la copie de secours : ${choiceStorage.recoveredFromMirror} · séance reprise après fermeture : ${session.restored ? 'oui' : 'non'}${session.resumed ? ` · photos reprises d'une analyse interrompue : ${session.resumed}` : ''}`,
     '',
-    `Fichiers : ${s.total} · avec date : ${s.withDate} · SANS date : ${s.withoutDate} · RAW mis de côté : ${s.raw} · erreurs : ${s.errors}`,
+    `Fichiers : ${s.total} · avec date : ${s.withDate} · SANS date : ${s.withoutDate} · RAW mis de côté : ${s.raw} · erreurs : ${s.errors}${session.retriaged ? ` · déjà triées avant cette séance : ${session.retriaged}` : ''}`,
     `Mis de côté : ${counts(Object.fromEntries([...day.setAside.reduce((m, it) => m.set(asideKind(it) ?? '?', (m.get(asideKind(it) ?? '?') ?? 0) + 1), new Map<string, number>())]))}`,
     `Types : ${counts(s.formats)}`,
     `Décodage : ${counts(s.methods)} · fil : ${counts(s.threads)}`,
@@ -155,7 +160,7 @@ export function buildReport(
     0,
     `Paquets : ${day.packs.map((p, i) => `P${i + 1} ${new Set(p.sceneOf.values()).size > 1 ? `mixte (${[...new Set(p.sceneOf.values())].join('+')})` : p.scene} (${p.pack.items.length} photos, ${p.poses.length} pose${p.poses.length > 1 ? 's' : ''}, ${[...p.decisions.values()].filter((d) => d.keep && !d.review).length} gardées par l'app${[...p.decisions.values()].some((d) => d.review) ? `, ${[...p.decisions.values()].filter((d) => d.review).length} à vérifier` : ''})`).join(' · ') || '—'}`,
     agreementLine(evaluateDay(day, records)),
-    eclairLine(validations, session.id),
+    eclairLine(validations, session.id, excluded),
     shadowLine(shadow),
     `Nouvel œil (en coulisse) : ${(() => {
       // Chargé si au moins une photo est passée par lui ; une erreur en cours d'analyse n'est pas un échec de chargement.

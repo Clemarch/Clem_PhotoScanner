@@ -11,6 +11,7 @@ import { APP_VERSION } from '../version';
 import type { ModelsState } from '../../platform/storage/models';
 import { EtatModeles } from '../EtatModeles';
 import { ProchainTri } from '../Rangement';
+import { albumsEnabled, TODO_ALBUM } from '../../platform/shortcut';
 
 
 interface Props {
@@ -150,6 +151,12 @@ export function Accueil({ onFiles, interrupted, lastRun, records, recordsLoaded,
             }}
           />
         </label>
+        {albumsEnabled() && (
+          <p className="note">
+            Dans l’album « {TODO_ALBUM} », sélectionnez en glissant le doigt <strong>de droite à gauche</strong>, puis vers le
+            bas : depuis iOS 26, glisser vers la droite referme l’album.
+          </p>
+        )}
         <p className="note">{APP_VERSION}</p>
       </div>
     </main>
