@@ -1043,6 +1043,27 @@ Revue de l'app (chaque bouton touché par un essai automatique, chaque texte rel
 « ? » ne veut plus dire « à départager » mais « peut-être prise par erreur ») corrigés dans la légende, l'astuce, la
 note du paquet et le tri éclair ; « Réglages › Rapport » devient « Réglages › Envoyer à Claude ».
 
+### 60. Barre du nouvel œil, progrès par séance, ce que vos goûts changent (26/11)
+
+Demandes de l'utilisateur : ses 3 suggestions acceptées (point 59) ; « un élément bien visible » pour l'avancée du
+nouvel œil, pouvoir le lancer, « un rapide aperçu de l'amélioration entre les séances » ; « je ne vois toujours rien
+dans l'utilisation de mes goûts ».
+
+- Barre du nouvel œil (`src/ui/BarreOeil.tsx`) dans l'accueil, l'onglet Trier et Réglages, quelle que soit la séance
+  regardée (rattrapage compris) ; Réglages : « Lancer le nouvel œil » (séance ouverte d'abord, puis séances gardées).
+- Réglages › « Progrès séance par séance » : justesse de l'app, puis nouvel œil et formule sur les paires de la séance
+  (test honnête, `ShadowComparison.bySession`). Et ce que les goûts appris changent dans la séance ouverte (décisions
+  comparées à la formule seule).
+- Suggestions : « Pour continuer » masqué quand les albums sont utilisés ; « essai avec 3 photos » rangé dans
+  « Vérifier » ; « Détail par photo » retiré du diagnostic (le rapport le contient).
+
+Mesure sur la sauvegarde du 26/11 (796 choix, 491 paires gardée / supprimée validées, chaque séance testée avec des
+goûts appris sur les autres) : formule 305/491 (62 %), formule + goûts appris 305/491 (62 %). Les goûts n'inversent
+que 4 paires sur 491 (2 à raison, 2 à tort) : ils sont appliqués (±0,08 au plus sur la note) mais les 18 critères
+mesurés n'expliquent pas les choix ; le nouvel œil non plus pour l'instant (60 % contre 63 %). Piste proposée à
+l'utilisateur, non commencée : un jalon « apprentissage » qui teste d'autres façons d'apprendre, toujours comparées
+honnêtement à la formule.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

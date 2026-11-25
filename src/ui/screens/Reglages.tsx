@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { accuracy, type ShadowComparison, FEATURE_NAMES, evaluateDay, preferencePairs, type ChoiceRecord, type PoseValidation, type DayAnalysis, type LearnedWeights } from '../../engine';
-import type { Session } from '../session';
+import type { EyeProgress, Session } from '../session';
+import { BarreOeil } from '../BarreOeil';
 import { featureLabel } from '../reasons';
 import { agreementLine, buildReport, copyText, shareText, summarize } from '../report';
 import { RapportsEnregistres } from '../RapportsEnregistres';
@@ -8,7 +9,7 @@ import { SauvegardeGouts } from '../SauvegardeGouts';
 import { GuideRaccourci } from '../GuideRaccourci';
 import { GuideAlbums } from '../GuideAlbums';
 import type { SavedReport } from '../../platform/storage/reports';
-import { formatDateTime, formatMs, formatOrientation, formatSize } from '../format';
+import { formatDate, formatMs, plural } from '../format';
 import { IconFermer, IconPartager } from '../icons';
 import { useScrolled } from '../useScrolled';
 import { Seances } from '../Seances';
@@ -37,7 +38,11 @@ interface Props {
   models: ModelsState | null;
   onRetryModels: () => void;
   /** Nouvel œil en arrière-plan sur la séance en cours. */
-  eyeProgress: { done: number; total: number; finished?: boolean; waiting?: boolean } | null;
+  eyeProgress: EyeProgress | null;
+  /** « Lancer le nouvel œil » : rend le nombre de photos lancées. */
+  onLaunchEye: () => Promise<number>;
+  /** Décisions de la séance ouverte que vos goûts appris changent (par rapport à la formule seule). */
+  tasteEffect: { changed: number; total: number } | null;
   seances: SessionSummary[];
   currentId: string | null;
   onReopen: (sessionId: string) => void;
@@ -47,7 +52,7 @@ interface Props {
 }
 
 /** Réglages : sauvegarde des goûts, séances, raccourci, rapports, diagnostic et effacement (caché). */
-export function Reglages({ session, day, records, learned, reports, onRestore, onForget, validations, excluded, onToggleCounted, shadow, models, onRetryModels, eyeProgress, seances, currentId, onReopen, onDeleteSession, onClose }: Props) {
+export function Reglages({ session, day, records, learned, reports, onRestore, onForget, validations, excluded, onToggleCounted, shadow, models, onRetryModels, eyeProgress, onLaunchEye, tasteEffect, seances, currentId, onReopen, onDeleteSession, onClose }: Props) {
   const scrolled = useScrolled();
   return (
     <main className={`page${onClose ? ' par-dessus' : ''}`}>
@@ -68,8 +73,9 @@ export function Reglages({ session, day, records, learned, reports, onRestore, o
       <h2 className="titre-groupe">Mes goûts</h2>
       <SauvegardeGouts records={records} onRestore={onRestore} validations={validations} />
       <Justesse validations={validations} excluded={excluded} shadow={shadow} sessionId={session?.id ?? null} />
+      <Progres validations={validations} excluded={excluded} shadow={shadow} seances={seances} learned={learned} tasteEffect={tasteEffect} />
       <EtatModeles models={models} onRetry={onRetryModels} />
-      {eyeProgress && !eyeProgress.finished && <ProgressionOeil progress={eyeProgress} />}
+      <BarreOeil progress={eyeProgress} onLaunch={onLaunchEye} />
 
       <h2 className="titre-groupe">Séances</h2>
       <Seances seances={seances} currentId={currentId} onReopen={onReopen} onDelete={onDeleteSession} excluded={excluded} onToggleCounted={onToggleCounted} />
@@ -225,41 +231,6 @@ function RapportEtDiagnostic({
           </ul>
         )}
         <details className="sous-repli">
-          <summary>Détail par photo</summary>
-          <ul className="fiches">
-            {session.results.map(({ item, diagnostic }, i) => (
-              <li key={item.id} className={item.capturedAt === null || diagnostic.error ? 'probleme' : ''}>
-                <div className="fiche-titre">
-                  <span className="numero-fiche">{i + 1}</span>
-                  <span className="tronque">{item.fileName}</span>
-                  <span className="etiquette">{item.format}</span>
-                </div>
-                <dl>
-                  <dt>Prise de vue</dt>
-                  <dd>{item.capturedAt === null ? '⚠ absente' : formatDateTime(item.capturedAt)}</dd>
-                  <dt>Taille</dt>
-                  <dd>
-                    {formatSize(item.sizeBytes)}
-                    {item.width && item.height ? ` · ${item.width}×${item.height}` : ''}
-                  </dd>
-                  <dt>Orientation</dt>
-                  <dd>{formatOrientation(item.orientation)}</dd>
-                  <dt>Décodage</dt>
-                  <dd>
-                    {diagnostic.decodeMs === null ? (item.isRaw ? 'mis de côté (RAW)' : '—') : `${formatMs(diagnostic.decodeMs)} · ${diagnostic.decodeMethod}`}
-                  </dd>
-                  {diagnostic.error && (
-                    <>
-                      <dt>Erreur</dt>
-                      <dd>{diagnostic.error}</dd>
-                    </>
-                  )}
-                </dl>
-              </li>
-            ))}
-          </ul>
-        </details>
-        <details className="sous-repli">
           <summary>Rapport complet</summary>
           <textarea className="rapport" readOnly value={report} rows={10} />
         </details>
@@ -268,13 +239,80 @@ function RapportEtDiagnostic({
   );
 }
 
-/** Nouvel œil en arrière-plan : en attente de mémoire, puis la progression (25/11 : « je ne vois pas l'œil avancer »). */
-export function ProgressionOeil({ progress }: { progress: { done: number; total: number; waiting?: boolean } }) {
+
+/**
+ * Progrès séance par séance (utilisateur, 26/11 : « un rapide aperçu de l'amélioration entre les séances ») et ce que vos
+ * goûts appris changent vraiment (« je ne vois rien de mes goûts »).
+ */
+function Progres({
+  validations,
+  excluded,
+  shadow,
+  seances,
+  learned,
+  tasteEffect,
+}: {
+  validations: PoseValidation[];
+  excluded: ReadonlySet<string>;
+  shadow: ShadowComparison | null;
+  seances: SessionSummary[];
+  learned: LearnedWeights;
+  tasteEffect: { changed: number; total: number } | null;
+}) {
+  const ids = [...new Set(validations.map((v) => v.sessionId))].sort();
+  if (ids.length === 0) return null;
+  const first = new Map(seances.map((s) => [s.sessionId, s.firstAt]));
+  const eyeOf = new Map((shadow?.bySession ?? []).map((b) => [b.sessionId, b]));
+  const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)} %` : '—');
+  const top = FEATURE_NAMES.filter((n) => learned[n] !== undefined)
+    .sort((a, b) => Math.abs(learned[b]!) - Math.abs(learned[a]!))
+    .slice(0, 3);
   return (
-    <p className="note marge">
-      {progress.waiting
-        ? `Nouvel œil : démarre dans un instant (l’iPhone libère la mémoire de l’analyse), ${progress.total} photos à regarder. Vous pouvez trier pendant ce temps.`
-        : `Nouvel œil : ${progress.done} / ${progress.total} photos regardées en arrière-plan. Vous pouvez trier pendant ce temps.`}
-    </p>
+    <details className="groupe repli">
+      <summary>
+        <span>Progrès séance par séance</span>
+      </summary>
+      <table className="progres">
+        <thead>
+          <tr>
+            <th>Séance</th>
+            <th>App juste</th>
+            <th>Œil</th>
+            <th>Formule</th>
+          </tr>
+        </thead>
+        <tbody>
+          {ids.map((id) => {
+            const a = accuracy(validations.filter((v) => v.sessionId === id));
+            const at = first.get(id) ?? Number(id);
+            const e = eyeOf.get(id);
+            return (
+              <tr key={id} className={excluded.has(id) ? 'hors' : ''}>
+                <td>
+                  {at ? formatDate(at) : '?'}
+                  <span className="doux"> · {plural(a.poses.total, 'pose')}</span>
+                </td>
+                <td>{pct(a.photos.right, a.photos.total)}</td>
+                <td>{e ? pct(e.eye, e.tested) : '—'}</td>
+                <td>{e ? pct(e.formula, e.tested) : '—'}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <p className="note">
+        « App juste » : part des photos où l’app avait vu comme vous, dans le tri éclair. « Œil » et « Formule » : sur les
+        paires gardée / supprimée de la séance, part où chacun met devant la photo que vous gardez (l’œil n’a pas appris sur
+        cette séance-là : test honnête). Les séances grisées sont hors statistiques.
+      </p>
+      <p className="note">
+        <strong>Vos goûts appris</strong> :{' '}
+        {top.length === 0
+          ? 'pas encore assez de choix.'
+          : `ils comptent surtout ${top.map((n) => `${featureLabel[n]} (${learned[n]! > 0 ? 'plus' : 'moins'})`).join(', ')}. Ils déplacent la note d’une photo de 0,08 au plus.`}
+        {tasteEffect &&
+          ` Dans cette séance, ils changent ${tasteEffect.changed} décision${tasteEffect.changed > 1 ? 's' : ''} sur ${tasteEffect.total} par rapport à la formule seule.`}
+      </p>
+    </details>
   );
 }

@@ -85,7 +85,7 @@ import { setBusy, watchForegroundUpdates } from '../platform/update';
 import { ensureModels, modelsState, type ModelsState } from '../platform/storage/models';
 import type { SavedSessionMeta } from '../platform/storage/sessionStore';
 import type { AnalyzeResult } from '../platform/image/types';
-import type { Session } from './session';
+import type { EyeProgress, Session } from './session';
 import { APP_VERSION } from './version';
 import { Accueil } from './screens/Accueil';
 import { Analyse } from './screens/Analyse';
@@ -96,6 +96,28 @@ import { ASupprimer } from './screens/ASupprimer';
 import { finalKeep } from './choices';
 
 type Tab = 'paquets' | 'supprimer' | 'reglages';
+
+/** « séance du 14/11 » : première date de prise de vue de la séance. */
+const sessionLabel = (results: readonly AnalyzeResult[]): string => {
+  const first = results.find((r) => r.item.capturedAt !== null)?.item.capturedAt ?? null;
+  return first === null ? 'séance sans date' : `séance du ${formatDate(first)}`;
+};
+
+/** Mesures de la séance à réenregistrer avec celles du nouvel œil (sans toucher à ses réglages ni à son état). */
+const sessionMeta = (session: Session): SavedSessionMeta => ({
+  totalMs: session.totalMs,
+  cancelled: session.cancelled,
+  wakeLock: session.wakeLock,
+  wakeLockInfo: session.wakeLockInfo,
+  heapBeforeMB: session.heapBeforeMB,
+  heapAfterMB: session.heapAfterMB,
+  device: session.device,
+  faceError: session.faceError,
+  eyeInfo: session.eyeInfo ?? null,
+  eyeStart: null,
+  resumed: session.resumed,
+  retriaged: session.retriaged,
+});
 
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -130,7 +152,7 @@ export function App() {
   // Comparaison du nouvel œil : calcul un peu long, fait au calme (quelques secondes après la dernière validation).
   const [shadow, setShadow] = useState<ShadowComparison | null>(null);
   // Nouvel œil en arrière-plan : progression (affichée dans Réglages) et tâche en cours.
-  const [eyeProgress, setEyeProgress] = useState<{ sessionId: string; done: number; total: number; finished?: boolean; waiting?: boolean } | null>(null);
+  const [eyeProgress, setEyeProgress] = useState<EyeProgress | null>(null);
   const eyeRun = useRef<EyeRun | null>(null);
   const eyeToken = useRef(0);
   // Modèles du nouvel œil : état du téléchargement (accueil) et attente avant de lancer l'œil.
@@ -354,6 +376,22 @@ export function App() {
   const items = useMemo(() => session?.results.map((r) => r.item) ?? [], [session]);
   // Paquets toujours découpés selon ce que montrent les photos (utilisateur, 20/11 : l'interrupteur n'avait pas de sens).
   const day = useMemo(() => analyzeDay(items, gap, learned, joined, true), [items, gap, learned, joined]);
+  // Ce que vos goûts appris changent dans cette séance (utilisateur, 26/11 : « je ne vois rien de mes goûts ») :
+  // décisions comparées à celles de la formule seule. Calculé seulement quand Réglages est ouvert.
+  const tasteEffect = useMemo(() => {
+    if (tab !== 'reglages' || !session || Object.keys(learned).length === 0) return null;
+    const base = analyzeDay(items, gap, {}, joined, true);
+    const baseKeep = new Map<string, boolean>();
+    for (const p of base.packs) for (const [id, d] of p.decisions) baseKeep.set(id, d.keep);
+    let changed = 0;
+    let total = 0;
+    for (const p of day.packs)
+      for (const [id, d] of p.decisions) {
+        total++;
+        if (baseKeep.has(id) && baseKeep.get(id) !== d.keep) changed++;
+      }
+    return { changed, total };
+  }, [tab, session, items, gap, joined, learned, day]);
 
   // File du tri éclair : poses à trancher, sans celles déjà validées dans cette séance, ni les « sûres » (l'app y a fait
   // ses preuves sur vos validations passées).
@@ -408,7 +446,7 @@ export function App() {
     const token = ++eyeToken.current;
     // Visible tout de suite (25/11, « je ne vois pas l'œil avancer ») : en attente, puis la progression.
     const waitingTotal = results.filter((r) => r.item.kind === 'photo' && !r.item.isRaw && r.item.camera !== false && !r.diagnostic.error && originals.has(r.item.id)).length;
-    if (waitingTotal > 0) setEyeProgress({ sessionId, done: 0, total: waitingTotal, waiting: true });
+    if (waitingTotal > 0) setEyeProgress({ sessionId, label: sessionLabel(results), done: 0, total: waitingTotal, waiting: true });
     // Mémoire (25/11, point 58) : le nouvel œil attend aussi que Safari ait rendu la mémoire des moteurs de l'analyse.
     void Promise.all([(modelsPromise.current ?? Promise.resolve(null)).catch(() => null), waitForRelease(engines, EYE_RELEASE_WAIT_MS)]).then(
       ([state, release]) => {
@@ -446,7 +484,7 @@ export function App() {
       .filter((r) => r.item.kind === 'photo' && !r.item.isRaw && r.item.camera !== false && !r.diagnostic.error && originals.has(r.item.id))
       .map((r) => ({ id: r.item.id, file: originals.get(r.item.id)!, boxes: mainFaces(r.item.faces).map((f) => f.box) }));
     if (photos.length === 0) return;
-    setEyeProgress({ sessionId, done: 0, total: photos.length });
+    setEyeProgress({ sessionId, label: sessionLabel(results), done: 0, total: photos.length });
     // Les informations du rapport décrivent ce passage-ci (une erreur d'un passage précédent n'est plus vraie).
     meta.eyeInfo = null;
     meta.eyeStart = null;
@@ -512,45 +550,55 @@ export function App() {
       if (r.preview && r.item.kind === 'photo' && !r.item.isRaw && r.item.camera !== false && !r.diagnostic.error && r.item.clip?.length !== config.ranker.eyeDims)
         missing.set(r.item.id, r.preview);
     if (missing.size === 0) return;
-    const meta: SavedSessionMeta = {
-      totalMs: session.totalMs,
-      cancelled: session.cancelled,
-      wakeLock: session.wakeLock,
-      wakeLockInfo: session.wakeLockInfo,
-      heapBeforeMB: session.heapBeforeMB,
-      heapAfterMB: session.heapAfterMB,
-      device: session.device,
-      faceError: session.faceError,
-      eyeInfo: session.eyeInfo ?? null,
-      eyeStart: null,
-      resumed: session.resumed,
-    };
-    runEye(session.id, session.results, missing, meta);
+    runEye(session.id, session.results, missing, sessionMeta(session));
   }, [session, models]);
 
   // Rattrapage (25/11) : séances gardées dont des photos n'ont jamais eu les mesures du nouvel œil (arrêté en route
   // avant le réglage 16 quinquies). Une séance à la fois, quand aucune séance n'est en cours d'utilisation, à partir de
   // ses aperçus ; la suivante au prochain lancement. Les choix sont complétés à la fin.
   const eyeCaughtUp = useRef(false);
+  /** Lance le nouvel œil sur la première séance gardée (autre que `skip`) dont des photos n'ont pas ses mesures.
+   *  Rend le nombre de photos lancées (0 : rien à faire). */
+  const catchUpEye = async (skip?: string): Promise<number> => {
+    const needs = (it: MediaItem) => it.kind === 'photo' && !it.isRaw && it.camera !== false && it.clip?.length !== config.ranker.eyeDims;
+    for (const s of await listSessions()) {
+      if (s.sessionId === skip) continue;
+      if (!(await loadSessionItems(s.sessionId)).some(needs)) continue;
+      const saved = await loadSessionById(s.sessionId);
+      if (!saved || eyeRun.current || analysing.current) return 0;
+      const results = saved.results.map((r) => ({ ...r, frame: null })) as AnalyzeResult[];
+      const missing = new Map<string, Blob>();
+      for (const r of results) if (r.preview && !r.diagnostic.error && needs(r.item)) missing.set(r.item.id, r.preview);
+      if (missing.size === 0) continue;
+      runEye(s.sessionId, results, missing, saved.meta);
+      return missing.size;
+    }
+    return 0;
+  };
   useEffect(() => {
     if (!models?.ready || (session && !closed) || eyeRun.current || analysing.current || eyeCaughtUp.current) return;
     eyeCaughtUp.current = true;
-    void (async () => {
-      const needs = (it: MediaItem) => it.kind === 'photo' && !it.isRaw && it.camera !== false && it.clip?.length !== config.ranker.eyeDims;
-      for (const s of await listSessions()) {
-        if (s.sessionId === session?.id) continue;
-        if (!(await loadSessionItems(s.sessionId)).some(needs)) continue;
-        const saved = await loadSessionById(s.sessionId);
-        if (!saved || eyeRun.current || analysing.current) return;
-        const results = saved.results.map((r) => ({ ...r, frame: null })) as AnalyzeResult[];
-        const missing = new Map<string, Blob>();
-        for (const r of results) if (r.preview && !r.diagnostic.error && needs(r.item)) missing.set(r.item.id, r.preview);
-        if (missing.size === 0) continue;
-        runEye(s.sessionId, results, missing, saved.meta);
-        return;
-      }
-    })();
+    void catchUpEye(session?.id);
   }, [models, session, closed]);
+
+  /**
+   * « Lancer le nouvel œil » (utilisateur, 26/11) : d'abord la séance ouverte, à partir de ses aperçus, puis les séances
+   * gardées. Rend le nombre de photos lancées (0 : toutes ont déjà ses mesures, ou il tourne déjà).
+   */
+  const launchEye = async (): Promise<number> => {
+    if (eyeRun.current || analysing.current || !models?.ready) return 0;
+    if (session && !closed) {
+      const missing = new Map<string, Blob>();
+      for (const r of session.results)
+        if (r.preview && r.item.kind === 'photo' && !r.item.isRaw && r.item.camera !== false && !r.diagnostic.error && r.item.clip?.length !== config.ranker.eyeDims)
+          missing.set(r.item.id, r.preview);
+      if (missing.size > 0) {
+        runEye(session.id, session.results, missing, sessionMeta(session));
+        return missing.size;
+      }
+    }
+    return catchUpEye(session && !closed ? session.id : undefined);
+  };
 
   /** Complète les choix sans mesures du nouvel œil avec celles des photos données (voir `eyePatches`). */
   const applyEyePatches = (items: MediaItem[]) => {
@@ -938,7 +986,9 @@ export function App() {
       shadow={shadow}
       models={models}
       onRetryModels={retryModels}
-      eyeProgress={eyeProgress && eyeProgress.sessionId === session?.id ? eyeProgress : null}
+      eyeProgress={eyeProgress}
+      onLaunchEye={launchEye}
+      tasteEffect={tasteEffect}
       seances={seances}
       currentId={closed ? null : (session?.id ?? null)}
       onReopen={(id) => void reopen(id)}
@@ -961,6 +1011,7 @@ export function App() {
         seances={seances.length}
         models={models}
         onRetryModels={retryModels}
+        eyeProgress={eyeProgress}
       />
     );
   }
@@ -1008,7 +1059,7 @@ export function App() {
           onEclair={openEclair}
           recovering={recovering}
           onRecoverImages={(files) => void recoverImages(files)}
-          eyeProgress={eyeProgress && eyeProgress.sessionId === session.id ? eyeProgress : null}
+          eyeProgress={eyeProgress}
         />
       ) : tab === 'supprimer' ? (
         <ASupprimer session={session} day={day} choices={choices} onChoose={choose} onComment={comment} onConfirm={confirmPacks} onUnconfirm={unconfirmPacks} onFinished={finish} unverified={pending.length} onVerify={() => openEclair('suite')} />

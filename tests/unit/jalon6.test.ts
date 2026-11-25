@@ -168,6 +168,10 @@ describe('nouvel œil en coulisse (réglage 13)', () => {
     expect(s.tested).toBe(60);
     expect(s.formula).toBe(0);
     expect(s.eye).toBe(60);
+    // Détail par séance (26/11, « Progrès séance par séance ») : mêmes totaux.
+    expect(s.bySession).toHaveLength(3);
+    expect(s.bySession.reduce((n, b) => n + b.tested, 0)).toBe(60);
+    expect(s.bySession.reduce((n, b) => n + b.eye, 0)).toBe(60);
   });
 
   it('une seule séance : pas de comparaison (rien pour apprendre sans tricher)', () => {

@@ -9,7 +9,8 @@ import { dayEntries } from '../entries';
 import type { LastRun } from '../../platform/storage/lastRun';
 import { IconCoche, IconCroix, IconEtoile, IconFleche, IconPlus } from '../icons';
 import { useScrolled } from '../useScrolled';
-import { ProgressionOeil } from './Reglages';
+import { BarreOeil } from '../BarreOeil';
+import type { EyeProgress } from '../session';
 
 interface Props {
   session: Session;
@@ -34,7 +35,7 @@ interface Props {
   recovering: { done: number; total: number; found?: number } | null;
   onRecoverImages: (files: File[]) => void;
   /** Nouvel œil en arrière-plan sur cette séance (visible pendant qu'on trie). */
-  eyeProgress: { done: number; total: number; finished?: boolean; waiting?: boolean } | null;
+  eyeProgress: EyeProgress | null;
 }
 
 /** Le paquet mêle-t-il plusieurs types de photo (personnes et paysages, par exemple) ? */
@@ -198,7 +199,7 @@ export function Paquets({ session, day, gap, onJoin, onNewDay, choices, previous
         </section>
       )}
 
-      {eyeProgress && !eyeProgress.finished && <ProgressionOeil progress={eyeProgress} />}
+      <BarreOeil progress={eyeProgress} />
 
       {totals.total > 0 && (
         <p className="legende" aria-label="Légende">
