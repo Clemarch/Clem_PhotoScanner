@@ -61,6 +61,13 @@ export function GuideAlbums() {
           <li>
             Recommencez pour <strong>{TODO_ALBUM}</strong> (« À » avec accent).
           </li>
+          <li>
+            Depuis iOS 27, l’iPhone bloque un raccourci qui met plus de quelques dizaines de photos dans un album (« trying
+            to share … Photos items »). Une seule fois : app <strong>Réglages</strong> de l’iPhone ›{' '}
+            <strong>Apps</strong> › <strong>Raccourcis</strong> › <strong>Avancé</strong>, activez{' '}
+            <strong>Autoriser le partage de grandes quantités de données</strong>. Laissez éteint « Autoriser la
+            suppression de grandes quantités de données » : la protection contre les suppressions reste entière.
+          </li>
         </ol>
       )}
 

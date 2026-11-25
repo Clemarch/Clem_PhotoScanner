@@ -903,6 +903,14 @@ par l'app, il ne cherche rien ; et l'interrupteur des albums, éteint par défau
 - Plus de carte de rangement dans l'onglet Supprimer ni de bouton « anciennes séances » dans Réglages : la carte
   « Prochain tri » les couvre.
 
+### 53. « Trying to share 132 Photos items » (25/11)
+
+Premier « Préparer le prochain tri » : iOS 27 bloque « Photo Triage Garder » (132 photos à mettre dans « Triées »),
+comme il bloquait les suppressions de 50 photos ou plus. Ranger dans un album compte comme un « partage » de photos ;
+« Préparer le tri » (200 photos dans « À trier ») l'est aussi. Pas de contournement raisonnable par lots (4 allers-retours
+par séance) : réglage d'iOS, une fois, « Autoriser le partage de grandes quantités de données » (Réglages › Apps ›
+Raccourcis › Avancé), en laissant éteinte l'autorisation de suppression. Ajouté au guide des albums. L'app marquait les
+séances comme rangées dès l'envoi : lien « Le raccourci a affiché une erreur ? Tout ranger à nouveau ».
 ### 54. La comparaison du nouvel œil n'apparaissait jamais (25/11)
 
 « Ça me dit toujours après 2 séances […] j'ai l'impression que c'est bloqué. » Sauvegarde du 25/11 (601 choix,

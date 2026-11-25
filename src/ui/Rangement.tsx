@@ -73,13 +73,14 @@ export function ProchainTri({ records, include }: { records: ChoiceRecord[]; inc
   const [pending, setPending] = useState<Pending | null>(null);
   const [batch, setBatch] = useState(0);
   const [launched, setLaunched] = useState(false);
+  const [reload, setReload] = useState(0);
   useEffect(() => {
     let alive = true;
     void pendingKept(records, include).then((p) => alive && setPending(p));
     return () => {
       alive = false;
     };
-  }, [records, include]);
+  }, [records, include, reload]);
   if (!albumsEnabled() || !pending) return null;
 
   const n = pending.photos.length;
@@ -110,6 +111,20 @@ export function ProchainTri({ records, include }: { records: ChoiceRecord[]; inc
           L’app Raccourcis s’en occupe (quelques secondes). Revenez ensuite par « ◀ Photo Triage » en haut à gauche,
           touchez « Choisir les photos », puis l’album « {TODO_ALBUM} » et glissez le doigt sur les photos.
         </span>
+      )}
+      {(launched || n === 0) && (
+        <button
+          className="lien"
+          onClick={() => {
+            // Rangement refusé par l'iPhone (25/11) : les séances redeviennent à ranger.
+            saveRanged(new Set());
+            setLaunched(false);
+            setBatch(0);
+            setReload((r) => r + 1);
+          }}
+        >
+          Le raccourci a affiché une erreur ? Tout ranger à nouveau
+        </button>
       )}
     </section>
   );
