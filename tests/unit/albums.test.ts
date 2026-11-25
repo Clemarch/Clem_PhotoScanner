@@ -32,3 +32,23 @@ describe('albums', () => {
     expect(url.searchParams.get('x-success')).toBe(prepShortcutUrl());
   });
 });
+
+describe('nouvel œil : choix complétés après coup (25/11)', () => {
+  it('ajoute empreinte et émotions aux choix qui n’en ont pas, sans rien changer d’autre', async () => {
+    const { eyePatches } = await import('../../src/ui/choices');
+    const { photoKey, config } = await import('../../src/engine');
+    const item = { fileName: 'IMG_1.jpeg', capturedAt: 1000, clip: Array.from({ length: config.ranker.eyeDims }, (_, i) => (i % 7) / 7) } as never;
+    const old = { ...(item as object), fileName: 'IMG_2.jpeg', clip: [0.1, 0.2] } as never;
+    const base = { packKey: 'p', choice: 'garder' as const, features: {}, baseScore: 0.5, at: 1 };
+    const records = [
+      { ...base, key: photoKey(item) },
+      { ...base, key: photoKey(old) },
+      { ...base, key: 'autre|1', clip: 'déjà' },
+    ];
+    const patches = eyePatches(records as never, [item, old]);
+    expect(patches).toHaveLength(1);
+    expect(patches[0]!.key).toBe(photoKey(item));
+    expect(patches[0]!.choice).toBe('garder');
+    expect(typeof patches[0]!.clip).toBe('string');
+  });
+});

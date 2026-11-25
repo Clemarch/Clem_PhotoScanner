@@ -1,6 +1,6 @@
 // Décision finale d'une photo : le choix de l'utilisateur s'il en a fait un, sinon celui de l'app.
 
-import { FEATURES_VERSION, emotionSummary, encodeEmbedding, photoKey, type ChoiceRecord, type MediaItem, type PackAnalysis } from '../engine';
+import { FEATURES_VERSION, config, emotionSummary, encodeEmbedding, photoKey, type ChoiceRecord, type MediaItem, type PackAnalysis } from '../engine';
 
 export type Choice = 'garder' | 'supprimer';
 
@@ -41,4 +41,25 @@ export function makeRecord(item: MediaItem, pack: PackAnalysis, choice: Choice, 
     // « Nouvel œil » (en coulisse) : empreinte CLIP et émotions des visages, si elles ont été mesurées.
     ...(clip ? { clip } : {}),
     ...(emo ? { emo } : {}) };
+}
+
+/**
+ * Choix faits avant que le nouvel œil ait fini de regarder leurs photos (il tourne en arrière-plan pendant que l'on
+ * trie) : complétés avec son empreinte et les émotions des visages dès qu'elles existent. Sans cela, presque aucune
+ * séance n'avait ces mesures et la comparaison du nouvel œil n'apparaissait jamais (25/11). Rien d'autre ne change.
+ */
+export function eyePatches(records: readonly ChoiceRecord[], items: readonly MediaItem[]): ChoiceRecord[] {
+  const byKey = new Map(items.map((it) => [photoKey(it), it]));
+  const out: ChoiceRecord[] = [];
+  for (const r of records) {
+    if (r.clip) continue;
+    const it = byKey.get(r.key);
+    // Seulement l'empreinte du nouvel œil actuel (SigLIP 2) : les anciennes (CLIP) n'ont pas la même taille.
+    if (!it?.clip || it.clip.length !== config.ranker.eyeDims) continue;
+    const clip = encodeEmbedding(it.clip);
+    if (!clip) continue;
+    const emo = r.emo ?? emotionSummary(it);
+    out.push({ ...r, clip, ...(emo ? { emo } : {}) });
+  }
+  return out;
 }

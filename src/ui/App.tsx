@@ -44,6 +44,7 @@ import {
   forgetCurrentSession,
   listSessions,
   loadSession,
+  loadSessionItems,
   loadSessionById,
   saveSession,
   saveSessionSettings,
@@ -62,7 +63,7 @@ import { forgetLastBackupCount } from '../platform/storage/backupFile';
 import type { DeviceReport } from '../platform/device';
 import { buildReport } from './report';
 import { formatDate } from './format';
-import { makeRecord, type Choice, type Choices } from './choices';
+import { eyePatches, makeRecord, type Choice, type Choices } from './choices';
 import { createFaceDetector, type FaceDetector } from '../platform/vision/faceDetector';
 import { createObjectDetector, type ObjectDetector } from '../platform/vision/objectDetector';
 import { findFaces } from '../platform/vision/retry';
@@ -448,9 +449,38 @@ export function App() {
         // Mesures gardées avec la séance (reprise, réouverture), sans toucher à ses réglages, à son état (terminée) ni à
         // la séance ouverte ; rien si elle a été effacée entre-temps.
         void updateSessionMeasures(sessionId, results, meta);
+        // Choix faits pendant que le nouvel œil travaillait : complétés avec ses mesures.
+        applyEyePatches(results.map((r) => r.item));
       },
     );
   };
+
+  /** Complète les choix sans mesures du nouvel œil avec celles des photos données (voir `eyePatches`). */
+  const applyEyePatches = (items: MediaItem[]) => {
+    const patches = new Map(eyePatches(recordsRef.current, items).map((r) => [r.key, r]));
+    if (patches.size === 0) return;
+    const merged: ChoiceRecord[] = [];
+    for (const r of recordsRef.current) {
+      const p = patches.get(r.key);
+      if (p && !r.clip) merged.push({ ...r, clip: p.clip, ...(r.emo ?? p.emo ? { emo: r.emo ?? p.emo } : {}) });
+    }
+    for (const r of merged) void saveChoice(r);
+    const byKey = new Map(merged.map((r) => [r.key, r]));
+    setRecords((list) => list.map((r) => (byKey.has(r.key) && !r.clip ? { ...r, clip: byKey.get(r.key)!.clip, emo: r.emo ?? byKey.get(r.key)!.emo } : r)));
+  };
+
+  // Au lancement, une fois les choix lus : les séances gardées complètent les choix faits avant la fin du nouvel œil
+  // (rattrape les séances déjà triées, 25/11).
+  const backfilled = useRef(false);
+  useEffect(() => {
+    if (!recordsLoaded || backfilled.current) return;
+    backfilled.current = true;
+    void (async () => {
+      const items: MediaItem[] = [];
+      for (const s of await listSessions()) items.push(...(await loadSessionItems(s.sessionId)));
+      applyEyePatches(items);
+    })();
+  }, [recordsLoaded]);
 
   const start = async (files: File[]) => {
     startedRef.current = true;

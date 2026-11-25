@@ -903,6 +903,23 @@ par l'app, il ne cherche rien ; et l'interrupteur des albums, éteint par défau
 - Plus de carte de rangement dans l'onglet Supprimer ni de bouton « anciennes séances » dans Réglages : la carte
   « Prochain tri » les couvre.
 
+### 54. La comparaison du nouvel œil n'apparaissait jamais (25/11)
+
+« Ça me dit toujours après 2 séances […] j'ai l'impression que c'est bloqué. » Sauvegarde du 25/11 (601 choix,
+114 poses validées sur 4 séances) : seule la séance du 21→25/11 avait les mesures du nouvel œil (222 photos) ; celle
+du 25/11 (113 photos) n'en avait aucune. Cause : le tri éclair s'ouvre dès la fin de l'analyse, pendant que le nouvel
+œil regarde encore les photos en arrière-plan ; chaque choix était enregistré sans ses mesures et jamais complété.
+Avec une seule séance mesurée, la comparaison (apprendre sur une séance, tester sur une autre) ne pouvait pas démarrer.
+
+- Les choix sont complétés avec l'empreinte du nouvel œil et les émotions des visages dès qu'elles existent : à la fin
+  du nouvel œil, et au lancement de l'app pour toutes les séances gardées (rattrape les séances déjà triées). Le choix
+  lui-même ne change pas (`eyePatches`, `src/ui/choices.ts`).
+- Réglages : le texte dit combien de séances comptent déjà pour la comparaison.
+- Constat sur les poses validées : l'utilisateur garde en moyenne 1,37 photo par pose, l'app en propose 2,13 ; 73 poses
+  sur 111 où il n'en garde qu'une (dans 68 cas, elle faisait partie de la proposition de l'app). L'écart principal :
+  l'app garde, l'utilisateur supprime (67 contre 14, puis 28 contre 6). Proposition à faire : garder plus rarement une
+  2e photo de la même pose (à soumettre à l'utilisateur, point 37).
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.
