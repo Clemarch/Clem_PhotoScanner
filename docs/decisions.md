@@ -845,6 +845,10 @@ Constat de l'utilisateur : lots de 49 refusés par iOS, qui annonçait « 1225 p
   rajoute tout le panier à chaque tour (1 + 2 + … + 49, propre à cette version d'iOS), ou chaque recherche qui trouve
   25 photos (49 × 25). Test proposé : « Faire d'abord un essai avec 3 photos » (iOS annonce 3, 6 ou 75). Si 6 :
   retirer « Ajouter à la variable » et supprimer « Résultats de la répétition » (sortie de la dernière recherche).
+- Résultat (25/11) : l'essai à 3 photos passe (3 supprimées), le lot de 49 non. C'est le compteur de sécurité d'iOS 27
+  qui recompte le panier à chaque « Ajouter à la variable » (1 + … + 49) ; les photos supprimées, elles, étaient
+  justes. Correction validée par l'utilisateur : plus de panier, la répétition se termine par « Rechercher Photos » et
+  le bloc final supprime « Résultats de la répétition ». Guides mis à jour.
 - Correction côté app : un lot envoyé ne compte plus comme fait. À votre retour, « Le lot est-il bien parti ? » :
   « Oui, N supprimées » le marque fait ; « Non : renvoyer ce lot » le renvoie ; « Annuler cet envoi ». L'état
   (lots confirmés, lot en attente) est gardé par séance et survit à la fermeture de l'app.

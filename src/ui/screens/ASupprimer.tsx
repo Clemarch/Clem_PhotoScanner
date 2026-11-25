@@ -269,8 +269,8 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
           </button>
           <p className="note">
             Si l’iPhone annonce un autre nombre (par exemple « 1225 photos »), touchez OK pour refuser, puis vérifiez le
-            dernier bloc du raccourci : il doit afficher « Supprimer <strong>A supprimer</strong> » (Réglages › Raccourci de
-            suppression).
+            raccourci : sans « Ajouter à la variable », le dernier bloc supprime « <strong>Résultats de la répétition</strong> »
+            (Réglages › Raccourci de suppression).
           </p>
           <button className="lien" onClick={() => updateSend({ awaiting: null })}>
             Annuler cet envoi

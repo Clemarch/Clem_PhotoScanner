@@ -79,7 +79,8 @@ export function GuideAlbums({ records }: { records: ChoiceRecord[] }) {
             </li>
             <li>
               Ouvrez-la (touchez les <strong>…</strong>), faites défiler tout en bas et touchez la croix{' '}
-              <strong>✕</strong> du bloc « <strong>Supprimer</strong> A supprimer ». Seul ce bloc est enlevé.
+              <strong>✕</strong> du bloc « <strong>Supprimer</strong> … » (Résultats de la répétition, ou A supprimer sur un raccourci plus
+              ancien). Seul ce bloc est enlevé.
             </li>
             <li>
               Barre <strong>Rechercher</strong> en bas : tapez « créer un album », touchez <strong>Créer un album
@@ -87,11 +88,12 @@ export function GuideAlbums({ records }: { records: ChoiceRecord[] }) {
             </li>
             <li>
               Dans ce bloc : nom de l’album, tapez exactement <strong>{KEPT_ALBUM}</strong> ; contenu, touchez le mot bleu
-              et choisissez la variable <strong>A supprimer</strong>. Touchez <strong>OK</strong>.
+              et choisissez la même variable que le bloc enlevé (<strong>Résultats de la répétition</strong>, ou A supprimer).
+              Touchez <strong>OK</strong>.
             </li>
           </ol>
           <p className="note">
-            Le nom « A supprimer » reste, mais dans cette copie il ne supprime rien : il range. Si l’album existe déjà, «
+            Dans cette copie, rien n’est supprimé : les photos sont rangées. Si l’album existe déjà, «
             Créer un album photo » y ajoute les photos, sans copie. N’utilisez pas « Enregistrer dans l’album photo » : elle
             copierait chaque photo.
           </p>
