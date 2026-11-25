@@ -17,7 +17,21 @@ const memory = new Map<string, ChoiceRecord>();
 /** État du stockage des choix, pour le rapport. */
 export const choiceStorage = { database: 'non vérifiée' as 'ok' | 'erreur' | 'non vérifiée', recoveredFromMirror: 0 };
 
+// Copie de secours écrite au plus une fois par seconde (elle contient tous les choix : la réécrire à chaque photo
+// d'une pose ralentissait le tri éclair, 25/11), et tout de suite si l'app passe en arrière-plan.
+let mirrorTimer: ReturnType<typeof setTimeout> | null = null;
 function writeMirror(): void {
+  if (mirrorTimer) return;
+  mirrorTimer = setTimeout(flushMirror, 1000);
+}
+if (typeof document !== 'undefined')
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden' && mirrorTimer) flushMirror();
+  });
+
+function flushMirror(): void {
+  if (mirrorTimer) clearTimeout(mirrorTimer);
+  mirrorTimer = null;
   try {
     const rows = [...memory.values()].map((r) => ({ ...r, embedding: undefined, clip: undefined }));
     localStorage.setItem(MIRROR_KEY, JSON.stringify(encodeBackup(rows, Date.now())));

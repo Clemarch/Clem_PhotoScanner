@@ -845,6 +845,10 @@ Constat de l'utilisateur : lots de 49 refusés par iOS, qui annonçait « 1225 p
   rajoute tout le panier à chaque tour (1 + 2 + … + 49, propre à cette version d'iOS), ou chaque recherche qui trouve
   25 photos (49 × 25). Test proposé : « Faire d'abord un essai avec 3 photos » (iOS annonce 3, 6 ou 75). Si 6 :
   retirer « Ajouter à la variable » et supprimer « Résultats de la répétition » (sortie de la dernière recherche).
+- Résultat (25/11) : l'essai à 3 photos passe (3 supprimées), le lot de 49 non. C'est le compteur de sécurité d'iOS 27
+  qui recompte le panier à chaque « Ajouter à la variable » (1 + … + 49) ; les photos supprimées, elles, étaient
+  justes. Correction validée par l'utilisateur : plus de panier, la répétition se termine par « Rechercher Photos » et
+  le bloc final supprime « Résultats de la répétition ». Guides mis à jour.
 - Correction côté app : un lot envoyé ne compte plus comme fait. À votre retour, « Le lot est-il bien parti ? » :
   « Oui, N supprimées » le marque fait ; « Non : renvoyer ce lot » le renvoie ; « Annuler cet envoi ». L'état
   (lots confirmés, lot en attente) est gardé par séance et survit à la fermeture de l'app.
@@ -865,6 +869,23 @@ voit plus pendant une séance.
 - Réglages › « Rechercher une mise à jour ». Protocole de test : ne plus jamais supprimer l'app pour la mettre à jour.
 - L'utilisateur est passé d'iOS 26 à iOS 27.2 juste avant le refus « 1225 photos » (point 49) : piste la plus
   probable d'un changement de comportement de « Ajouter à la variable » ; l'essai avec 3 photos tranchera.
+
+### 51. Réglage 16 : tri plus fluide, loupe, albums en fin de séance (25/11)
+
+Demandes de l'utilisateur : latence de 1 à 3 s sur les boutons du tri ; changer de photo en glissant ; ouvrir et
+quitter la vue en grand plus facilement pour valider ; « comment mettre à jour les albums ? ».
+
+- Latence : chaque pose validée relançait les goûts appris, le recalcul de toute la séance, puis (3 et 4 s plus tard,
+  pendant qu'on regardait la pose suivante) la comparaison du nouvel œil et le rapport. Tant que le tri éclair est
+  ouvert, ces calculs attendent sa fermeture (il travaille sur sa liste de poses figée à l'ouverture : aucune décision
+  ne change) ; la page dessous se met à jour sans bloquer ; la copie de secours des choix (localStorage) s'écrit au
+  plus une fois par seconde. Mesuré dans le navigateur : 75 à 140 ms par validation.
+- Vue en grand : glisser à gauche ou à droite pour changer de photo, vers le bas pour revenir ; points de couleur
+  (gardée / à supprimer) ; « Valider la pose » directement dans la vue en grand ; bouton « ‹ Pose » ; bouton d'ouverture
+  plus grand (46 px) ; photos de la pose décodées d'avance.
+- Albums : la séance se termine dès le dernier lot confirmé, si bien que la carte « Ranger dans Triées » de l'onglet
+  Supprimer n'était plus visible. L'écran « Séance terminée » montre désormais « Pour la prochaine séance » : 1. ranger
+  les gardées, 2. préparer « À trier » (`src/ui/Rangement.tsx`).
 
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 

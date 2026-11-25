@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type TouchEvent } from 'react';
 import { config, type PoseTask } from '../../engine';
 import { isLandscape, plural } from '../format';
 import { IconCoche, IconCroix, IconEtoile, IconFermer, IconFleche } from '../icons';
@@ -195,6 +195,12 @@ export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, o
           numberOf={numberOf}
           onToggle={toggle}
           onClose={() => setZoom(null)}
+          onValidate={() => {
+            setZoom(null);
+            validate();
+          }}
+          keepCount={keepCount}
+          removeCount={removeCount}
         />
       )}
     </div>
@@ -210,6 +216,9 @@ function Loupe({
   numberOf,
   onToggle,
   onClose,
+  onValidate,
+  keepCount,
+  removeCount,
 }: {
   items: PoseTask['items'];
   start: string;
@@ -218,6 +227,10 @@ function Loupe({
   numberOf: (id: string) => number | null;
   onToggle: (id: string) => void;
   onClose: () => void;
+  /** Valider la pose sans revenir à la grille (utilisateur, 25/11). */
+  onValidate: () => void;
+  keepCount: number;
+  removeCount: number;
 }) {
   const [at, setAt] = useState(() => Math.max(0, items.findIndex((it) => it.id === start)));
   const [big, setBig] = useState(false);
@@ -227,6 +240,38 @@ function Loupe({
   const keep = kept.has(item.id);
 
   useEffect(() => setBig(false), [at]);
+
+  // Toutes les photos de la pose décodées d'avance : passer de l'une à l'autre est immédiat.
+  useEffect(() => {
+    for (const it of items) {
+      const src = url(it.id);
+      if (!src) continue;
+      const img = new Image();
+      img.src = src;
+      void img.decode().catch(() => {});
+    }
+  }, [items]);
+
+  // Glisser le doigt : à gauche ou à droite pour la photo suivante ou précédente, vers le bas pour revenir à la pose.
+  const touch = useRef<{ x: number; y: number } | null>(null);
+  const onTouchStart = (e: TouchEvent<HTMLDivElement>) => {
+    const t = e.touches[0];
+    touch.current = !big && t && e.touches.length === 1 ? { x: t.clientX, y: t.clientY } : null;
+  };
+  const onTouchEnd = (e: TouchEvent<HTMLDivElement>) => {
+    const start = touch.current;
+    touch.current = null;
+    const t = e.changedTouches[0];
+    if (!start || !t || big) return;
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      lastTap.current = 0;
+      setAt((i) => Math.min(items.length - 1, Math.max(0, i + (dx < 0 ? 1 : -1))));
+    } else if (dy > 90 && dy > Math.abs(dx) * 1.5) {
+      onClose();
+    }
+  };
 
   const tap = (e: MouseEvent<HTMLDivElement>) => {
     const now = Date.now();
@@ -255,18 +300,25 @@ function Loupe({
   return (
     <div className="loupe" role="dialog" aria-label="Photo en grand">
       <header className="vis-haut">
-        <button className="vis-fermer" onClick={onClose} aria-label="Fermer">
-          <IconFermer size={17} />
+        <button className="bouton loupe-retour" onClick={onClose} aria-label="Revenir à la pose">
+          ‹ Pose
         </button>
         <span>
           Photo n° {numberOf(item.id)} · {at + 1} sur {items.length}
         </span>
         <span />
       </header>
-      <div className={`loupe-image${big ? ' grande' : ''}`} ref={area} onClick={tap}>
+      <div className={`loupe-image${big ? ' grande' : ''}`} ref={area} onClick={tap} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
         {url(item.id) && <img src={url(item.id)} alt="" draggable={false} />}
       </div>
-      <p className="note centre">Touchez deux fois pour zoomer</p>
+      {items.length > 1 && (
+        <div className="loupe-points" aria-hidden="true">
+          {items.map((it, i) => (
+            <span key={it.id} className={`${i === at ? 'actif ' : ''}${kept.has(it.id) ? 'garde' : 'jete'}`} />
+          ))}
+        </div>
+      )}
+      <p className="note centre">Glissez pour changer de photo · deux touchers pour zoomer · vers le bas pour revenir</p>
       <div className="eclair-actions loupe-actions">
         <button className="bouton eclair-retour" disabled={at === 0} onClick={() => setAt((i) => i - 1)} aria-label="Photo précédente">
           ‹
@@ -284,6 +336,15 @@ function Loupe({
         </button>
         <button className="bouton eclair-retour" disabled={at === items.length - 1} onClick={() => setAt((i) => i + 1)} aria-label="Photo suivante">
           ›
+        </button>
+      </div>
+      <div className="loupe-actions">
+        <button className="bouton principal grand eclair-valider" onClick={onValidate}>
+          <span>Valider la pose</span>
+          <small>
+            {keepCount} gardée{keepCount > 1 ? 's' : ''}
+            {removeCount > 0 ? ` · ${removeCount} à supprimer` : ''}
+          </small>
         </button>
       </div>
     </div>

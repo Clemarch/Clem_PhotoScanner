@@ -29,7 +29,7 @@ export function GuideRaccourci({ open = false }: { open?: boolean }) {
             </li>
             <li>
               <strong>Répéter avec chaque élément</strong> dans « Scinder le texte ». Tous les blocs suivants, jusqu’à
-              l’étape 9, vont <strong>dans</strong> cette boucle.
+              l’étape 8, vont <strong>dans</strong> cette boucle.
             </li>
             <li>
               <strong>Scinder le texte</strong> : « Scinder <strong>Élément de répétition</strong> selon{' '}
@@ -54,20 +54,17 @@ export function GuideRaccourci({ open = false }: { open?: boolean }) {
               <strong>l’ensemble</strong> des éléments suivants sont vrais ») avec deux filtres :{' '}
               <strong>Date de création est entre</strong> Début et Fin (pour mettre une variable dans une date,{' '}
               <strong>appuyez longtemps</strong> sur la date, puis « Sélectionner la variable ») ; et{' '}
-              <strong>Nom est</strong> Nom photo. Pas de limite.
+              <strong>Nom est</strong> Nom photo. Pas de limite. C’est le <strong>dernier</strong> bloc de la répétition.
             </li>
             <li>
-              <strong>Ajouter à la variable</strong> : « Ajouter <strong>Photos</strong> à <strong>A supprimer</strong> ».
-            </li>
-            <li>
-              Sous « Fin de la répétition » : <strong>Afficher le résultat</strong> (A supprimer), l’aperçu, puis{' '}
-              <strong>Supprimer les photos</strong> (A supprimer). Touchez <strong>OK</strong>.
+              Sous « Fin de la répétition » : <strong>Supprimer les photos</strong>, et choisissez comme photos la variable{' '}
+              <strong>Résultats de la répétition</strong> (icône aux deux flèches ; parfois « Résultats de la récurrence ») :
+              toutes les photos trouvées, une fois chacune. Touchez <strong>OK</strong>.
             </li>
           </ol>
           <p className="note">
-            Le dernier bloc doit afficher « Supprimer <strong>A supprimer</strong> ». S’il affiche « Résultats de la
-            répétition » (ou autre chose), touchez ce mot et choisissez la variable <strong>A supprimer</strong> : sinon
-            chaque photo est comptée plusieurs fois et l’iPhone refuse (« 1225 photos »). Pièges connus : une action qui affiche « Filtrer Entrée de raccourci » ou « Filtrer Élément de répétition »
+            Pas de bloc « Ajouter à la variable » : depuis iOS 27, l’iPhone recompte tout ce panier à chaque photo et refuse
+            un lot de 49 (« 1225 photos », 25/11). Pièges connus : une action qui affiche « Filtrer Entrée de raccourci » ou « Filtrer Élément de répétition »
             au lieu de « Rechercher Photos » (touchez le mot bleu, puis Effacer) ; un bloc placé sous la recherche alors
             qu’elle en a besoin (l’ordre compte, de haut en bas).
           </p>
