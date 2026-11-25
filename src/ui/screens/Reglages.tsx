@@ -16,6 +16,7 @@ import { EtatModeles } from '../EtatModeles';
 import type { ModelsState } from '../../platform/storage/models';
 import type { SessionSummary } from '../../platform/storage/sessionStore';
 import { APP_VERSION } from '../version';
+import { checkForUpdate } from '../../platform/update';
 
 interface Props {
   /** Séance en cours (absente depuis l'accueil). */
@@ -111,6 +112,15 @@ export function Reglages({ session, day, records, learned, reports, onRestore, o
       </details>
 
       <p className="note centre">Photo Triage · {APP_VERSION}</p>
+      <button
+        className="lien centre-bloc"
+        onClick={() => {
+          checkForUpdate(true);
+          window.alert('Recherche lancée. Si une nouvelle version existe, un encadré « Nouvelle version prête » apparaît en haut de l’écran d’ici une minute.');
+        }}
+      >
+        Rechercher une mise à jour
+      </button>
     </main>
   );
 }

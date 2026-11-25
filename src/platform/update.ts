@@ -76,6 +76,36 @@ export async function applyPendingUpdate(): Promise<boolean> {
   }
 }
 
+/**
+ * Demande au navigateur de vérifier s'il existe une nouvelle version (au lancement, puis chaque fois que l'app revient
+ * au premier plan, au plus toutes les 5 minutes). Sur l'iPhone, une app de l'écran d'accueil reprend souvent là où
+ * elle en était sans se recharger : sans cette vérification, elle ne voyait jamais la mise à jour (25/11).
+ * Seule adresse contactée : celle de l'app elle-même (son fichier `sw.js`).
+ */
+let lastCheck = 0;
+export function checkForUpdate(force = false): void {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+  if (!force && Date.now() - lastCheck < 5 * 60_000) return;
+  lastCheck = Date.now();
+  void navigator.serviceWorker
+    .getRegistration()
+    .then((registration) => registration?.update())
+    .catch(() => {
+      // Hors ligne : on réessaiera au prochain retour au premier plan.
+    });
+}
+
+/** Vérifie les mises à jour au lancement et à chaque retour au premier plan. Renvoie de quoi arrêter. */
+export function watchForegroundUpdates(): () => void {
+  if (typeof document === 'undefined') return () => {};
+  const onVisible = () => {
+    if (document.visibilityState === 'visible') checkForUpdate();
+  };
+  document.addEventListener('visibilitychange', onVisible);
+  checkForUpdate(true);
+  return () => document.removeEventListener('visibilitychange', onVisible);
+}
+
 /** L'app est-elle occupée (analyse, séance ouverte) ? Tenu à jour par l'app : une mise à jour n'interrompt jamais un travail. */
 let busy = false;
 /** Nouvelle version mise en place pendant un travail : la page la chargera dès que l'app ne fera plus rien. */

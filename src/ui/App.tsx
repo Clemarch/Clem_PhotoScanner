@@ -76,9 +76,10 @@ import {
   type GestureFinder,
   type Segmenter,
 } from '../platform/vision/sceneModels';
+import { BandeauMiseAJour } from './BandeauMiseAJour';
 import { createAnalyzer } from '../platform/worker/analyzer';
 import { runEyeInBackground, type EyeRun } from '../platform/vision/eyeRunner';
-import { setBusy } from '../platform/update';
+import { setBusy, watchForegroundUpdates } from '../platform/update';
 import { ensureModels, modelsState, type ModelsState } from '../platform/storage/models';
 import type { SavedSessionMeta } from '../platform/storage/sessionStore';
 import type { AnalyzeResult } from '../platform/image/types';
@@ -168,6 +169,9 @@ export function App() {
   const [reports, setReports] = useState<SavedReport[]>([]);
   // Séance précédente (pour reprendre au bon endroit) et séance en cours.
   const [runs, setRuns] = useState<{ previous: LastRun | null; latest: LastRun | null }>(() => ({ previous: null, latest: loadLastRun() }));
+
+  // Nouvelle version cherchée au lancement et à chaque retour dans l'app (25/11).
+  useEffect(() => watchForegroundUpdates(), []);
 
   useEffect(() => {
     setInterrupted(readInterruptedRun());
@@ -829,6 +833,7 @@ export function App() {
 
   return (
     <>
+      <BandeauMiseAJour />
       {closed && tab !== 'reglages' ? (
         ended
       ) : tab === 'paquets' ? (
