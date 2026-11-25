@@ -65,7 +65,9 @@ export function GuideRaccourci({ open = false }: { open?: boolean }) {
             </li>
           </ol>
           <p className="note">
-            Pièges connus : une action qui affiche « Filtrer Entrée de raccourci » ou « Filtrer Élément de répétition »
+            Le dernier bloc doit afficher « Supprimer <strong>A supprimer</strong> ». S’il affiche « Résultats de la
+            répétition » (ou autre chose), touchez ce mot et choisissez la variable <strong>A supprimer</strong> : sinon
+            chaque photo est comptée plusieurs fois et l’iPhone refuse (« 1225 photos »). Pièges connus : une action qui affiche « Filtrer Entrée de raccourci » ou « Filtrer Élément de répétition »
             au lieu de « Rechercher Photos » (touchez le mot bleu, puis Effacer) ; un bloc placé sous la recherche alors
             qu’elle en a besoin (l’ordre compte, de haut en bas).
           </p>

@@ -832,6 +832,21 @@ récentes d'abord. Puis : « Elle est pas trop complexe ton automatisation ? » 
   terminées (sauf celles supprimées).
 - Non fait (reconnaître dans l'app une photo déjà triée) : l'album suffit à l'éviter ; à revoir si besoin.
 
+### 49. Lot refusé par l'iPhone (« 1225 photos »), lots confirmés avant d'être comptés (25/11)
+
+Constat de l'utilisateur : lots de 49 refusés par iOS, qui annonçait « 1225 photos » à supprimer. 1225 = 1 + 2 + … +
+49 : le bloc final du raccourci recevait les résultats de chaque tour de la répétition (chaque tour rend tout le panier
+« A supprimer » accumulé jusque-là) au lieu de la variable « A supprimer ». Cause probable : le bloc « Supprimer » a
+été recréé pendant les essais des albums, et une action ajoutée prend par défaut la sortie du bloc précédent
+(« Résultats de la répétition »). La protection d'iOS (50 photos au plus) a joué son rôle : rien n'a été supprimé.
+
+- Correction côté raccourci : le dernier bloc doit afficher « Supprimer A supprimer » (rappel dans le guide).
+- Correction côté app : un lot envoyé ne compte plus comme fait. À votre retour, « Le lot est-il bien parti ? » :
+  « Oui, N supprimées » le marque fait ; « Non : renvoyer ce lot » le renvoie ; « Annuler cet envoi ». L'état
+  (lots confirmés, lot en attente) est gardé par séance et survit à la fermeture de l'app.
+- « Un lot n'a pas abouti ? Tout reprendre » : rouvre tous les paquets marqués faits, sans toucher aux choix. Un
+  paquet rouvert à la main redevient entièrement à envoyer.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.
