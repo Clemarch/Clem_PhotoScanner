@@ -168,6 +168,12 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
     runShortcut(pendingPhotos);
     updateSend({ awaiting: batchItems.map((it) => it.id) });
   };
+  /** Essai : un petit lot de 3 photos, pour vérifier que l'iPhone annonce bien 3 (25/11, « 1225 photos »). */
+  const sendTest = () => {
+    const items = batchItems.slice(0, 3);
+    runShortcut(items.map(asPhoto));
+    updateSend({ awaiting: items.map((it) => it.id) });
+  };
   const awaitingItems = awaiting ? todo.flatMap((p) => p.remove).filter((it) => awaiting.includes(it.id)) : [];
   const resend = () => runShortcut(awaitingItems.map(asPhoto));
   const confirmBatch = () => {
@@ -301,6 +307,11 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
             « Terminé », puis confirmez.
             {batches > 1 && ' L’iPhone n’en accepte que 49 à la fois : revenez ici après chaque lot.'}
           </p>
+          {batchItems.length > 3 && (
+            <button className="lien" onClick={sendTest}>
+              Faire d’abord un essai avec 3 photos
+            </button>
+          )}
           {someDone && (
             <button
               className="lien"
