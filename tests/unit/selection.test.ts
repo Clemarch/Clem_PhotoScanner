@@ -357,17 +357,25 @@ describe('journée complète', () => {
   });
 });
 
-describe('grande série (25/11, point 56)', () => {
+describe('aucune règle de nombre par pose (25/11, point 57)', () => {
   const v = (x: number) => [x, 1 - x, 0.3];
-  it('5 photos de la même pose : au moins 2 gardées', () => {
+  it('5 photos de la même pose : pas de 2e photo imposée, seule l’analyse décide', () => {
     const items = [0.1, 0.3, 0.5, 0.7, 0.9].map((x, i) => item(`p${i}`, i, { embedding: v(x) }));
     const scores = scoresOf({ p0: 0.9, p1: 0.8, p2: 0.85, p3: 0.7, p4: 0.6 });
     for (const sc of scores.values()) sc.expectedFaces = 1;
     const d = selectPack(items, scores, [{ id: 'p', label: 'A', items }]);
-    const kept = [...d.entries()].filter(([, x]) => x.keep).map(([id]) => id);
-    expect(kept).toHaveLength(2);
-    expect(kept).toContain('p0');
-    expect(kept).toContain('p2');
+    expect([...d.entries()].filter(([, x]) => x.keep).map(([id]) => id)).toEqual(['p0']);
+    expect([...d.values()].some((x) => x.code === 'grande-serie')).toBe(false);
+  });
+  it('même pose, même photos : même décision, qu’elle compte 3 ou 7 photos', () => {
+    const decide = (n: number) => {
+      const items = Array.from({ length: n }, (_, i) => item(`r${i}`, i, { embedding: v(i / n) }));
+      const scores = scoresOf(Object.fromEntries(items.map((it, i) => [it.id, 0.9 - i * 0.05])));
+      for (const sc of scores.values()) sc.expectedFaces = 1;
+      const d = selectPack(items, scores, [{ id: 'r', label: 'A', items }]);
+      return [...d.values()].filter((x) => x.keep).length;
+    };
+    expect(decide(7)).toBe(decide(3));
   });
   it('3 photos : toujours une seule si les autres ne sont pas nettement différentes et aussi bonnes', () => {
     const items = [0.1, 0.5, 0.9].map((x, i) => item(`q${i}`, i, { embedding: v(x) }));

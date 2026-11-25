@@ -966,6 +966,24 @@ Retour de l'utilisateur après la première séance en « une photo par pose » 
   séance gardée dont des photos n'ont pas ses mesures (une par lancement), puis complète les choix. Cause du manque
   sur la séance de 21 h 09 à confirmer avec le rapport (ligne « nouvel œil »).
 
+### 57. Aucune règle de nombre par pose ; nouvel œil qui réessaie après un manque de mémoire (25/11)
+
+Mise en garde de l'utilisateur, à propos du point 56 : « Aucune règle ne doit dire combien de photos gardées par pose.
+C'est un indicateur ok, mais c'est avant tout les analyses faites des images qui dictent celles qui sont gardées, et
+s'il en faut aucune sur 7 photos, 1 sur 5 ou 3 sur 3. »
+- `selection.bigPose` retiré (au moins 2, au plus 2 ou 3 dès 5 photos) : une pose de 7 photos est jugée comme une pose
+  de 3, photo par photo (meilleure ; nettement différente et presque aussi bien notée ; identique ; presque ; moins
+  bonne ; ratée). Le code `grande-serie` n'est plus produit (gardé pour relire les anciennes séances).
+- Le nombre gardé par pose reste un indicateur de suivi dans l'analyse des sauvegardes, jamais une consigne.
+- Constat sur les 4 rapports et la sauvegarde : l'écart de note ne dit pas quelles photos en plus l'utilisateur garde
+  (« différente » : 17 gardées, 16 supprimées, sans lien avec l'écart) ; « presque » supprimées par lui 3 fois sur 4,
+  « trop proche » juste 4 fois sur 5. Ce qui manque est un goût de l'image, le rôle du nouvel œil.
+- Or le nouvel œil n'a pas pu se charger sur les séances du 25/11 (« no available backend found … RangeError: Out of
+  memory ») : juste après l'analyse, la mémoire de l'iPhone est encore prise. Il réessaie maintenant seul dans un fil
+  neuf, 20 s puis 60 s plus tard (le moteur garde son échec dans un même fil), et ses sessions n'ont plus de réserve de
+  mémoire gardée entre deux photos (`enableCpuMemArena`, `enableMemPattern` éteints). S'il échoue encore, il repasse
+  au prochain lancement (reprise ou rattrapage, point 56).
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

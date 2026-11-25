@@ -118,7 +118,7 @@ export function decisionText(
     case 'presque':
       return `Presque aussi bien notée que ${n}${decision.differences?.length ? ` et un peu différente (${differenceText(decision.differences)})` : ''} (${mine} contre ${note(decision.refId ? scoreOf(decision.refId) : undefined)} sur 100) : proposée à la suppression. Touchez « Garder » pour la repêcher`;
     case 'grande-serie':
-      return `Longue série : gardée avec ${n}, la meilleure, pour en garder au moins deux (${mine} contre ${note(decision.refId ? scoreOf(decision.refId) : undefined)} sur 100)`;
+      return `Gardée avec ${n}, la meilleure (ancienne règle des longues séries, ${mine} contre ${note(decision.refId ? scoreOf(decision.refId) : undefined)} sur 100)`;
     case 'seule':
       return 'Seule photo de son paquet';
     case 'minimum':

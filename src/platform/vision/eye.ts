@@ -72,7 +72,14 @@ export async function createEye(base = new URL('./models/onnx/', document.baseUR
   const ort: Ort = await import('onnxruntime-web/wasm');
   ort.env.wasm.numThreads = 1;
   ort.env.wasm.proxy = false;
-  const options = { executionProviders: ['wasm'], graphOptimizationLevel: 'all' as const };
+  // Mémoire iOS (25/11 : « Out of memory » au chargement) : pas de réserve de mémoire gardée entre deux photos, ni de
+  // plan de mémoire précalculé ; un peu plus lent, beaucoup moins gourmand.
+  const options = {
+    executionProviders: ['wasm'],
+    graphOptimizationLevel: 'all' as const,
+    enableCpuMemArena: false,
+    enableMemPattern: false,
+  };
   // Modèles lus dans le stockage de l'app (téléchargés et vérifiés à l'ouverture, `src/platform/storage/models.ts`).
   const load = async (file: string): Promise<Session> => {
     const bytes = await readModel(base, file);
