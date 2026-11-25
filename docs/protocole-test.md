@@ -6,9 +6,11 @@ Claude complète la partie « Ce test-ci » à chaque mise à jour.
 ## Toujours
 
 1. Fusionner la pull request indiquée par Claude, attendre 3 minutes.
-2. En Wi-Fi, ouvrir l'app et la laisser ouverte 2 à 3 minutes : la mise à jour se télécharge en arrière-plan et
-   s'installe à la prochaine ouverture (ou bouton « Installer maintenant » sur l'accueil). Fermer complètement l'app,
-   la rouvrir, vérifier la version écrite en bas de l'accueil, et attendre « Modèles d'analyse prêts ✓ » (la première
+2. **Ne jamais supprimer l'app de l'écran d'accueil pour la mettre à jour** (cela efface ses goûts et ses séances), et
+   ne pas passer par Safari (sa mémoire est séparée de celle de l'app). En Wi-Fi, ouvrir l'app depuis son icône :
+   depuis le réglage 15 ter, elle cherche la mise à jour à chaque retour au premier plan, et l'encadré « Nouvelle
+   version prête » (en haut de n'importe quel écran) propose « Installer maintenant » ; séance et choix sont gardés.
+   À défaut : Réglages › « Rechercher une mise à jour ». Vérifier la version écrite en bas de l'accueil, et attendre « Modèles d'analyse prêts ✓ » (la première
    fois, l'app télécharge les modèles du nouvel œil, 111 Mo, avec une barre de progression).
 3. Choisir les photos d'une journée et lancer l'analyse.
 4. **Tri éclair** (s'ouvre tout seul après l'analyse, sinon carte « ⚡ Tri éclair » en haut de l'onglet Trier) :

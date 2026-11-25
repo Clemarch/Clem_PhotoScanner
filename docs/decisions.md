@@ -851,6 +851,21 @@ Constat de l'utilisateur : lots de 49 refusés par iOS, qui annonçait « 1225 p
 - « Un lot n'a pas abouti ? Tout reprendre » : rouvre tous les paquets marqués faits, sans toucher aux choix. Un
   paquet rouvert à la main redevient entièrement à envoyer.
 
+### 50. Mises à jour jamais vues, goûts perdus à chaque mise à jour (25/11)
+
+Constat de l'utilisateur : l'app ne voyait jamais la mise à jour ; il la supprimait de l'écran d'accueil et la
+réinstallait depuis Safari, ce qui effaçait ses goûts et ses séances (la mémoire d'une app de l'écran d'accueil part
+avec elle ; celle de Safari est séparée). Causes : sur l'iPhone, l'app reprend sans se recharger, donc le navigateur
+ne cherchait pas de nouvelle version ; et l'annonce « Nouvelle version prête » n'était que sur l'accueil, que l'on ne
+voit plus pendant une séance.
+
+- L'app demande la vérification au lancement et à chaque retour au premier plan (au plus toutes les 5 minutes),
+  auprès de sa propre adresse seulement (`checkForUpdate`, `src/platform/update.ts`).
+- Encadré « Nouvelle version prête · Installer maintenant » en haut de tous les écrans ; la séance est reprise.
+- Réglages › « Rechercher une mise à jour ». Protocole de test : ne plus jamais supprimer l'app pour la mettre à jour.
+- L'utilisateur est passé d'iOS 26 à iOS 27.2 juste avant le refus « 1225 photos » (point 49) : piste la plus
+  probable d'un changement de comportement de « Ajouter à la variable » ; l'essai avec 3 photos tranchera.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.
