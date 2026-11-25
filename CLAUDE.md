@@ -48,13 +48,14 @@ propre à ce test.
 - `src/ui` : React. Importe `engine` et `platform`.
 - Mémoire iOS : une photo décodée à la fois, réduite à 1536 px, `close()` et canvas remis à zéro après usage.
   Nouvel œil : mémoire plafonnée à 1 Go (le moteur réserve 4 Go d'un bloc), lancé une fois la mémoire des moteurs de
-  l'analyse rendue, jamais pendant une analyse (point 58).
+  l'analyse rendue, jamais pendant une analyse, sur les aperçus (points 58, 59).
 - Notation : le contenu (expression, masquage, arrière-plan, objets, cadrage, couleurs selon le type de photo) classe ;
   la technique (netteté, yeux) ne sert qu'à repérer des défauts. Voir `docs/decisions.md`, points 14 à 17.
 - Enchaînement d'une journée : `src/engine/pipeline.ts` (paquets → notes → poses → sélection). Paquets toujours
   selon le contenu (`config.grouping.byContent`) ; le temps seulement sans empreinte. Personne seule ≠ groupe.
 - Séances : toutes gardées sur l'iPhone (`src/platform/storage/sessionStore.ts`), terminées une fois tout envoyé à la
-  suppression, rouvrables depuis Réglages › Séances (point 40). Images gardées en octets, jamais en Blob (iOS ne
+  suppression, rouvrables depuis Réglages › Séances (point 40), à sortir des statistiques si déjà triées avant
+  (`src/platform/storage/excludedSessions.ts`, point 59). Images gardées en octets, jamais en Blob (iOS ne
   relit plus un Blob après redémarrage, point 47).
 - Interface : `src/ui/style.css` (style d'Apple, mode sombre), icônes dans `src/ui/icons.tsx`, version affichée dans
   `src/ui/version.ts`. Photos non touchées enregistrées comme accords (`ChoiceRecord.implicit`) à l'envoi au raccourci.

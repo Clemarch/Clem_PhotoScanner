@@ -31,6 +31,8 @@ export interface SavedSessionMeta {
   eyeStart?: string | null;
   /** Photos reprises d'une analyse interrompue (non refaites). */
   resumed?: number;
+  /** Photos qui avaient déjà un choix avant cette séance (déjà triées une première fois). */
+  retriaged?: number;
 }
 
 export interface SessionSettings {

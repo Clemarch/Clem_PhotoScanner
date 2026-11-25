@@ -8,6 +8,9 @@ interface Props {
   currentId: string | null;
   onReopen: (sessionId: string) => void;
   onDelete: (sessionId: string) => void;
+  /** Séances hors statistiques (photos déjà triées avant, par exemple). */
+  excluded: ReadonlySet<string>;
+  onToggleCounted: (sessionId: string, count: boolean) => void;
 }
 
 const range = (s: SessionSummary): string => {
@@ -18,7 +21,7 @@ const range = (s: SessionSummary): string => {
 };
 
 /** Toutes les séances gardées sur l'iPhone, à rouvrir (utilisateur, 20/11). */
-export function Seances({ seances, currentId, onReopen, onDelete }: Props) {
+export function Seances({ seances, currentId, onReopen, onDelete, excluded, onToggleCounted }: Props) {
   if (seances.length === 0)
     return (
       <section className="groupe">
@@ -37,7 +40,16 @@ export function Seances({ seances, currentId, onReopen, onDelete }: Props) {
                 <span className="note bloc">
                   {plural(s.photos, 'photo')} ·{' '}
                   {current ? <span className="bleu">ouverte</span> : s.closedAt ? <span className="vert">terminée</span> : 'en cours'}
+                  {excluded.has(s.sessionId) && ' · hors statistiques'}
                 </span>
+                <label className="seance-stats">
+                  <input
+                    type="checkbox"
+                    checked={!excluded.has(s.sessionId)}
+                    onChange={(e) => onToggleCounted(s.sessionId, e.target.checked)}
+                  />{' '}
+                  Compter dans la justesse
+                </label>
               </div>
               {!current && (
                 <>
@@ -61,7 +73,8 @@ export function Seances({ seances, currentId, onReopen, onDelete }: Props) {
       </ul>
       <p className="note">
         Chaque séance garde ses vignettes et ses aperçus sur l’iPhone, jamais les photos d’origine. Effacer une séance libère
-        cette place.
+        cette place. Une séance de photos déjà triées une première fois (avec une ancienne version de l’app, par exemple)
+        fausse la justesse : décochez « Compter dans la justesse ». Vos choix restent, ils apprennent toujours vos goûts.
       </p>
     </section>
   );

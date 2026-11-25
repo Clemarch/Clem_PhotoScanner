@@ -28,13 +28,16 @@ interface Props {
   onRestore: (records: ChoiceRecord[], validations?: PoseValidation[]) => Promise<{ added: number; updated: number }>;
   onForget: () => void;
   validations: PoseValidation[];
+  /** Séances hors statistiques, et l'interrupteur de chacune. */
+  excluded: ReadonlySet<string>;
+  onToggleCounted: (sessionId: string, count: boolean) => void;
   /** Comparaison du nouvel œil (calculée à part, au calme). */
   shadow: ShadowComparison | null;
   /** Modèles du nouvel œil : état du téléchargement, et « Réessayer » s'il a échoué. */
   models: ModelsState | null;
   onRetryModels: () => void;
   /** Nouvel œil en arrière-plan sur la séance en cours. */
-  eyeProgress: { done: number; total: number; finished?: boolean } | null;
+  eyeProgress: { done: number; total: number; finished?: boolean; waiting?: boolean } | null;
   seances: SessionSummary[];
   currentId: string | null;
   onReopen: (sessionId: string) => void;
@@ -44,7 +47,7 @@ interface Props {
 }
 
 /** Réglages : sauvegarde des goûts, séances, raccourci, rapports, diagnostic et effacement (caché). */
-export function Reglages({ session, day, records, learned, reports, onRestore, onForget, validations, shadow, models, onRetryModels, eyeProgress, seances, currentId, onReopen, onDeleteSession, onClose }: Props) {
+export function Reglages({ session, day, records, learned, reports, onRestore, onForget, validations, excluded, onToggleCounted, shadow, models, onRetryModels, eyeProgress, seances, currentId, onReopen, onDeleteSession, onClose }: Props) {
   const scrolled = useScrolled();
   return (
     <main className={`page${onClose ? ' par-dessus' : ''}`}>
@@ -64,17 +67,12 @@ export function Reglages({ session, day, records, learned, reports, onRestore, o
 
       <h2 className="titre-groupe">Mes goûts</h2>
       <SauvegardeGouts records={records} onRestore={onRestore} validations={validations} />
-      <Justesse validations={validations} shadow={shadow} sessionId={session?.id ?? null} />
+      <Justesse validations={validations} excluded={excluded} shadow={shadow} sessionId={session?.id ?? null} />
       <EtatModeles models={models} onRetry={onRetryModels} />
-      {eyeProgress && !eyeProgress.finished && (
-        <p className="note marge">
-          Nouvel œil : analyse en arrière-plan, {eyeProgress.done} / {eyeProgress.total} photos. Vous pouvez trier pendant ce
-          temps.
-        </p>
-      )}
+      {eyeProgress && !eyeProgress.finished && <ProgressionOeil progress={eyeProgress} />}
 
       <h2 className="titre-groupe">Séances</h2>
-      <Seances seances={seances} currentId={currentId} onReopen={onReopen} onDelete={onDeleteSession} />
+      <Seances seances={seances} currentId={currentId} onReopen={onReopen} onDelete={onDeleteSession} excluded={excluded} onToggleCounted={onToggleCounted} />
 
       <h2 className="titre-groupe">Raccourci de suppression</h2>
       <section className="groupe">
@@ -86,7 +84,7 @@ export function Reglages({ session, day, records, learned, reports, onRestore, o
         <GuideAlbums />
       </section>
 
-      {session && day && <RapportEtDiagnostic session={session} day={day} records={records} learned={learned} validations={validations} shadow={shadow} />}
+      {session && day && <RapportEtDiagnostic session={session} day={day} records={records} learned={learned} validations={validations} excluded={excluded} shadow={shadow} />}
       {!session && <h2 className="titre-groupe">Envoyer à Claude</h2>}
       <RapportsEnregistres reports={reports} />
 
@@ -126,8 +124,9 @@ export function Reglages({ session, day, records, learned, reports, onRestore, o
 }
 
 /** Justesse de l'app, mesurée honnêtement sur les poses validées dans le tri éclair (le chiffre qui doit monter). */
-function Justesse({ validations, shadow, sessionId }: { validations: PoseValidation[]; shadow: ShadowComparison | null; sessionId: string | null }) {
-  const all = accuracy(validations);
+function Justesse({ validations, excluded, shadow, sessionId }: { validations: PoseValidation[]; excluded: ReadonlySet<string>; shadow: ShadowComparison | null; sessionId: string | null }) {
+  // Séances hors statistiques écartées du total ; la séance ouverte reste mesurée.
+  const all = accuracy(validations.filter((v) => !excluded.has(v.sessionId)));
   if (all.poses.total === 0) return null;
   const here = accuracy(validations.filter((v) => v.sessionId === sessionId));
   const pct = (a: { right: number; total: number }) => Math.round((a.right / a.total) * 100);
@@ -141,7 +140,7 @@ function Justesse({ validations, shadow, sessionId }: { validations: PoseValidat
           </strong>
           <span className="note bloc">
             Sur {all.poses.total} poses que vous avez validées dans le tri éclair
-            {here.poses.total > 0 ? ` · cette séance : ${pct(here.photos)} % des photos` : ''}. Objectif : 80 %.
+            {here.poses.total > 0 ? ` · cette séance : ${pct(here.photos)} % des photos${sessionId && excluded.has(sessionId) ? ' (hors statistiques)' : ''}` : ''}. Objectif : 80 %.
           </span>
         </div>
       </div>
@@ -160,6 +159,7 @@ function RapportEtDiagnostic({
   records,
   learned,
   validations,
+  excluded,
   shadow,
 }: {
   session: Session;
@@ -167,10 +167,11 @@ function RapportEtDiagnostic({
   records: ChoiceRecord[];
   learned: LearnedWeights;
   validations: PoseValidation[];
+  excluded: ReadonlySet<string>;
   shadow: ShadowComparison | null;
 }) {
   const summary = useMemo(() => summarize(session), [session]);
-  const report = useMemo(() => buildReport(session, day, records, learned, validations, shadow), [session, day, records, learned, validations, shadow]);
+  const report = useMemo(() => buildReport(session, day, records, learned, validations, shadow, excluded), [session, day, records, learned, validations, shadow, excluded]);
   const pairs = useMemo(() => preferencePairs(records).length, [records]);
   const agreement = useMemo(() => evaluateDay(day, records), [day, records]);
   const learnedList = FEATURE_NAMES.filter((name) => learned[name] !== undefined).sort((a, b) => Math.abs(learned[b]!) - Math.abs(learned[a]!));
@@ -264,5 +265,16 @@ function RapportEtDiagnostic({
         </details>
       </details>
     </>
+  );
+}
+
+/** Nouvel œil en arrière-plan : en attente de mémoire, puis la progression (25/11 : « je ne vois pas l'œil avancer »). */
+export function ProgressionOeil({ progress }: { progress: { done: number; total: number; waiting?: boolean } }) {
+  return (
+    <p className="note marge">
+      {progress.waiting
+        ? `Nouvel œil : démarre dans un instant (l’iPhone libère la mémoire de l’analyse), ${progress.total} photos à regarder. Vous pouvez trier pendant ce temps.`
+        : `Nouvel œil : ${progress.done} / ${progress.total} photos regardées en arrière-plan. Vous pouvez trier pendant ce temps.`}
+    </p>
   );
 }
