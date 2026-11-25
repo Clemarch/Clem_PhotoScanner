@@ -5,8 +5,9 @@ import { finalKeep, stateLook, type Choice, type Choices } from '../choices';
 import { dayEntries } from '../entries';
 import { formatDate, formatTime, plural } from '../format';
 import { Visionneuse } from './Visionneuse';
-import { albumsEnabled, KEPT_ALBUM, KEPT_BATCH, runKeepShortcut, runShortcut, shortcutCount, shortcutText, SHORTCUT_BATCH, SHORTCUT_NAME } from '../../platform/shortcut';
+import { albumsEnabled, runShortcut, shortcutCount, shortcutText, SHORTCUT_BATCH, SHORTCUT_NAME } from '../../platform/shortcut';
 import { GuideRaccourci } from '../GuideRaccourci';
+import { asPhoto, findable, keptPhotosOf, RangerTriees } from '../Rangement';
 import { IconCoche, IconCorbeille, IconCroix } from '../icons';
 import { useScrolled } from '../useScrolled';
 
@@ -45,24 +46,6 @@ function saveDone(done: Set<string>): void {
   }
 }
 
-// Séance dont les photos gardées sont déjà parties vers l'album « Triées » (survit au changement d'onglet).
-const KEPT_KEY = 'photo-triage.triees-envoyees';
-function keptSentFor(): string | null {
-  try {
-    return localStorage.getItem(KEPT_KEY);
-  } catch {
-    return null;
-  }
-}
-function saveKeptSent(sessionId: string | null): void {
-  try {
-    if (sessionId) localStorage.setItem(KEPT_KEY, sessionId);
-    else localStorage.removeItem(KEPT_KEY);
-  } catch {
-    // Mémoire seulement.
-  }
-}
-
 // Envoi en cours de la séance (survit au changement d'onglet et à la fermeture de l'app) : photos dont le lot a été
 // confirmé supprimé, et dernier lot envoyé, en attente de votre confirmation (25/11 : un lot refusé par l'iPhone ne
 // doit plus jamais compter comme fait).
@@ -89,9 +72,7 @@ function saveSend(state: SendState): void {
   }
 }
 
-const asPhoto = (item: MediaItem) => ({ fileName: item.fileName, at: item.instant ?? item.capturedAt });
-/** Le raccourci retrouve la photo (nom et heure connus) ? */
-const findable = (item: MediaItem) => shortcutCount([asPhoto(item)]) === 1;
+
 
 /** Écran « Supprimer » : envoie la liste au raccourci « Photo Triage », par lots de 49 au plus. */
 export function ASupprimer({ session, day, choices, onChoose, onComment, onConfirm, onUnconfirm, onFinished, unverified, onVerify }: Props) {
@@ -109,13 +90,7 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
     });
   const scrolled = useScrolled();
   useEffect(() => saveDone(done), [done]);
-  // Albums (24/11) : les photos gardées partent à part, vers « Photo Triage Garder » (album « Triées »).
-  const markKept = albumsEnabled();
-  const [keptSent, setKeptSentState] = useState(() => keptSentFor() === session.id);
-  const setKeptSent = (on: boolean) => {
-    setKeptSentState(on);
-    saveKeptSent(on ? session.id : null);
-  };
+
 
   const entries = useMemo(() => dayEntries(day), [day]);
   const positionOf = useMemo(() => new Map(entries.map((e, i) => [e.item.id, i])), [entries]);
@@ -137,19 +112,8 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
   const batchItems = pendingItems.slice(0, SHORTCUT_BATCH);
   const pendingPhotos = batchItems.map(asPhoto);
   const sendable = shortcutCount(pendingPhotos);
-  // Photos gardées de la séance (tout sauf ce qui part à la suppression ; photos illisibles exclues : elles reviendront).
-  const removeIds = new Set(packs.flatMap((p) => p.remove.map((it) => it.id)));
-  const keptPhotos = markKept
-    ? session.results.filter((r) => !r.diagnostic.error && !removeIds.has(r.item.id) && findable(r.item)).map((r) => asPhoto(r.item))
-    : [];
-  // Lots de 150 au plus (adresse de taille raisonnable) ; une séance en a rarement plus.
-  const [keptBatch, setKeptBatch] = useState(0);
-  const keptBatches = Math.ceil(keptPhotos.length / KEPT_BATCH);
-  const sendKept = () => {
-    runKeepShortcut(keptPhotos.slice(keptBatch * KEPT_BATCH, (keptBatch + 1) * KEPT_BATCH));
-    if (keptBatch + 1 >= keptBatches) setKeptSent(true);
-    else setKeptBatch((b) => b + 1);
-  };
+  // Albums (24/11) : les photos gardées partent à part, vers « Photo Triage Garder » (album « Triées »).
+  const keptPhotos = albumsEnabled() ? keptPhotosOf(session, day, choices) : [];
   const batchDone = Math.ceil(sent.size / SHORTCUT_BATCH);
   const batches = batchDone + Math.ceil(pendingItems.length / SHORTCUT_BATCH);
 
@@ -331,31 +295,7 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
 
       {keptPhotos.length > 0 && (
         <section className="groupe">
-          <div className="ligne-info">
-            <div>
-              <strong>Album « {KEPT_ALBUM} »</strong>
-              <span className="note bloc">
-                {keptSent
-                  ? `Les ${plural(keptPhotos.length, 'photo')} gardée${keptPhotos.length > 1 ? 's' : ''} sont parties vers « ${KEPT_ALBUM} ».`
-                  : `${plural(keptPhotos.length, 'photo')} gardée${keptPhotos.length > 1 ? 's' : ''} à ranger, pour qu’elle${keptPhotos.length > 1 ? 's' : ''} ne revienne${keptPhotos.length > 1 ? 'nt' : ''} plus dans « À trier ». Rien n’est supprimé.`}
-              </span>
-            </div>
-          </div>
-          {keptSent ? (
-            <button
-              className="lien"
-              onClick={() => {
-                setKeptBatch(0);
-                setKeptSent(false);
-              }}
-            >
-              Ranger à nouveau
-            </button>
-          ) : (
-            <button className="bouton principal" onClick={sendKept}>
-              {keptBatches > 1 ? `Ranger le lot ${keptBatch + 1} sur ${keptBatches}` : `Ranger dans « ${KEPT_ALBUM} »`}
-            </button>
-          )}
+          <RangerTriees session={session} photos={keptPhotos} />
         </section>
       )}
 

@@ -1,2 +1,2 @@
 /** Version affichée à l'utilisateur (accueil, réglages) : il la lit pour vérifier que la mise à jour est arrivée. */
-export const APP_VERSION = 'réglage 15 quater (raccourci adapté à iOS 27)';
+export const APP_VERSION = 'réglage 16 (tri plus fluide, loupe, albums en fin de séance)';

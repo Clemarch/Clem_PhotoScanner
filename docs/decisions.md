@@ -870,6 +870,23 @@ voit plus pendant une séance.
 - L'utilisateur est passé d'iOS 26 à iOS 27.2 juste avant le refus « 1225 photos » (point 49) : piste la plus
   probable d'un changement de comportement de « Ajouter à la variable » ; l'essai avec 3 photos tranchera.
 
+### 51. Réglage 16 : tri plus fluide, loupe, albums en fin de séance (25/11)
+
+Demandes de l'utilisateur : latence de 1 à 3 s sur les boutons du tri ; changer de photo en glissant ; ouvrir et
+quitter la vue en grand plus facilement pour valider ; « comment mettre à jour les albums ? ».
+
+- Latence : chaque pose validée relançait les goûts appris, le recalcul de toute la séance, puis (3 et 4 s plus tard,
+  pendant qu'on regardait la pose suivante) la comparaison du nouvel œil et le rapport. Tant que le tri éclair est
+  ouvert, ces calculs attendent sa fermeture (il travaille sur sa liste de poses figée à l'ouverture : aucune décision
+  ne change) ; la page dessous se met à jour sans bloquer ; la copie de secours des choix (localStorage) s'écrit au
+  plus une fois par seconde. Mesuré dans le navigateur : 75 à 140 ms par validation.
+- Vue en grand : glisser à gauche ou à droite pour changer de photo, vers le bas pour revenir ; points de couleur
+  (gardée / à supprimer) ; « Valider la pose » directement dans la vue en grand ; bouton « ‹ Pose » ; bouton d'ouverture
+  plus grand (46 px) ; photos de la pose décodées d'avance.
+- Albums : la séance se termine dès le dernier lot confirmé, si bien que la carte « Ranger dans Triées » de l'onglet
+  Supprimer n'était plus visible. L'écran « Séance terminée » montre désormais « Pour la prochaine séance » : 1. ranger
+  les gardées, 2. préparer « À trier » (`src/ui/Rangement.tsx`).
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

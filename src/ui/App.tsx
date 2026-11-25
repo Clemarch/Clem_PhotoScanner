@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import {
   clearProgress,
   keepScreenAwake,
@@ -322,13 +322,22 @@ export function App() {
 
   // Choix de l'utilisateur, et goûts appris à partir de tous ses choix enregistrés sur l'appareil.
   const choices = useMemo<Choices>(() => ({ byKey: new Map(records.map((r) => [r.key, r])) }), [records]);
-  const learned = useMemo(() => learnWeights(records), [records]);
+  // Pages sous le tri éclair (paquets, suppression) : mises à jour sans bloquer l'écran.
+  const pageChoices = useDeferredValue(choices);
+  // Pendant le tri éclair, les gros calculs (goûts appris, toute la séance recalculée, comparaison du nouvel œil,
+  // rapport) attendent sa fermeture : sinon chaque pose validée bloquait l'écran 1 à 3 s (utilisateur, 25/11). Le tri
+  // éclair travaille sur sa propre liste de poses, figée à l'ouverture : rien ne change pour lui.
+  const eclairOpen = eclair !== null;
+  const learningRecords = useRef(records);
+  if (!eclairOpen) learningRecords.current = records;
+  const learned = useMemo(() => learnWeights(learningRecords.current), [learningRecords.current]);
   const recordsRef = useRef(records);
   recordsRef.current = records;
   useEffect(() => {
+    if (eclairOpen) return;
     const timer = window.setTimeout(() => setShadow(shadowCompare(validations, recordsRef.current)), 3000);
     return () => window.clearTimeout(timer);
-  }, [validations]);
+  }, [validations, eclairOpen]);
   const items = useMemo(() => session?.results.map((r) => r.item) ?? [], [session]);
   // Paquets toujours découpés selon ce que montrent les photos (utilisateur, 20/11 : l'interrupteur n'avait pas de sens).
   const day = useMemo(() => analyzeDay(items, gap, learned, joined, true), [items, gap, learned, joined]);
@@ -355,7 +364,7 @@ export function App() {
   // Rapport de l'analyse en cours, conservé sur l'iPhone et mis à jour avec les choix (4 s après le dernier, pour ne
   // pas ralentir l'app pendant qu'on trie : le rapport recalcule l'accord honnête, qui demande un peu de calcul).
   useEffect(() => {
-    if (!session || session.cancelled) return;
+    if (!session || session.cancelled || eclairOpen) return;
     const timer = window.setTimeout(() => {
       const photos = session.results.length;
       const first = session.results.find((r) => r.item.capturedAt !== null)?.item.capturedAt ?? null;
@@ -368,7 +377,7 @@ export function App() {
       }).then(() => loadReports().then(setReports));
     }, 4000);
     return () => window.clearTimeout(timer);
-  }, [session, day, records, learned, validations, shadow]);
+  }, [session, day, records, learned, validations, shadow, eclairOpen]);
 
   // Réglages de la séance (écart entre paquets, paquets réunis) gardés avec elle.
   useEffect(() => {
@@ -828,6 +837,8 @@ export function App() {
       onReopen={() => void reopen(session.id)}
       onNewDay={(files) => void start(files)}
       onSeances={() => goTab('reglages')}
+      day={day}
+      choices={choices}
     />
   );
 
@@ -849,7 +860,7 @@ export function App() {
               return next;
             })
           }
-          choices={choices}
+          choices={pageChoices}
           previousRun={runs.previous}
           onNewDay={(files) => void start(files)}
           onChoose={choose}
