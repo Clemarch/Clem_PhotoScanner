@@ -77,8 +77,9 @@ export function selectPack(
         groupKept.push(pick);
         set(pick, { keep: true, code: 'differente', refId: best.id, differences: diff.kinds });
       } else if (!blocked && gap <= cfg.reviewMargin + 1e-9) {
-        groupKept.push(pick);
-        set(pick, { keep: true, review: true, code: 'a-verifier', refId: best.id, differences: diff.kinds });
+        // Presque aussi bonne, un peu différente : proposée à la suppression (utilisateur, 25/11, point 55), signalée
+        // pour qu'on la regarde. Elle ne compte pas parmi les photos gardées de la pose.
+        set(pick, { keep: false, code: 'presque', refId: best.id, differences: diff.kinds });
       } else set(pick, { keep: false, code: 'moins-bonne', refId: best.id });
     }
   }

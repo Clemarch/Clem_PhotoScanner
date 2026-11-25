@@ -4,7 +4,7 @@
 // est perdue ou illisible, les choix sont retrouvés au lancement suivant.
 
 import { decodeBackup, encodeBackup, mergeChoices, type ChoiceRecord } from '../../engine';
-import { runStore, STORES } from './db';
+import { openDb, runStore, STORES } from './db';
 
 const run = <T,>(mode: IDBTransactionMode, action: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> =>
   runStore(STORES.choices, mode, action);
@@ -79,6 +79,30 @@ export async function saveChoice(record: ChoiceRecord): Promise<void> {
   writeMirror();
   try {
     await run('readwrite', (store) => store.put(record));
+  } catch {
+    choiceStorage.database = 'erreur';
+  }
+}
+
+/** Plusieurs choix d'un coup, dans une seule écriture (complément des mesures du nouvel œil sur des centaines de choix). */
+export async function saveChoices(records: readonly ChoiceRecord[]): Promise<void> {
+  if (records.length === 0) return;
+  for (const r of records) memory.set(r.key, r);
+  writeMirror();
+  try {
+    const db = await openDb();
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(STORES.choices, 'readwrite');
+        const store = tx.objectStore(STORES.choices);
+        for (const r of records) store.put(r);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+      });
+    } finally {
+      db.close();
+    }
   } catch {
     choiceStorage.database = 'erreur';
   }

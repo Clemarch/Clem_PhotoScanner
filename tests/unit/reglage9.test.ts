@@ -75,7 +75,8 @@ describe('plusieurs photos d’une même pose (utilisateur, 19/11)', () => {
       photo('identique', 2),
       photo('differente-mais-moins-bonne', 3, { faces: [face(0.3, { yawDeg: 20 }), face(0.7)] }),
     ];
-    const d = selectPack(items, scoresOf({ best: 0.9, 'autre-sourire': 0.86, identique: 0.89, 'differente-mais-moins-bonne': 0.7 }), pose(items));
+    // 25/11 (point 55) : gardée en plus seulement si presque aussi bien notée (écart ≤ 0,02).
+    const d = selectPack(items, scoresOf({ best: 0.9, 'autre-sourire': 0.885, identique: 0.89, 'differente-mais-moins-bonne': 0.7 }), pose(items));
     expect(d.get('best')).toMatchObject({ keep: true, code: 'meilleure' });
     expect(d.get('autre-sourire')).toMatchObject({ keep: true, code: 'differente' });
     expect(d.get('identique')).toMatchObject({ keep: false, code: 'trop-proche' });

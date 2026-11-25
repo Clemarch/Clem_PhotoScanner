@@ -1,2 +1,2 @@
 /** Version affichée à l'utilisateur (accueil, réglages) : il la lit pour vérifier que la mise à jour est arrivée. */
-export const APP_VERSION = 'réglage 16 bis (prochain tri en un toucher)';
+export const APP_VERSION = 'réglage 16 quinquies (1 photo par pose, nouvel œil qui reprend)';

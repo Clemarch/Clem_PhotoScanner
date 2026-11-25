@@ -7,7 +7,8 @@ import { createEye, type Eye } from './eye';
 
 export interface EyeRequest {
   id: string;
-  file: File;
+  /** Photo d'origine, ou son aperçu gardé (séance reprise : l'original n'est plus accessible). */
+  file: Blob;
   /** Boîtes des visages principaux (proportions de l'image), dans l'ordre où l'app les attend. */
   boxes: Box[];
   /** Adresse complète du dossier des modèles. */

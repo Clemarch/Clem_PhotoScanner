@@ -55,7 +55,8 @@ export function buildQueue(
         items: pose.items,
         proposed: new Set(pose.items.filter((_, k) => states[k]!.keep).map((it) => it.id)),
         appProposed: new Set(pose.items.filter((it) => pack.decisions.get(it.id)?.keep !== false).map((it) => it.id)),
-        review: new Set(pose.items.filter((_, k) => states[k]!.review).map((it) => it.id)),
+        // « À vérifier », ou presque aussi bonne (proposée à la suppression, 25/11) : signalée dans le tri éclair.
+        review: new Set(pose.items.filter((it, k) => states[k]!.review || pack.decisions.get(it.id)?.code === 'presque').map((it) => it.id)),
         margin,
         sure: !single && isSure(margin, calibration),
       });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeDay, decodeBackup, encodeBackup, groupIntoPacks, mergeChoices, scorePack, type ChoiceRecord, type FaceMetrics, type MediaItem } from '../../src/engine';
+import { analyzeDay, buildQueue, calibrate, decodeBackup, encodeBackup, groupIntoPacks, mergeChoices, scorePack, type ChoiceRecord, type FaceMetrics, type MediaItem } from '../../src/engine';
 import { backupName } from '../../src/platform/storage/backupFile';
 
 const face = (x: number, over: Partial<FaceMetrics> = {}): FaceMetrics =>
@@ -151,11 +151,23 @@ describe('accords silencieux et sauvegarde (19/11)', () => {
 });
 
 describe('même paysage revu 1 h plus tard (photos 17 et 18 du 19/11)', () => {
-  it('un seul paquet, une seule pose : la meilleure gardée, l’autre à départager', () => {
+  it('un seul paquet, une seule pose : la meilleure gardée, l’autre proposée à la suppression (25/11)', () => {
     const day = analyzeDay([photo('large', 0, { embedding: [1, 0, 0] }), photo('zoom', 4200, { embedding: [0.8, 0.6, 0] })], 60, {}, new Set(), true);
     expect(day.packs).toHaveLength(1);
     expect(day.packs[0]!.poses).toHaveLength(1);
     const codes = [...day.packs[0]!.decisions.values()].map((d) => d.code).sort();
-    expect(codes).toEqual(['a-verifier', 'meilleure']);
+    expect(codes).toEqual(['meilleure', 'presque']);
+  });
+});
+
+describe('presque aussi bonne (25/11, point 55)', () => {
+  it('proposée à la suppression mais signalée dans le tri éclair', () => {
+    const day = analyzeDay([photo('large', 0, { embedding: [1, 0, 0] }), photo('zoom', 4200, { embedding: [0.8, 0.6, 0] })], 60, {}, new Set(), true);
+    const pack = day.packs[0]!;
+    const presque = [...pack.decisions.entries()].find(([, d]) => d.code === 'presque');
+    expect(presque?.[1].keep).toBe(false);
+    const queue = buildQueue(day, (it, p) => ({ keep: p.decisions.get(it.id)?.keep ?? true, review: p.decisions.get(it.id)?.review === true }), calibrate([]));
+    expect(queue[0]!.review.has(presque![0])).toBe(true);
+    expect(queue[0]!.proposed.has(presque![0])).toBe(false);
   });
 });

@@ -903,6 +903,52 @@ par l'app, il ne cherche rien ; et l'interrupteur des albums, éteint par défau
 - Plus de carte de rangement dans l'onglet Supprimer ni de bouton « anciennes séances » dans Réglages : la carte
   « Prochain tri » les couvre.
 
+### 53. « Trying to share 132 Photos items » (25/11)
+
+Premier « Préparer le prochain tri » : iOS 27 bloque « Photo Triage Garder » (132 photos à mettre dans « Triées »),
+comme il bloquait les suppressions de 50 photos ou plus. Ranger dans un album compte comme un « partage » de photos ;
+« Préparer le tri » (200 photos dans « À trier ») l'est aussi. Pas de contournement raisonnable par lots (4 allers-retours
+par séance) : réglage d'iOS, une fois, « Autoriser le partage de grandes quantités de données » (Réglages › Apps ›
+Raccourcis › Avancé), en laissant éteinte l'autorisation de suppression. Ajouté au guide des albums. L'app marquait les
+séances comme rangées dès l'envoi : lien « Le raccourci a affiché une erreur ? Tout ranger à nouveau ».
+### 54. La comparaison du nouvel œil n'apparaissait jamais (25/11)
+
+« Ça me dit toujours après 2 séances […] j'ai l'impression que c'est bloqué. » Sauvegarde du 25/11 (601 choix,
+114 poses validées sur 4 séances) : seule la séance du 21→25/11 avait les mesures du nouvel œil (222 photos) ; celle
+du 25/11 (113 photos) n'en avait aucune. Cause : le tri éclair s'ouvre dès la fin de l'analyse, pendant que le nouvel
+œil regarde encore les photos en arrière-plan ; chaque choix était enregistré sans ses mesures et jamais complété.
+Avec une seule séance mesurée, la comparaison (apprendre sur une séance, tester sur une autre) ne pouvait pas démarrer.
+
+- Les choix sont complétés avec l'empreinte du nouvel œil et les émotions des visages dès qu'elles existent : à la fin
+  du nouvel œil, et au lancement de l'app pour toutes les séances gardées (rattrape les séances déjà triées). Le choix
+  lui-même ne change pas (`eyePatches`, `src/ui/choices.ts`).
+- Réglages : le texte dit combien de séances comptent déjà pour la comparaison.
+- Constat sur les poses validées : l'utilisateur garde en moyenne 1,37 photo par pose, l'app en propose 2,13 ; 73 poses
+  sur 111 où il n'en garde qu'une (dans 68 cas, elle faisait partie de la proposition de l'app). L'écart principal :
+  l'app garde, l'utilisateur supprime (67 contre 14, puis 28 contre 6). Proposition à faire : garder plus rarement une
+  2e photo de la même pose (à soumettre à l'utilisateur, point 37).
+
+### 55. Une photo par pose, sauf vraie différence ; « à vérifier » proposées à la suppression (25/11)
+
+Accord de l'utilisateur sur les deux propositions du point 54. Simulation sur ses 111 poses validées (note de base des
+choix) : app actuelle 23 % des poses justes (2,13 gardées par pose) ; meilleure seule 42 % (1,00) ; meilleure plus les
+photos à moins de 0,02 : 35 % (1,41) ; à moins de 0,08 : 29 % (1,90).
+
+- `selection.keepMargin` 0,08 → 0,02 : une 2e photo de la pose n'est gardée que si elle est nettement différente ET
+  presque aussi bien notée.
+- Les « à vérifier » (un peu différentes, ou un peu moins bonnes) deviennent `presque` : proposées à la suppression,
+  signalées « presque aussi bonne » dans le tri éclair ; un toucher pour les garder. Les photos seules « prises par
+  erreur » restent « à vérifier » (au moins une photo par paquet).
+- Limite connue : quand l'utilisateur ne garde qu'une photo, la mieux notée est la sienne 47 fois sur 73 ; le reste
+  dépend du classement (formule, puis nouvel œil).
+
+Audit des réglages 16 ter à 16 quinquies :
+- Le nouvel œil s'arrêtait dès qu'iOS fermait l'app ou qu'une mise à jour était installée, et ne reprenait jamais :
+  d'où des séances entières sans ses mesures. Il reprend maintenant tout seul sur une séance reprise ou rouverte, à
+  partir des aperçus gardés (les photos d'origine ne sont plus accessibles), pour les photos qui n'ont pas encore ses
+  mesures ; les choix sont complétés à la fin.
+- Complément des choix en une seule écriture (`saveChoices`) au lieu d'une par choix (centaines au lancement).
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

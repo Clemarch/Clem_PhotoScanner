@@ -148,7 +148,7 @@ function Justesse({ validations, shadow, sessionId }: { validations: PoseValidat
       <p className="note">
         {shadow && shadow.tested > 0
           ? `Nouvel œil, en coulisse : il met la photo gardée devant dans ${Math.round((shadow.eye / shadow.tested) * 100)} % des cas, contre ${Math.round((shadow.formula / shadow.tested) * 100)} % pour la formule actuelle (${shadow.tested} comparaisons).`
-          : 'Nouvel œil, en coulisse : il apprend de vos poses validées ; la comparaison avec la formule actuelle apparaîtra après 2 séances.'}
+          : `Nouvel œil, en coulisse : il apprend de vos poses validées ; la comparaison avec la formule actuelle apparaîtra quand 2 séances auront des poses validées qu’il a regardées (aujourd’hui : ${shadow?.sessions ?? 0}).`}
       </p>
     </section>
   );
