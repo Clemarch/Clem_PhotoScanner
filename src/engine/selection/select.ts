@@ -54,11 +54,6 @@ export function selectPack(
     if (scores.get(best.id)?.accidental) set(best, { keep: true, review: true, code: 'a-verifier' });
     else set(best, { keep: true, code: 'meilleure' });
 
-    // Grande série (25/11) : plus de photos gardées, avec un écart de note plus large, dans une limite.
-    const big = group.items.length >= cfg.bigPose.from;
-    const margin = big ? cfg.bigPose.keepMargin : cfg.keepMargin;
-    const cap = big ? (group.items.length >= 6 ? cfg.bigPose.maxFrom6 : cfg.bigPose.max) : Infinity;
-
     // Autres photos de la pose (utilisateur, 19/11) : gardées si bonnes ET différentes de chaque photo déjà gardée ;
     // à vérifier si légèrement différentes ou un peu moins bonnes ; supprimées si identiques ou nettement moins bonnes.
     for (const pick of candidates.slice(1)) {
@@ -78,7 +73,7 @@ export function selectPack(
       const blocked = (scores.get(pick.id)?.reasons ?? []).some((r) => cfg.blocking.includes(r.code)) || scores.get(pick.id)?.accidental;
       const diff = closest!.diff;
       if (diff.level === 'aucune') set(pick, { keep: false, code: 'trop-proche', refId: closest!.ref.id });
-      else if (!blocked && diff.level === 'nette' && gap <= margin + 1e-9 && groupKept.length < cap) {
+      else if (!blocked && diff.level === 'nette' && gap <= cfg.keepMargin + 1e-9) {
         groupKept.push(pick);
         set(pick, { keep: true, code: 'differente', refId: best.id, differences: diff.kinds });
       } else if (!blocked && gap <= cfg.reviewMargin + 1e-9) {
@@ -87,18 +82,6 @@ export function selectPack(
         set(pick, { keep: false, code: 'presque', refId: best.id, differences: diff.kinds });
       } else set(pick, { keep: false, code: 'moins-bonne', refId: best.id });
     }
-
-    // Grande série : au moins `min` photos gardées (les mieux notées parmi celles qui ne sont ni ratées, ni identiques
-    // à une photo gardée, ni bloquées par un défaut).
-    if (big)
-      for (const pick of candidates) {
-        if (groupKept.length >= cfg.bigPose.min) break;
-        if (groupKept.includes(pick) || decisions.get(pick.id)?.code === 'trop-proche') continue;
-        const blocked = (scores.get(pick.id)?.reasons ?? []).some((r) => cfg.blocking.includes(r.code)) || scores.get(pick.id)?.accidental;
-        if (blocked) continue;
-        groupKept.push(pick);
-        set(pick, { keep: true, code: 'grande-serie', refId: best.id });
-      }
   }
 
   // Au moins une photo par paquet.

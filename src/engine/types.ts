@@ -208,7 +208,7 @@ export type DecisionCode =
   | 'differente'
   /** Presque aussi bonne et un peu différente : proposée à la suppression, à repêcher d'un toucher (25/11). */
   | 'presque'
-  /** Grande série (5 photos ou plus) : 2e photo gardée pour qu'il en reste au moins 2 (25/11). */
+  /** Ancien code (point 56, retiré au point 57) : n'est plus produit, gardé pour relire les anciennes séances. */
   | 'grande-serie';
 
 export interface Decision {

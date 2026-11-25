@@ -26,7 +26,9 @@ Décisions prises et écarts : `docs/decisions.md` — à mettre à jour à chaq
   sauf si toutes sont ratées (accord de l'utilisateur, 17/11). Dans une pose : la meilleure, plus celles nettement
   différentes (tête, expression, geste, personnes, cadrage), presque aussi bien notées (écart ≤ 0,02) et sans défaut ;
   identiques : supprimées (19/11, point 37). Presque aussi bonnes et un peu différentes : proposées à la suppression,
-  signalées dans le tri éclair (accord de l'utilisateur, 25/11, point 55 : il garde 1,4 photo par pose, l'app 2,1). Séries de 5 photos ou plus : au moins 2 gardées, au plus 2 (3 dès 6) (point 56). En groupe, tout le monde doit regarder ; seule, une personne peut regarder ailleurs (point 39).
+  signalées dans le tri éclair (accord de l'utilisateur, 25/11, point 55 : il garde 1,4 photo par pose, l'app 2,1).
+  Aucune règle de nombre par pose (utilisateur, 25/11, point 57) : aucune, une ou toutes peuvent être gardées, seule
+  l'analyse des images décide ; le nombre gardé par pose n'est qu'un indicateur. En groupe, tout le monde doit regarder ; seule, une personne peut regarder ailleurs (point 39).
   Netteté jugée sur les visages ; jambes coupées par le bas : cadre naturel ; objet tenu (planche…) : partie du sujet.
 
 ## Utilisateur
@@ -45,6 +47,8 @@ propre à ce test.
 - `src/platform` : tout ce qui dépend de Safari (décodage, Worker, MediaPipe, appareil). Importe `engine`.
 - `src/ui` : React. Importe `engine` et `platform`.
 - Mémoire iOS : une photo décodée à la fois, réduite à 1536 px, `close()` et canvas remis à zéro après usage.
+  Nouvel œil : mémoire plafonnée à 1 Go (le moteur réserve 4 Go d'un bloc), lancé une fois la mémoire des moteurs de
+  l'analyse rendue, jamais pendant une analyse (point 58).
 - Notation : le contenu (expression, masquage, arrière-plan, objets, cadrage, couleurs selon le type de photo) classe ;
   la technique (netteté, yeux) ne sert qu'à repérer des défauts. Voir `docs/decisions.md`, points 14 à 17.
 - Enchaînement d'une journée : `src/engine/pipeline.ts` (paquets → notes → poses → sélection). Paquets toujours

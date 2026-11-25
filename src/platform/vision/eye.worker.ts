@@ -1,9 +1,12 @@
 /// <reference lib="webworker" />
 // « Nouvel œil » dans son propre fil (réglage 13 bis) : il tourne après l'analyse, pendant que l'utilisateur trie,
-// et sa mémoire (environ 350 Mo) est rendue à l'iPhone dès qu'il a fini (le fil est fermé).
+// et sa mémoire (206 Mo mesurés, plafond 1 Go) est rendue à l'iPhone dès qu'il a fini (le fil est fermé).
 
 import type { Box, FaceEmotion } from '../../engine';
-import { createEye, type Eye } from './eye';
+import { capSharedWasmMemory, createEye, type Eye } from './eye';
+
+// Avant tout chargement du moteur : sa mémoire est plafonnée (voir `capSharedWasmMemory`).
+capSharedWasmMemory();
 
 export interface EyeRequest {
   id: string;
@@ -29,7 +32,7 @@ scope.onmessage = async (event: MessageEvent<EyeRequest>) => {
     const model = await eye;
     const t = performance.now();
     // Même décodage que l'analyse (orientation de la photo comprise), en plus petit : les boîtes restent justes.
-    // Jamais en pleine taille ici : ce fil porte déjà les modèles (~350 Mo). Si le décodage réduit échoue, la photo
+    // Jamais en pleine taille ici : ce fil porte déjà les modèles (~206 Mo). Si le décodage réduit échoue, la photo
     // est simplement sautée (elle n'aura pas les mesures du nouvel œil).
     const bitmap = await createImageBitmap(file, { resizeWidth: 1024, resizeQuality: 'medium' });
     try {
