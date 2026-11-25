@@ -63,6 +63,32 @@ function saveKeptSent(sessionId: string | null): void {
   }
 }
 
+// Envoi en cours de la séance (survit au changement d'onglet et à la fermeture de l'app) : photos dont le lot a été
+// confirmé supprimé, et dernier lot envoyé, en attente de votre confirmation (25/11 : un lot refusé par l'iPhone ne
+// doit plus jamais compter comme fait).
+const SEND_KEY = 'photo-triage.envoi';
+interface SendState {
+  session: string;
+  sent: string[];
+  awaiting: string[] | null;
+}
+function loadSend(sessionId: string): SendState {
+  try {
+    const s = JSON.parse(localStorage.getItem(SEND_KEY) ?? 'null') as SendState | null;
+    if (s && s.session === sessionId && Array.isArray(s.sent)) return s;
+  } catch {
+    // Rien de gardé.
+  }
+  return { session: sessionId, sent: [], awaiting: null };
+}
+function saveSend(state: SendState): void {
+  try {
+    localStorage.setItem(SEND_KEY, JSON.stringify(state));
+  } catch {
+    // Mémoire seulement.
+  }
+}
+
 const asPhoto = (item: MediaItem) => ({ fileName: item.fileName, at: item.instant ?? item.capturedAt });
 /** Le raccourci retrouve la photo (nom et heure connus) ? */
 const findable = (item: MediaItem) => shortcutCount([asPhoto(item)]) === 1;
@@ -71,8 +97,16 @@ const findable = (item: MediaItem) => shortcutCount([asPhoto(item)]) === 1;
 export function ASupprimer({ session, day, choices, onChoose, onComment, onConfirm, onUnconfirm, onFinished, unverified, onVerify }: Props) {
   const [done, setDone] = useState<Set<string>>(() => loadDone());
   const [viewing, setViewing] = useState<number | null>(null);
-  // Photos déjà envoyées au raccourci pendant cette visite (lots de 49 au plus).
-  const [sent, setSent] = useState<Set<string>>(new Set());
+  // Photos dont le lot est confirmé supprimé, et lot envoyé en attente de confirmation (lots de 49 au plus).
+  const [sendState, setSendState] = useState<SendState>(() => loadSend(session.id));
+  const sent = useMemo(() => new Set(sendState.sent), [sendState]);
+  const awaiting = sendState.awaiting;
+  const updateSend = (change: Partial<SendState>) =>
+    setSendState((st) => {
+      const next = { ...st, ...change, session: session.id };
+      saveSend(next);
+      return next;
+    });
   const scrolled = useScrolled();
   useEffect(() => saveDone(done), [done]);
   // Albums (24/11) : les photos gardées partent à part, vers « Photo Triage Garder » (album « Triées »).
@@ -128,10 +162,23 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
     if (todo.every((p) => done.has(p.pack.key) || fresh.includes(p.pack.key))) onFinished();
   };
 
+  // Le lot part au raccourci, mais ne compte comme fait qu'une fois confirmé par l'utilisateur à son retour : si
+  // l'iPhone le refuse (25/11), rien n'est perdu, il suffit de le renvoyer.
   const send = () => {
     runShortcut(pendingPhotos);
-    const nowSent = new Set([...sent, ...batchItems.map((it) => it.id)]);
-    setSent(nowSent);
+    updateSend({ awaiting: batchItems.map((it) => it.id) });
+  };
+  /** Essai : un petit lot de 3 photos, pour vérifier que l'iPhone annonce bien 3 (25/11, « 1225 photos »). */
+  const sendTest = () => {
+    const items = batchItems.slice(0, 3);
+    runShortcut(items.map(asPhoto));
+    updateSend({ awaiting: items.map((it) => it.id) });
+  };
+  const awaitingItems = awaiting ? todo.flatMap((p) => p.remove).filter((it) => awaiting.includes(it.id)) : [];
+  const resend = () => runShortcut(awaitingItems.map(asPhoto));
+  const confirmBatch = () => {
+    const nowSent = new Set([...sent, ...awaitingItems.map((it) => it.id)]);
+    updateSend({ sent: [...nowSent], awaiting: null });
     // Un paquet est « fait » quand toutes ses photos à supprimer sont parties. S'il en reste à supprimer à la main
     // (sans date), il attend que l'utilisateur touche « Fait ».
     markDone(pendingPacks.filter((p) => p.remove.every((it) => nowSent.has(it.id))).map((p) => p.pack.key));
@@ -139,8 +186,18 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
 
   const reopen = (keys: string[]) => {
     setDone((set) => new Set([...set].filter((key) => !keys.includes(key))));
+    // Paquet rouvert : ses photos redeviennent à envoyer.
+    const reopened = new Set(todo.filter((p) => keys.includes(p.pack.key)).flatMap((p) => p.remove.map((it) => it.id)));
+    if (reopened.size > 0) updateSend({ sent: [...sent].filter((id) => !reopened.has(id)) });
     onUnconfirm(day.packs.filter((p) => keys.includes(p.key)));
   };
+
+  /** Tout reprendre : aucun lot ne compte plus comme envoyé, tous les paquets à supprimer sont rouverts. */
+  const restartAll = () => {
+    reopen(todo.map((p) => p.pack.key));
+    updateSend({ sent: [], awaiting: null });
+  };
+  const someDone = todo.some((p) => done.has(p.pack.key)) || sent.size > 0;
 
   const allSent = totalRemove > 0 && pendingItems.length === 0 && manual.length === 0;
   const onlyManual = totalRemove > 0 && pendingItems.length === 0 && manual.length > 0;
@@ -190,14 +247,33 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
               : 'Tous les paquets sont marqués « Fait ». '}
             Les photos supprimées restent 30 jours dans Photos › Albums › « Supprimés récemment ».
           </p>
-          <button
-            className="lien"
-            onClick={() => {
-              setSent(new Set());
-              reopen(todo.map((p) => p.pack.key));
-            }}
-          >
+          <button className="lien" onClick={restartAll}>
             Recommencer l’envoi
+          </button>
+        </section>
+      ) : awaitingItems.length > 0 ? (
+        <section className="carte heros">
+          <span className="heros-icone orange">
+            <IconCorbeille size={30} />
+          </span>
+          <h2>Le lot est-il bien parti ?</h2>
+          <p className="doux">
+            Vous venez d’envoyer {plural(awaitingItems.length, 'photo')} au raccourci. L’iPhone a-t-il demandé d’en supprimer{' '}
+            <strong>exactement {awaitingItems.length}</strong>, et les avez-vous supprimées ?
+          </p>
+          <button className="bouton principal" onClick={confirmBatch}>
+            Oui, {awaitingItems.length} supprimées
+          </button>
+          <button className="bouton" onClick={resend}>
+            Non : renvoyer ce lot
+          </button>
+          <p className="note">
+            Si l’iPhone annonce un autre nombre (par exemple « 1225 photos »), touchez OK pour refuser, puis vérifiez le
+            dernier bloc du raccourci : il doit afficher « Supprimer <strong>A supprimer</strong> » (Réglages › Raccourci de
+            suppression).
+          </p>
+          <button className="lien" onClick={() => updateSend({ awaiting: null })}>
+            Annuler cet envoi
           </button>
         </section>
       ) : onlyManual ? (
@@ -231,6 +307,21 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
             « Terminé », puis confirmez.
             {batches > 1 && ' L’iPhone n’en accepte que 49 à la fois : revenez ici après chaque lot.'}
           </p>
+          {batchItems.length > 3 && (
+            <button className="lien" onClick={sendTest}>
+              Faire d’abord un essai avec 3 photos
+            </button>
+          )}
+          {someDone && (
+            <button
+              className="lien"
+              onClick={() => {
+                if (window.confirm('Reprendre tous les lots depuis le début ? Les paquets marqués « Fait » sont rouverts ; vos choix ne changent pas.')) restartAll();
+              }}
+            >
+              Un lot n’a pas abouti ? Tout reprendre
+            </button>
+          )}
           <details className="note">
             <summary>Liste envoyée (pour vérifier)</summary>
             <pre className="liste-envoyee">{shortcutText(pendingPhotos)}</pre>
