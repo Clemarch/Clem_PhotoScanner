@@ -308,6 +308,10 @@ export const config = {
      *  n'est gardée que si elle est presque aussi bien notée (0,02 au lieu de 0,08), et les « à vérifier » sont
      *  proposées à la suppression (code `presque`). */
     keepMargin: 0.02,
+    /** Grande série (25/11, point 56) : sur 25 poses de 5 photos ou plus, l'utilisateur en a toujours gardé au moins 2
+     *  (2,4 en moyenne à 5 photos, 3 à 6 et plus). Dès `from` photos : écart toléré `keepMargin`, au moins `min`
+     *  photos gardées, au plus `max` (`maxFrom6` à partir de 6). */
+    bigPose: { from: 5, keepMargin: 0.08, min: 2, max: 2, maxFrom6: 3 },
     reviewMargin: 0.12,
     /** Seuils de différence entre deux photos : « nette » (Strong) et « légère » (Light). */
     different: {

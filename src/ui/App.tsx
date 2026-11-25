@@ -481,6 +481,30 @@ export function App() {
     runEye(session.id, session.results, missing, meta);
   }, [session, models]);
 
+  // Rattrapage (25/11) : séances gardées dont des photos n'ont jamais eu les mesures du nouvel œil (arrêté en route
+  // avant le réglage 16 quinquies). Une séance à la fois, quand aucune séance n'est en cours d'utilisation, à partir de
+  // ses aperçus ; la suivante au prochain lancement. Les choix sont complétés à la fin.
+  const eyeCaughtUp = useRef(false);
+  useEffect(() => {
+    if (!models?.ready || (session && !closed) || eyeRun.current || eyeCaughtUp.current) return;
+    eyeCaughtUp.current = true;
+    void (async () => {
+      const needs = (it: MediaItem) => it.kind === 'photo' && !it.isRaw && it.camera !== false && it.clip?.length !== config.ranker.eyeDims;
+      for (const s of await listSessions()) {
+        if (s.sessionId === session?.id) continue;
+        if (!(await loadSessionItems(s.sessionId)).some(needs)) continue;
+        const saved = await loadSessionById(s.sessionId);
+        if (!saved || eyeRun.current) return;
+        const results = saved.results.map((r) => ({ ...r, frame: null })) as AnalyzeResult[];
+        const missing = new Map<string, Blob>();
+        for (const r of results) if (r.preview && !r.diagnostic.error && needs(r.item)) missing.set(r.item.id, r.preview);
+        if (missing.size === 0) continue;
+        runEye(s.sessionId, results, missing, saved.meta);
+        return;
+      }
+    })();
+  }, [models, session, closed]);
+
   /** Complète les choix sans mesures du nouvel œil avec celles des photos données (voir `eyePatches`). */
   const applyEyePatches = (items: MediaItem[]) => {
     const patches = new Map(eyePatches(recordsRef.current, items).map((r) => [r.key, r]));
