@@ -83,7 +83,7 @@ export function Reglages({ session, day, records, learned, reports, onRestore, o
 
       <h2 className="titre-groupe">Albums « Triées » et « À trier »</h2>
       <section className="groupe">
-        <GuideAlbums records={records} />
+        <GuideAlbums />
       </section>
 
       {session && day && <RapportEtDiagnostic session={session} day={day} records={records} learned={learned} validations={validations} shadow={shadow} />}

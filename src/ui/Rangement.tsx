@@ -1,15 +1,13 @@
-import { useState } from 'react';
-import type { DayAnalysis, MediaItem } from '../engine';
-import type { Session } from './session';
-import { finalKeep, type Choices } from './choices';
+import { useEffect, useState } from 'react';
+import { photoKey, type ChoiceRecord, type MediaItem } from '../engine';
 import { plural } from './format';
+import { listSessions, loadSessionItems } from '../platform/storage/sessionStore';
 import {
   albumsEnabled,
   KEPT_ALBUM,
   KEPT_BATCH,
-  PREP_SHORTCUT_NAME,
-  runKeepShortcut,
-  runPrepShortcut,
+  PREP_LIMIT,
+  runKeepThenPrep,
   shortcutCount,
   TODO_ALBUM,
   type ShortcutPhoto,
@@ -20,96 +18,99 @@ export const asPhoto = (item: MediaItem): ShortcutPhoto => ({ fileName: item.fil
 /** Le raccourci retrouve la photo (nom et heure connus) ? */
 export const findable = (item: MediaItem): boolean => shortcutCount([asPhoto(item)]) === 1;
 
-/** Photos gardées de la séance : tout sauf ce qui part à la suppression (photos illisibles exclues : elles reviendront). */
-export function keptPhotosOf(session: Session, day: DayAnalysis, choices: Choices): ShortcutPhoto[] {
-  const removeIds = new Set(day.packs.flatMap((pack) => pack.pack.items.filter((it) => !finalKeep(it, pack, choices).keep).map((it) => it.id)));
-  return session.results.filter((r) => !r.diagnostic.error && !removeIds.has(r.item.id) && findable(r.item)).map((r) => asPhoto(r.item));
-}
-
-// Séance dont les photos gardées sont déjà parties vers l'album « Triées » (survit au changement d'écran).
-const KEPT_KEY = 'photo-triage.triees-envoyees';
-function keptSentFor(): string | null {
+// Séances terminées dont les photos gardées sont déjà parties vers « Triées ».
+const RANGED_KEY = 'photo-triage.seances-rangees';
+function loadRanged(): Set<string> {
   try {
-    return localStorage.getItem(KEPT_KEY);
+    return new Set(JSON.parse(localStorage.getItem(RANGED_KEY) ?? '[]') as string[]);
   } catch {
-    return null;
+    return new Set();
   }
 }
-function saveKeptSent(sessionId: string | null): void {
+function saveRanged(ids: Set<string>): void {
   try {
-    if (sessionId) localStorage.setItem(KEPT_KEY, sessionId);
-    else localStorage.removeItem(KEPT_KEY);
+    localStorage.setItem(RANGED_KEY, JSON.stringify([...ids]));
   } catch {
     // Mémoire seulement.
   }
 }
 
-/** Ranger les photos gardées de la séance dans « Triées » (raccourci « Photo Triage Garder »), par lots de 150. */
-export function RangerTriees({ session, photos }: { session: Session; photos: ShortcutPhoto[] }) {
-  const [sent, setSentState] = useState(() => keptSentFor() === session.id);
-  const [batch, setBatch] = useState(0);
-  const setSent = (on: boolean) => {
-    setSentState(on);
-    saveKeptSent(on ? session.id : null);
-  };
-  if (photos.length === 0) return null;
-  const batches = Math.ceil(photos.length / KEPT_BATCH);
-  const n = photos.length;
-  const s = n > 1 ? 's' : '';
-  return (
-    <div className="albums-etape">
-      <strong>Ranger les photos gardées dans « {KEPT_ALBUM} »</strong>
-      <span className="note bloc">
-        {sent
-          ? `C’est fait : les ${plural(n, 'photo')} gardée${s} sont parties vers « ${KEPT_ALBUM} ».`
-          : `${plural(n, 'photo')} gardée${s} : une fois rangée${s}, elle${s} ne reviendr${n > 1 ? 'ont' : 'a'} plus dans « ${TODO_ALBUM} ». Rien n’est supprimé.`}
-      </span>
-      {sent ? (
-        <button
-          className="lien"
-          onClick={() => {
-            setBatch(0);
-            setSent(false);
-          }}
-        >
-          Ranger à nouveau
-        </button>
-      ) : (
-        <button
-          className="bouton principal"
-          onClick={() => {
-            runKeepShortcut(photos.slice(batch * KEPT_BATCH, (batch + 1) * KEPT_BATCH));
-            if (batch + 1 >= batches) setSent(true);
-            else setBatch((b) => b + 1);
-          }}
-        >
-          {batches > 1 ? `Ranger le lot ${batch + 1} sur ${batches}` : `Ranger dans « ${KEPT_ALBUM} »`}
-        </button>
-      )}
-    </div>
-  );
+interface Pending {
+  photos: ShortcutPhoto[];
+  sessionIds: string[];
 }
 
 /**
- * Fin de séance, avec les albums (utilisateur, 25/11 : « Comment est-ce que je mets à jour les albums ? ») : ranger les
- * gardées, puis préparer « À trier » pour la prochaine fois. Rien si les raccourcis des albums ne sont pas prêts.
+ * Photos gardées des séances terminées, pas encore rangées : toutes leurs photos datées, sauf celles que vous avez
+ * supprimées (à la fin d'une séance, chaque photo a un choix, explicite ou accord silencieux).
  */
-export function EtapesAlbums({ session, day, choices }: { session: Session; day: DayAnalysis; choices: Choices }) {
-  if (!albumsEnabled()) return null;
+async function pendingKept(records: ChoiceRecord[], include?: string): Promise<Pending> {
+  const removed = new Set(records.filter((r) => r.choice === 'supprimer').map((r) => r.key));
+  const ranged = loadRanged();
+  const seen = new Set<string>();
+  const photos: ShortcutPhoto[] = [];
+  const sessionIds: string[] = [];
+  for (const s of await listSessions()) {
+    // `include` : séance qui vient de se terminer (sa clôture est peut-être encore en cours d'écriture).
+    if ((!s.closedAt && s.sessionId !== include) || ranged.has(s.sessionId)) continue;
+    sessionIds.push(s.sessionId);
+    for (const item of await loadSessionItems(s.sessionId)) {
+      const key = photoKey(item);
+      if (removed.has(key) || seen.has(key) || !findable(item)) continue;
+      seen.add(key);
+      photos.push(asPhoto(item));
+    }
+  }
+  return { photos, sessionIds };
+}
+
+/**
+ * « Prochain tri » (utilisateur, 25/11 : tout doit se faire depuis l'app, d'un toucher) : range les photos gardées
+ * des séances terminées dans « Triées », puis remplit « À trier » avec les photos pas encore triées les plus récentes.
+ * Un seul bouton ; l'app Raccourcis s'ouvre, enchaîne les deux raccourcis, puis on revient par « ◀ ».
+ */
+export function ProchainTri({ records, include }: { records: ChoiceRecord[]; include?: string }) {
+  const [pending, setPending] = useState<Pending | null>(null);
+  const [batch, setBatch] = useState(0);
+  const [launched, setLaunched] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void pendingKept(records, include).then((p) => alive && setPending(p));
+    return () => {
+      alive = false;
+    };
+  }, [records, include]);
+  if (!albumsEnabled() || !pending) return null;
+
+  const n = pending.photos.length;
+  const batches = Math.max(1, Math.ceil(n / KEPT_BATCH));
+  const go = () => {
+    runKeepThenPrep(pending.photos.slice(batch * KEPT_BATCH, (batch + 1) * KEPT_BATCH));
+    setLaunched(true);
+    if (batch + 1 >= batches) {
+      // Rangement envoyé : ces séances ne seront plus reproposées.
+      saveRanged(new Set([...loadRanged(), ...pending.sessionIds]));
+    } else setBatch((b) => b + 1);
+  };
+  const last = batch + 1 >= batches;
+
   return (
-    <section className="groupe albums-etapes">
-      <h3>Pour la prochaine séance</h3>
-      <RangerTriees session={session} photos={keptPhotosOf(session, day, choices)} />
-      <div className="albums-etape">
-        <strong>Préparer l’album « {TODO_ALBUM} »</strong>
+    <section className="groupe prochain-tri">
+      <strong>Prochain tri</strong>
+      <span className="note bloc">
+        {n > 0
+          ? `Un toucher : vos ${plural(n, 'photo')} gardée${n > 1 ? 's' : ''} rejoignent l’album « ${KEPT_ALBUM} », puis l’album « ${TODO_ALBUM} » se remplit avec les ${PREP_LIMIT} photos pas encore triées les plus récentes.`
+          : `Un toucher : l’album « ${TODO_ALBUM} » se remplit avec les ${PREP_LIMIT} photos pas encore triées les plus récentes.`}
+      </span>
+      <button className="bouton grand" onClick={go}>
+        {batches > 1 && !launched ? `Préparer le prochain tri (1 sur ${batches})` : batches > 1 && !last ? `Continuer (${batch + 1} sur ${batches})` : 'Préparer le prochain tri'}
+      </button>
+      {launched && (
         <span className="note bloc">
-          À faire après avoir rangé : « {PREP_SHORTCUT_NAME} » met dans « {TODO_ALBUM} » les 200 photos pas encore triées
-          les plus récentes (vos dernières photos d’abord). Revenez ensuite ici (« ◀ » en haut à gauche).
+          L’app Raccourcis s’en occupe (quelques secondes). Revenez ensuite par « ◀ Photo Triage » en haut à gauche,
+          touchez « Choisir les photos », puis l’album « {TODO_ALBUM} » et glissez le doigt sur les photos.
         </span>
-        <button className="bouton" onClick={runPrepShortcut}>
-          Préparer « {TODO_ALBUM} »
-        </button>
-      </div>
+      )}
     </section>
   );
 }

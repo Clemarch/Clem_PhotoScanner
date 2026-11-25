@@ -10,7 +10,7 @@ import { IconChevron, IconNuage, IconReglages, IconTrier } from '../icons';
 import { APP_VERSION } from '../version';
 import type { ModelsState } from '../../platform/storage/models';
 import { EtatModeles } from '../EtatModeles';
-import { albumsEnabled, PREP_LIMIT, PREP_SHORTCUT_NAME, runPrepShortcut, TODO_ALBUM } from '../../platform/shortcut';
+import { ProchainTri } from '../Rangement';
 
 
 interface Props {
@@ -35,7 +35,6 @@ export function Accueil({ onFiles, interrupted, lastRun, records, recordsLoaded,
   const installed = isInstalled();
   const last = loadLastBackup();
   const due = backupDue(records);
-  const albums = albumsEnabled();
 
   return (
     <main className="accueil">
@@ -134,21 +133,10 @@ export function Accueil({ onFiles, interrupted, lastRun, records, recordsLoaded,
         )}
       </section>
 
+      <ProchainTri records={records} />
+
       <div className="accueil-bas">
-        {albums && (
-          <>
-            <button className="bouton grand" onClick={runPrepShortcut}>
-              1. Préparer l’album « {TODO_ALBUM} »
-            </button>
-            <p className="note">
-              Le raccourci « {PREP_SHORTCUT_NAME} » y met les {PREP_LIMIT} photos pas encore triées les plus récentes. Revenez ensuite ici (« ◀ » en haut à
-              gauche), touchez « Choisir les photos », puis l’album « {TODO_ALBUM} », et glissez le doigt sur les photos pour
-              toutes les prendre.
-            </p>
-          </>
-        )}
         <label className="bouton principal grand">
-          {albums ? '2. ' : ''}
           Choisir les photos
           <input
             type="file"

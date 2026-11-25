@@ -5,9 +5,9 @@ import { finalKeep, stateLook, type Choice, type Choices } from '../choices';
 import { dayEntries } from '../entries';
 import { formatDate, formatTime, plural } from '../format';
 import { Visionneuse } from './Visionneuse';
-import { albumsEnabled, runShortcut, shortcutCount, shortcutText, SHORTCUT_BATCH, SHORTCUT_NAME } from '../../platform/shortcut';
+import { runShortcut, shortcutCount, shortcutText, SHORTCUT_BATCH, SHORTCUT_NAME } from '../../platform/shortcut';
 import { GuideRaccourci } from '../GuideRaccourci';
-import { asPhoto, findable, keptPhotosOf, RangerTriees } from '../Rangement';
+import { asPhoto, findable } from '../Rangement';
 import { IconCoche, IconCorbeille, IconCroix } from '../icons';
 import { useScrolled } from '../useScrolled';
 
@@ -112,8 +112,6 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
   const batchItems = pendingItems.slice(0, SHORTCUT_BATCH);
   const pendingPhotos = batchItems.map(asPhoto);
   const sendable = shortcutCount(pendingPhotos);
-  // Albums (24/11) : les photos gardées partent à part, vers « Photo Triage Garder » (album « Triées »).
-  const keptPhotos = albumsEnabled() ? keptPhotosOf(session, day, choices) : [];
   const batchDone = Math.ceil(sent.size / SHORTCUT_BATCH);
   const batches = batchDone + Math.ceil(pendingItems.length / SHORTCUT_BATCH);
 
@@ -290,12 +288,6 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
             <summary>Liste envoyée (pour vérifier)</summary>
             <pre className="liste-envoyee">{shortcutText(pendingPhotos)}</pre>
           </details>
-        </section>
-      )}
-
-      {keptPhotos.length > 0 && (
-        <section className="groupe">
-          <RangerTriees session={session} photos={keptPhotos} />
         </section>
       )}
 
