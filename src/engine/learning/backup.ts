@@ -29,6 +29,8 @@ type Row = [
   (string | null)?,
   /** Ajouté le 21/11 : résumé des émotions des visages (×1000). */
   (number[] | null)?,
+  /** Ajouté le 27/11 : empreintes des visages principaux recadrés (8 bits en base64). */
+  (string[] | null)?,
 ];
 
 export interface BackupFile {
@@ -65,6 +67,7 @@ export function encodeBackup(records: readonly ChoiceRecord[], now: number, vali
       r.app === undefined ? null : r.app === 'garder' ? 1 : 0,
       r.clip ?? null,
       r.emo ? r.emo.map((x) => Math.round(x * 1000)) : null,
+      r.fclip?.length ? r.fclip : null,
     ]),
     ...(validations.length ? { validations: validations.map((v) => ({ ...v, margin: Number.isFinite(v.margin) ? v.margin : -1 })) } : {}),
   };
@@ -90,7 +93,7 @@ export function decodeBackup(data: unknown): DecodedBackup {
   let skipped = 0;
   for (const row of Array.isArray(file.choices) ? file.choices : []) {
     try {
-      const [key, packKey, keep, at, base, values, comment, v, embedding, implicit, viaPose, app, clip, emo] = row as Row;
+      const [key, packKey, keep, at, base, values, comment, v, embedding, implicit, viaPose, app, clip, emo, fclip] = row as Row;
       if (typeof key !== 'string' || typeof packKey !== 'string' || (keep !== 0 && keep !== 1) || typeof at !== 'number')
         throw new Error('ligne');
       const features: Partial<Features> = {};
@@ -113,6 +116,7 @@ export function decodeBackup(data: unknown): DecodedBackup {
         ...(app === 1 ? { app: 'garder' as const } : app === 0 ? { app: 'supprimer' as const } : {}),
         ...(typeof clip === 'string' && clip ? { clip } : {}),
         ...(Array.isArray(emo) && emo.length === 6 && emo.every((x) => typeof x === 'number') ? { emo: emo.map((x) => x / 1000) } : {}),
+        ...(Array.isArray(fclip) && fclip.length > 0 && fclip.every((x) => typeof x === 'string' && x) ? { fclip } : {}),
       });
     } catch {
       skipped++;

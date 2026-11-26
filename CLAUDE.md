@@ -69,7 +69,9 @@ propre à ce test.
   Worker `src/platform/worker/lab.ts`, écran `src/ui/screens/Labo.tsx`. Mesure seulement : la formule décide.
 - Vocabulaire de contexte du nouvel œil (jalon 8, point 62) : idées dans `tools/vocab/concepts.py`, converties de mon
   côté par `tools/vocab/build.py` en `src/engine/learning/vocab.generated.ts` (ne pas modifier à la main), lues par
-  `src/engine/learning/context.ts`. Aucun modèle de plus sur l'iPhone.
+  `src/engine/learning/context.ts`. Aucun modèle de plus sur l'iPhone. Visages : SigLIP 2 aussi sur chaque visage
+  principal recadré (`FaceMetrics.clip`, `ChoiceRecord.fclip`, passage `config.ranker.eyeVersion`, point 63).
+  Jamais la place dans la rafale comme critère (corrélation, pas causalité : utilisateur, 27/11).
 - Sauvegarde des goûts : `src/engine/learning/backup.ts` (format) et `src/platform/storage/backupFile.ts` (fichier,
   iCloud Drive via la feuille de partage). Une séance peut couvrir une après-midi ou plusieurs jours.
 
@@ -113,5 +115,5 @@ les poses validées, confiance calibrée. Réglage 13 (point 42) : nouvel œil e
 comparé honnêtement à la formule.
 Jalon 7 (plan : `docs/jalon-7.md`, point 61) : labo d'apprentissage, courbe des prédictions séance par séance.
 Jalon 8 en cours (plan : `docs/jalon-8.md`) : l'app découvre vos règles. Étape 1 faite (point 62) : vocabulaire de
-contexte, candidat « Formule + contexte » dans le Labo.
+contexte, candidat « Formule + contexte » dans le Labo. Étape 2 faite (point 63) : le nouvel œil regarde chaque visage.
 Modèle restant proposé : objets plus fins.

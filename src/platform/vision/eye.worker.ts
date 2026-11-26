@@ -19,7 +19,7 @@ export interface EyeRequest {
 }
 
 export type EyeResponse =
-  | { id: string; ok: true; clip: number[] | null; emotions: (FaceEmotion | null)[]; ms: number }
+  | { id: string; ok: true; clip: number[] | null; emotions: (FaceEmotion | null)[]; faceClips: (number[] | null)[]; ms: number }
   | { id: string; ok: false; error: string };
 
 const scope = self as unknown as DedicatedWorkerGlobalScope;
@@ -38,7 +38,8 @@ scope.onmessage = async (event: MessageEvent<EyeRequest>) => {
     try {
       const clip = await model.clip(bitmap);
       const emotions = boxes.length ? await model.emotions(bitmap, boxes) : [];
-      scope.postMessage({ id, ok: true, clip, emotions, ms: performance.now() - t } satisfies EyeResponse);
+      const faceClips = boxes.length ? await model.faceClips(bitmap, boxes) : [];
+      scope.postMessage({ id, ok: true, clip, emotions, faceClips, ms: performance.now() - t } satisfies EyeResponse);
     } finally {
       bitmap.close();
     }

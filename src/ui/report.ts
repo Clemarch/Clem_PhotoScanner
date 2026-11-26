@@ -169,7 +169,8 @@ export function buildReport(
       if (!ms.length) return (session.eyeInfo ? `non chargé (${session.eyeInfo})` : 'non lancé') + start;
       // Empreintes du modèle actuel seulement (une séance rouverte du réglage 13 a des empreintes CLIP, 512 valeurs).
       const withClip = session.results.filter((r) => r.item.clip?.length === config.ranker.eyeDims).length;
-      return `analyse moyenne ${formatMs(ms.reduce((a, b) => a + b, 0) / ms.length)} · empreinte SigLIP 2 sur ${withClip}/${ms.length} photos${session.eyeInfo ? ` · erreur : ${session.eyeInfo}` : ''}${start}`;
+      const withFaces = session.results.filter((r) => r.item.faces?.some((f) => f.clip?.length === config.ranker.eyeDims)).length;
+      return `analyse moyenne ${formatMs(ms.reduce((a, b) => a + b, 0) / ms.length)} · empreinte SigLIP 2 sur ${withClip}/${ms.length} photos · visages regardés sur ${withFaces} photos${session.eyeInfo ? ` · erreur : ${session.eyeInfo}` : ''}${start}`;
     })()}`,
     `Vos choix enregistrés : ${records.length}${records.some((r) => r.implicit) ? ` (dont ${records.filter((r) => r.implicit).length} laissés tels quels)` : ''} · goûts appris : ${
       Object.entries(learned)

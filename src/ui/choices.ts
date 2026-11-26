@@ -1,6 +1,24 @@
 // Décision finale d'une photo : le choix de l'utilisateur s'il en a fait un, sinon celui de l'app.
 
-import { FEATURES_VERSION, config, emotionSummary, encodeEmbedding, photoKey, type ChoiceRecord, type MediaItem, type PackAnalysis } from '../engine';
+import { FEATURES_VERSION, config, emotionSummary, decodeEmbedding, encodeEmbedding, mainFaces, photoKey, type ChoiceRecord, type MediaItem, type PackAnalysis } from '../engine';
+
+/** Empreintes des visages principaux recadrés (les plus grands d'abord), codées ; absentes si non calculées. */
+export function faceClipsOf(item: MediaItem): string[] | undefined {
+  const out = mainFaces(item.faces)
+    .filter((f) => f.clip?.length === config.ranker.eyeDims)
+    .sort((a, b) => b.areaRatio - a.areaRatio)
+    .flatMap((f) => encodeEmbedding(f.clip!) ?? []);
+  return out.length ? out : undefined;
+}
+
+/**
+ * Photo que le nouvel œil doit (re)voir : jamais vue, ou vue avant qu'il regarde aussi les visages un par un
+ * (point 63) alors qu'elle en a. RAW, vidéos, captures et photos en échec sont exclus ailleurs.
+ */
+export function needsEye(item: MediaItem): boolean {
+  if (item.clip?.length !== config.ranker.eyeDims) return true;
+  return mainFaces(item.faces).length > 0 && (item.eyeV ?? 1) < config.ranker.eyeVersion;
+}
 
 export type Choice = 'garder' | 'supprimer';
 
@@ -34,13 +52,15 @@ export function makeRecord(item: MediaItem, pack: PackAnalysis, choice: Choice, 
   const embedding = encodeEmbedding(item.embedding);
   const clip = encodeEmbedding(item.clip ?? null);
   const emo = emotionSummary(item);
+  const fclip = faceClipsOf(item);
   return { key: photoKey(item), packKey: pack.key, choice, features: score.features, baseScore: score.baseScore, at: Date.now(), v: FEATURES_VERSION, ...(embedding ? { embedding } : {}), ...(implicit ? { implicit: true } : {}),
     ...(via ? { via } : {}),
     // Proposition de l'app à cet instant (« à vérifier » compte comme gardée) : mesure honnête de sa justesse.
     app: pack.decisions.get(item.id)?.keep === false ? 'supprimer' : 'garder',
     // « Nouvel œil » (en coulisse) : empreinte CLIP et émotions des visages, si elles ont été mesurées.
     ...(clip ? { clip } : {}),
-    ...(emo ? { emo } : {}) };
+    ...(emo ? { emo } : {}),
+    ...(fclip ? { fclip } : {}) };
 }
 
 /**
@@ -52,14 +72,22 @@ export function eyePatches(records: readonly ChoiceRecord[], items: readonly Med
   const byKey = new Map(items.map((it) => [photoKey(it), it]));
   const out: ChoiceRecord[] = [];
   for (const r of records) {
-    if (r.clip) continue;
     const it = byKey.get(r.key);
     // Seulement l'empreinte du nouvel œil actuel (SigLIP 2) : les anciennes (CLIP) n'ont pas la même taille.
     if (!it?.clip || it.clip.length !== config.ranker.eyeDims) continue;
-    const clip = encodeEmbedding(it.clip);
+    const hasClip = r.clip?.length && decodeEmbedding(r.clip)?.length === config.ranker.eyeDims;
+    const fclip = r.fclip ? undefined : faceClipsOf(it);
+    if (hasClip && !fclip) continue;
+    const clip = hasClip ? r.clip : encodeEmbedding(it.clip);
     if (!clip) continue;
-    const emo = r.emo ?? emotionSummary(it);
-    out.push({ ...r, clip, ...(emo ? { emo } : {}) });
+    // Émotions : celles du dernier passage de l'œil sur la photo (identiques, ou mesurées plus finement).
+    const emo = emotionSummary(it) ?? r.emo;
+    out.push({ ...r, clip, ...(emo ? { emo } : {}), ...(fclip ? { fclip } : {}) });
   }
   return out;
+}
+
+/** Choix complété par les mesures du nouvel œil d'un correctif (`eyePatches`), sans toucher au reste du choix. */
+export function withEye(r: ChoiceRecord, patch: ChoiceRecord): ChoiceRecord {
+  return { ...r, ...(patch.clip ? { clip: patch.clip } : {}), ...(patch.emo ? { emo: patch.emo } : {}), ...(patch.fclip ? { fclip: patch.fclip } : {}) };
 }

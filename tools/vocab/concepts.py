@@ -219,4 +219,43 @@ CONCEPTS = [
   ('dessin', 'dessin, œuvre', 'type', ['a drawing', 'a painting']),
 ]
 
+# --- Visage recadré (point 63) : lues sur chaque visage principal, recadré large (tête et épaules) ---
+CONCEPTS += [
+  ('v_yeux_ouverts', 'yeux bien ouverts', 'visage', ['a face with eyes wide open', 'a person with open eyes looking alert']),
+  ('v_yeux_fermes', 'yeux fermés', 'visage', ['a face with eyes closed', 'a person with closed eyes']),
+  ('v_clignement', 'clignement, yeux mi-clos', 'visage', ['a face caught mid-blink', 'a face with half closed sleepy eyes']),
+  ('v_yeux_fermes_paisible', 'yeux fermés, paisible', 'visage', ['a peaceful face with eyes gently closed', 'a calm meditative face with closed eyes']),
+  ('v_yeux_plisses_rire', 'yeux plissés par le rire', 'visage', ['a laughing face with squinting eyes', 'a face with eyes crinkled by a big smile']),
+  ('v_regard_objectif', 'regarde l’objectif', 'visage', ['a face looking straight at the camera', 'a person making eye contact with the camera']),
+  ('v_regard_ailleurs', 'regarde ailleurs', 'visage', ['a face looking away from the camera', 'a person looking to the side']),
+  ('v_regard_bas', 'regard vers le bas', 'visage', ['a face looking down', 'a person looking at the ground']),
+  ('v_sourire', 'sourire', 'visage', ['a smiling face', 'a person with a warm smile']),
+  ('v_grand_sourire', 'grand sourire', 'visage', ['a face with a big toothy smile', 'a beaming happy face']),
+  ('v_rire', 'rire', 'visage', ['a face laughing out loud', 'a person laughing with mouth open']),
+  ('v_sourire_force', 'sourire forcé', 'visage', ['a face with a forced fake smile', 'an awkward stiff smile']),
+  ('v_neutre', 'visage neutre', 'visage', ['a face with a neutral expression', 'an expressionless face']),
+  ('v_serieux', 'air sérieux', 'visage', ['a serious face', 'a stern look']),
+  ('v_bouche_ouverte', 'bouche ouverte en parlant', 'visage', ['a face caught talking with mouth open', 'a face mid-sentence']),
+  ('v_grimace', 'grimace involontaire', 'visage', ['an unflattering facial expression', 'a weird face caught in motion', 'a grimacing face']),
+  ('v_grimace_drole', 'grimace pour rire', 'visage', ['a person making a funny face on purpose', 'a playful silly face']),
+  ('v_moue', 'moue, bisou', 'visage', ['a face making a kissing pout', 'pursed lips duck face']),
+  ('v_langue', 'langue tirée', 'visage', ['a face sticking out the tongue']),
+  ('v_flatteur', 'visage à son avantage', 'visage', ['a flattering portrait of a face', 'an attractive face looking its best']),
+  ('v_peu_flatteur', 'visage peu flatteur', 'visage', ['an unflattering photo of a face', 'a face with a double chin from a bad angle']),
+  ('v_net', 'visage net', 'visage', ['a sharp detailed face', 'a crisp in-focus face']),
+  ('v_flou', 'visage flou', 'visage', ['a blurry face', 'an out of focus face', 'a face blurred by motion']),
+  ('v_ombre', 'visage dans l’ombre', 'visage', ['a face in shadow', 'a dark underexposed face']),
+  ('v_lumiere', 'visage bien éclairé', 'visage', ['a well lit face', 'a face in soft flattering light']),
+  ('v_masque', 'visage caché en partie', 'visage', ['a face partially hidden by a hand', 'a face partly covered by hair', 'a face partially blocked by another person']),
+  ('v_lunettes', 'lunettes de soleil', 'visage', ['a face wearing sunglasses']),
+  ('v_cheveux', 'cheveux dans le visage', 'visage', ['hair blowing across the face', 'messy hair covering the face']),
+  ('v_profil', 'de profil', 'visage', ['a face seen in profile', 'a side view of a head']),
+  ('v_tete_penchee', 'tête penchée', 'visage', ['a tilted head', 'a head leaning to the side']),
+  ('v_attentif', 'attentif, présent', 'visage', ['an attentive engaged face', 'a person paying attention to the photo']),
+  ('v_distrait', 'distrait, absent', 'visage', ['a distracted face', 'a person not paying attention']),
+  ('v_emu', 'ému, touché', 'visage', ['a moved emotional face', 'a face with tears of joy']),
+  ('v_fatigue', 'fatigué', 'visage', ['a tired face', 'a yawning face']),
+  ('v_enfant', 'visage d’enfant', 'visage', ['the face of a child']),
+]
+
 TEMPLATES = ['a photo of {}.', '{}.', 'a picture showing {}.']

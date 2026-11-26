@@ -1108,6 +1108,31 @@ Plan et points d'arrêt : `docs/jalon-8.md`.
   les quasi-égalités (écart < 0,02 : 125 paires), elle fait 50 %. Ce sont les deux gisements.
 - Rien ne change dans les décisions de l'app.
 
+### 63. Jalon 8, étape 2 : le nouvel œil regarde chaque visage (27/11)
+
+Accord de l'utilisateur (27/11 : « tu peux procéder aux étapes suivantes »). Le point 62 a montré que l'image entière,
+réduite à 224 points, ne départage pas deux photos d'une même pose : un visage de groupe n'y fait que quelques points.
+- SigLIP 2 (le même modèle, aucun nouveau) passe aussi sur chaque visage principal, recadré large (tête, cheveux,
+  épaules ; les 4 plus grands), après les émotions. Empreintes gardées sur la photo (`FaceMetrics.clip`) et avec le
+  choix (`ChoiceRecord.fclip`, 8 bits, dans la sauvegarde des goûts : champ ajouté en fin de ligne, les anciennes
+  sauvegardes restent lisibles).
+- Passage du nouvel œil numéroté (`config.ranker.eyeVersion` = 2, `MediaItem.eyeV`) : les photos déjà vues qui ont des
+  visages sont revues, une séance gardée à la fois, à partir des aperçus (`needsEye`, `src/ui/choices.ts`) ; les
+  choix déjà faits sont complétés (`eyePatches`, `withEye`). Mesuré dans le navigateur : 1,4 s par photo en moyenne.
+- 35 idées lues sur le visage (famille « visage » : yeux ouverts, fermés, mi-clos, fermés et paisibles, plissés par
+  le rire ; regard ; sourire, rire, sourire forcé, grimace involontaire ou pour rire ; visage flatteur ou non, net ou
+  flou, dans l'ombre, caché en partie ; attentif ou distrait…).
+- Nouveau candidat du Labo « Formule + visages » : pour chaque idée, la moyenne des visages et le visage le moins
+  réussi (en groupe, un seul suffit à gâcher la photo). Sans visages regardés, c'est la formule.
+- La place dans la rafale est retirée de tous les candidats (utilisateur, 27/11 : « c'est une corrélation, pas une
+  causalité ») : l'app n'apprendra pas à garder la dernière photo parce qu'elle est la dernière.
+- Labo : séances nommées par le jour du tri, dans l'ordre (le jour des photos en plus : « séance 7, du 14/11 » pour
+  une séance triée le 25/11 prêtait à confusion) ; goûts appris dits dans le bon sens (« vous le pardonnez plus que
+  l'app : visage masqué » au lieu de « compte plus pour vous : visage masqué ») ; nombre de photos dont les visages ont
+  été vus. Rapport : « visages regardés sur N photos ».
+- Mesures sur l'iPhone du 26/11 (491 paires) : formule 62 %, + vos goûts 63 %, + photos semblables 64 %, + contexte
+  62 %, nouvel œil seul 56 %. « Formule + visages » ne pourra être jugé qu'une fois les séances revues.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

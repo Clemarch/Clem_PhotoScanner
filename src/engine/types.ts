@@ -77,6 +77,8 @@ export interface FaceMetrics {
   bodyColor: Rgb | null;
   /** Émotions mesurées par le « nouvel œil » (HSEmotion), en coulisse ; absent si non calculé. */
   emotion?: FaceEmotion | null;
+  /** Empreinte SigLIP 2 du visage recadré (tête et épaules), normalisée (jalon 8, point 63) ; absente si non calculée. */
+  clip?: number[] | null;
 }
 
 /** Mesures tirées de la silhouette des personnes (modèle de segmentation : fond, cheveux, peau du corps,
@@ -163,6 +165,8 @@ export interface MediaItem {
   embedding: number[] | null;
   /** Empreinte CLIP (« nouvel œil », en coulisse), normalisée ; absente si non calculée. */
   clip?: number[] | null;
+  /** Version du passage du nouvel œil (`config.ranker.eyeVersion`) : 2 = visages regardés un par un (point 63). */
+  eyeV?: number;
   /** Catégories de scène les plus probables ; null si non classée. */
   labels: SceneLabel[] | null;
   /** Part de l'image envahie depuis les bords par une zone sombre et uniforme (hublot, doigt), entre 0 et 1. */
@@ -282,6 +286,8 @@ export interface ChoiceRecord {
   /** « Nouvel œil » (21/11) : empreinte CLIP (8 bits, base64) et résumé des émotions des visages (`emotionSummary`). */
   clip?: string;
   emo?: number[];
+  /** Empreintes SigLIP 2 des visages principaux recadrés (8 bits, base64), les plus grands d'abord (point 63). */
+  fclip?: string[];
 }
 
 /** À augmenter quand le sens d'un critère change (pas quand on en ajoute un : il vaut alors 0,5 dans les anciens). */

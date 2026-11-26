@@ -17,7 +17,7 @@ class FakeWorker {
     queueMicrotask(() => {
       if (this.terminated) return;
       const data: EyeResponse = this.ok
-        ? { id: req.id, ok: true, clip: [1], emotions: [], ms: 1 }
+        ? { id: req.id, ok: true, clip: [1], emotions: [], faceClips: [], ms: 1 }
         : { id: req.id, ok: false, error: 'no available backend found. ERR: [wasm] RangeError: Out of memory' };
       this.onmessage?.({ data } as MessageEvent<EyeResponse>);
     });

@@ -15,9 +15,6 @@ import {
   calibrate,
   config,
   learnWeights,
-  emotionSummary,
-  decodeEmbedding,
-  encodeEmbedding,
   mainFaces,
   mergeChoices,
   mergeValidations,
@@ -64,7 +61,7 @@ import { forgetLastBackupCount } from '../platform/storage/backupFile';
 import type { DeviceReport } from '../platform/device';
 import { buildReport } from './report';
 import { formatDate, formatMs } from './format';
-import { eyePatches, makeRecord, type Choice, type Choices } from './choices';
+import { eyePatches, makeRecord, needsEye, withEye, type Choice, type Choices } from './choices';
 import { createFaceDetector, type FaceDetector } from '../platform/vision/faceDetector';
 import { createObjectDetector, type ObjectDetector } from '../platform/vision/objectDetector';
 import { findFaces } from '../platform/vision/retry';
@@ -501,20 +498,20 @@ export function App() {
         if (response.ok) {
           succeeded++;
           result.item.clip = response.clip;
-          mainFaces(result.item.faces).forEach((face, i) => (face.emotion = response.emotions[i] ?? null));
+          mainFaces(result.item.faces).forEach((face, i) => {
+            face.emotion = response.emotions[i] ?? null;
+            face.clip = response.faceClips?.[i] ?? null;
+          });
+          result.item.eyeV = config.ranker.eyeVersion;
           result.diagnostic.eyeMs = response.ms;
-          // Choix déjà faits sur cette photo pendant que l'œil travaillait : complétés.
+          // Choix déjà faits sur cette photo pendant que l'œil travaillait : complétés (empreinte, émotions, visages).
           const key = photoKey(result.item);
-          const clip = encodeEmbedding(response.clip);
-          const emo = emotionSummary(result.item);
-          // Une empreinte d'un autre modèle (CLIP, 512 valeurs, réglage 13) ne compte pas : elle est remplacée.
-          const hasEyeClip = (r: ChoiceRecord) => decodeEmbedding(r.clip)?.length === config.ranker.eyeDims;
           const existing = recordsRef.current.find((r) => r.key === key);
-          if (existing && !hasEyeClip(existing) && (clip || emo)) {
-            const patch = { ...(clip ? { clip } : {}), ...(emo ? { emo } : {}) };
+          const patched = existing ? eyePatches([existing], [result.item])[0] : undefined;
+          if (patched) {
             // Complété sur la version en cours du choix (un choix plus récent n'est pas remplacé par l'ancien).
-            setRecords((list) => list.map((r) => (r.key === key && !hasEyeClip(r) ? { ...r, ...patch } : r)));
-            void saveChoice({ ...existing, ...patch });
+            setRecords((list) => list.map((r) => (r.key === key ? withEye(r, patched) : r)));
+            void saveChoice(withEye(existing!, patched));
           }
         } else meta.eyeInfo ??= response.error;
         // Mesures gardées au fur et à mesure : si iOS ferme l'app en route, elles ne sont pas perdues.
@@ -550,7 +547,7 @@ export function App() {
     eyeResumed.current = session.id;
     const missing = new Map<string, Blob>();
     for (const r of session.results)
-      if (r.preview && r.item.kind === 'photo' && !r.item.isRaw && r.item.camera !== false && !r.diagnostic.error && r.item.clip?.length !== config.ranker.eyeDims)
+      if (r.preview && r.item.kind === 'photo' && !r.item.isRaw && r.item.camera !== false && !r.diagnostic.error && needsEye(r.item))
         missing.set(r.item.id, r.preview);
     if (missing.size === 0) return;
     runEye(session.id, session.results, missing, sessionMeta(session));
@@ -563,7 +560,7 @@ export function App() {
   /** Lance le nouvel œil sur la première séance gardée (autre que `skip`) dont des photos n'ont pas ses mesures.
    *  Rend le nombre de photos lancées (0 : rien à faire). */
   const catchUpEye = async (skip?: string): Promise<number> => {
-    const needs = (it: MediaItem) => it.kind === 'photo' && !it.isRaw && it.camera !== false && it.clip?.length !== config.ranker.eyeDims;
+    const needs = (it: MediaItem) => it.kind === 'photo' && !it.isRaw && it.camera !== false && needsEye(it);
     for (const s of await listSessions()) {
       if (s.sessionId === skip) continue;
       if (!(await loadSessionItems(s.sessionId)).some(needs)) continue;
@@ -593,7 +590,7 @@ export function App() {
     if (session && !closed) {
       const missing = new Map<string, Blob>();
       for (const r of session.results)
-        if (r.preview && r.item.kind === 'photo' && !r.item.isRaw && r.item.camera !== false && !r.diagnostic.error && r.item.clip?.length !== config.ranker.eyeDims)
+        if (r.preview && r.item.kind === 'photo' && !r.item.isRaw && r.item.camera !== false && !r.diagnostic.error && needsEye(r.item))
           missing.set(r.item.id, r.preview);
       if (missing.size > 0) {
         runEye(session.id, session.results, missing, sessionMeta(session));
@@ -610,11 +607,11 @@ export function App() {
     const merged: ChoiceRecord[] = [];
     for (const r of recordsRef.current) {
       const p = patches.get(r.key);
-      if (p && !r.clip) merged.push({ ...r, clip: p.clip, ...(r.emo ?? p.emo ? { emo: r.emo ?? p.emo } : {}) });
+      if (p) merged.push(withEye(r, p));
     }
     void saveChoices(merged);
     const byKey = new Map(merged.map((r) => [r.key, r]));
-    setRecords((list) => list.map((r) => (byKey.has(r.key) && !r.clip ? { ...r, clip: byKey.get(r.key)!.clip, emo: r.emo ?? byKey.get(r.key)!.emo } : r)));
+    setRecords((list) => list.map((r) => (byKey.has(r.key) ? withEye(r, byKey.get(r.key)!) : r)));
   };
 
   // Au lancement, une fois les choix lus : les séances gardées complètent les choix faits avant la fin du nouvel œil
