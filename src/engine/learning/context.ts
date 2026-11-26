@@ -166,3 +166,26 @@ export function faceFeatures(r: Pick<ChoiceRecord, 'key' | 'fclip'>, stats: Face
 export function faceNeutral(): number[] {
   return new Array<number>(2 * faceIdeas().length).fill(0);
 }
+
+/**
+ * Les traits du visage retenus (`config.context.faceTraits`, point 65) : pour chacun, la moyenne des visages et le
+ * visage le moins marqué, puis 1 si les visages ont été regardés. Chaque trait est lu par rapport aux autres idées du
+ * même visage. Photo sans visage regardé : zéros (ni bonus, ni pénalité).
+ */
+export function faceTraits(r: Pick<ChoiceRecord, 'key' | 'fclip'>): number[] {
+  const all = faceIdeas();
+  const ids = contextIdeas();
+  const pick = config.context.faceTraits.map((id) => all.findIndex((j) => ids[j]!.id === id)).filter((k) => k >= 0);
+  const faces = faceScores(r);
+  if (faces.length === 0) return new Array<number>(2 * pick.length + 1).fill(0);
+  const k = config.context.faceTraitScale;
+  const rel = faces.map((f) => {
+    let m = 0;
+    for (const x of f) m += x;
+    m /= f.length;
+    return pick.map((j) => (f[j]! - m) * k);
+  });
+  const mean = pick.map((_, t) => rel.reduce((a, r2) => a + r2[t]!, 0) / rel.length);
+  const low = pick.map((_, t) => Math.min(...rel.map((r2) => r2[t]!)));
+  return [...mean, ...low, 1];
+}

@@ -59,7 +59,7 @@ propre à ce test.
   relit plus un Blob après redémarrage, point 47).
 - Interface : `src/ui/style.css` (style d'Apple, mode sombre), icônes dans `src/ui/icons.tsx`, version affichée dans
   `src/ui/version.ts`. Photos non touchées enregistrées comme accords (`ChoiceRecord.implicit`) à l'envoi au raccourci.
-- Tri éclair : file `src/engine/triage/queue.ts`, justesse et confiance `src/engine/triage/calibration.ts`, journal
+- Tri éclair (« Pourquoi ? » et « se valent » : `PoseValidation.why`, `.tie`, point 65) : file `src/engine/triage/queue.ts`, justesse et confiance `src/engine/triage/calibration.ts`, journal
   `src/platform/storage/validations.ts`, écran `src/ui/screens/TriEclair.tsx`. La justesse de l'app se mesure sur les
   poses validées (point 41), pas sur les corrections.
 - Choix de l'utilisateur : IndexedDB (`src/platform/storage/choices.ts`), mesures et empreinte d'image (8 bits),
@@ -117,5 +117,6 @@ comparé honnêtement à la formule.
 Jalon 7 (plan : `docs/jalon-7.md`, point 61) : labo d'apprentissage, courbe des prédictions séance par séance.
 Jalon 8 en cours (plan : `docs/jalon-8.md`) : l'app découvre vos règles. Étape 1 faite (point 62) : vocabulaire de
 contexte, candidat « Formule + contexte » dans le Labo. Étape 2 faite (point 63) : le nouvel œil regarde chaque visage.
-Réseau de neurones dans le Labo, rattrapage du nouvel œil enchaîné (point 64).
+Réseau de neurones dans le Labo, rattrapage du nouvel œil enchaîné (point 64). Visages en 10 traits, sourire réajusté,
+« Pourquoi ? » et « Les deux se valent » dans le tri éclair (point 65).
 Modèle restant proposé : objets plus fins.

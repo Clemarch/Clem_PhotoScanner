@@ -21,13 +21,23 @@ export interface PoseValidation {
   kept: string[];
   /** Temps passé sur la pose (ms). */
   ms: number;
+  /** « Les deux se valent » (point 65) : l'utilisateur dit que les photos de la pose se valent ; ni juste ni faux. */
+  tie?: boolean;
+  /** « Pourquoi ? » (point 65) : raisons données en corrigeant l'app (`WHY_REASONS`). */
+  why?: string[];
 }
+
+/** Raisons proposées par « Pourquoi ? » dans le tri éclair (point 65). */
+export const WHY_REASONS = ['expression', 'regard', 'lumiere', 'cadrage', 'naturel'] as const;
 
 const sameSet = (a: readonly string[], b: readonly string[]): boolean => a.length === b.length && a.every((k) => b.includes(k));
 
 /** Validation trop rapide pour compter (tout accepté sans regarder). Une correction, même rapide, compte : on a
  *  regardé puisqu'on a changé quelque chose. */
 export const tooFast = (v: PoseValidation): boolean => v.ms < config.triage.minValidMs && sameSet(v.proposed, v.kept);
+
+/** Validation qui ne sert ni à mesurer ni à apprendre : trop rapide, photo seule, ou photos qui « se valent ». */
+export const unusable = (v: PoseValidation): boolean => tooFast(v) || v.keys.length < 2 || v.tie === true;
 
 /** Tranche d'écart de note (0 : très proches … dernière : très différentes). */
 export function bucketOf(margin: number): number {
@@ -45,7 +55,7 @@ export interface Calibration {
 export function calibrate(validations: readonly PoseValidation[]): Calibration {
   const buckets = Array.from({ length: config.triage.marginBuckets.length + 1 }, () => ({ poses: 0, right: 0 }));
   for (const v of validations) {
-    if (tooFast(v) || v.keys.length < 2) continue;
+    if (unusable(v)) continue;
     const b = buckets[bucketOf(v.margin)]!;
     b.poses++;
     if (sameSet(v.proposed, v.kept)) b.right++;
@@ -69,7 +79,7 @@ export interface Accuracy {
 export function accuracy(validations: readonly PoseValidation[]): Accuracy {
   const out: Accuracy = { poses: { right: 0, total: 0 }, photos: { right: 0, total: 0 } };
   for (const v of validations) {
-    if (tooFast(v) || v.keys.length < 2) continue;
+    if (unusable(v)) continue;
     out.poses.total++;
     if (sameSet(v.proposed, v.kept)) out.poses.right++;
     for (const k of v.keys) {

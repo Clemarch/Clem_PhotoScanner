@@ -35,7 +35,7 @@ const pctText = (right: number, total: number): string => (total ? `${pct(right,
  */
 export function Labo({ validations, records, excluded, learned, seances, tasteEffect, eyeProgress, onLaunchEye, onClose }: Props) {
   const scrolled = useScrolled();
-  const key = `${validations.length}|${records.length}|${records.filter((r) => r.clip).length}|${records.filter((r) => r.fclip?.length).length}|${[...excluded].sort().join(',')}`;
+  const key = `${validations.length}|${validations.filter((v) => v.tie).length}|${records.length}|${records.filter((r) => r.clip).length}|${records.filter((r) => r.fclip?.length).length}|${[...excluded].sort().join(',')}`;
   const [result, setResult] = useState<LabResult | null>(cache?.key === key ? cache.result : null);
   const [error, setError] = useState<string | null>(null);
   const [chosen, setChosen] = useState<string | null>(null);
@@ -239,6 +239,40 @@ export function Labo({ validations, records, excluded, learned, seances, tasteEf
           {appBySession.length >= 2 &&
             ` Première séance comptée : ${pctText(appBySession[0]!.right, appBySession[0]!.total)}, dernière : ${pctText(appBySession[appBySession.length - 1]!.right, appBySession[appBySession.length - 1]!.total)}.`}
         </p>
+      </section>
+
+      <h2 className="titre-groupe">Vos raisons</h2>
+      <section className="groupe">
+        {(() => {
+          // « Pourquoi ? » et « se valent » du tri éclair (point 65) : la dernière validation de chaque pose compte.
+          const last = new Map(validations.map((v) => [v.id, v]));
+          const list = [...last.values()];
+          const ties = list.filter((v) => v.tie).length;
+          const counts = new Map<string, number>();
+          for (const v of list) for (const w of v.why ?? []) counts.set(w, (counts.get(w) ?? 0) + 1);
+          const label: Record<string, string> = { expression: 'expression', regard: 'regard', lumiere: 'lumière', cadrage: 'cadrage', naturel: 'plus naturel' };
+          const sorted = [...counts].sort((a, b) => b[1] - a[1]);
+          return (
+            <>
+              {sorted.length > 0 ? (
+                <ul className="gouts">
+                  {sorted.map(([w, n]) => (
+                    <li key={w}>
+                      {label[w] ?? w} : {n} fois
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="note">Pas encore de raison donnée.</p>
+              )}
+              <p className="note">
+                Quand vous corrigez l’app dans le tri éclair, « Pourquoi ? » vous propose 5 raisons (facultatif, un toucher) :
+                elles disent à l’app quel critère regarder. « Les deux se valent » retire une pose des mesures (ni juste, ni
+                faux){ties ? ` : ${plural(ties, 'pose')} jusqu’ici` : ''}.
+              </p>
+            </>
+          );
+        })()}
       </section>
 
       <h2 className="titre-groupe">Ce que vos choix disent</h2>

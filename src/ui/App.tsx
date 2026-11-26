@@ -896,7 +896,7 @@ export function App() {
    * Pose validée dans le tri éclair : un choix enregistré pour chacune de ses photos (exemple complet, non biaisé),
    * et une ligne au journal. Validée trop vite sans rien changer : comptée comme vue, sans servir à l'apprentissage.
    */
-  const validatePose = ({ task, kept, ms }: EclairResult) => {
+  const validatePose = ({ task, kept, ms, tie, why }: EclairResult) => {
     if (!session) return;
     const id = `${session.id}|${task.key}`;
     // Pose déjà validée (« Tout revoir », retour en arrière) : la proposition d'origine est gardée. Celle d'aujourd'hui a
@@ -914,6 +914,8 @@ export function App() {
       // Revalidée d'un geste rapide (retour en arrière, « Tout revoir ») : le temps déjà passé sur la pose compte, sinon
       // une validation faite en regardant serait écartée comme « trop rapide ».
       ms: Math.max(ms, previous?.ms ?? 0),
+      ...(tie ? { tie: true } : {}),
+      ...(why.length ? { why } : {}),
     };
     void saveValidation(validation);
     setValidations((list) => [...list.filter((v) => v.id !== validation.id), validation]);

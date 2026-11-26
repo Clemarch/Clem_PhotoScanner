@@ -536,3 +536,10 @@ table.progres tr.hors td { color: var(--doux-2); }
 .courbe .s1 circle.creux { stroke: var(--serie-1); }
 .courbe .s2 circle.creux { stroke: var(--serie-2); }
 .legende-courbe i.creux { width: 8px; height: 8px; border-radius: 50%; border: 2px solid var(--doux); }
+
+/* Tri éclair : « Pourquoi ? » et « se valent » (point 65) */
+.eclair-pourquoi { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; margin-bottom: 6px; }
+.eclair-pourquoi .doux { font-size: 13px; margin-right: 2px; }
+.eclair-pourquoi .puce { font-size: 14px; padding: 6px 11px; }
+.eclair-valent { display: block; margin: 0 auto 4px; font-size: 14px; }
+.eclair-valent.actif { color: var(--accent); font-weight: 600; }

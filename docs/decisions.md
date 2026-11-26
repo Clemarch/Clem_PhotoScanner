@@ -1152,6 +1152,28 @@ Accord de l'utilisateur (27/11 : « continue les étapes suivantes »).
   encore de vainqueur (3 points sur 300 paires) ; la formule reste aux commandes.
 - Écarts des candidats affichés au dixième de point (« +3 pt » arrondi contredisait la règle des 3 points).
 
+### 65. Les visages en 10 traits, sourire réajusté, « Pourquoi ? » et « se valent » (27/11)
+
+Accord de l'utilisateur (27/11 : « tu peux procéder… avance un maximum »). Constat sur la sauvegarde du 27/11 à 3 h
+(405 photos sur 641 avec leurs visages, 284 paires avec des visages des deux côtés) :
+- Avec les 35 idées « visage » (70 mesures), le réseau et « Formule + visages » retombaient à 61 % : trop de réglages
+  pour 473 paires. Le signal existe pourtant : la photo gardée a moins souvent le visage dans l'ombre (65 % des paires),
+  le regard vers le bas (62 %), la tête penchée ou le regard ailleurs (60 %).
+- Là où la formule se trompe (103 paires avec visages), vous gardez la photo la moins souriante dans 66 % des cas, plus
+  naturelle (cheveux, air ailleurs, bouche entrouverte, visage « flatteur »). Quand le sourire diffère, la formule
+  prend la plus souriante 81 % du temps, vous 68 %. Le sourire compte, mais pas toujours.
+Changements :
+- 10 traits du visage seulement (`config.context.faceTraits`) : ombre, regard bas, regard ailleurs, tête penchée,
+  sourire, rire, grimace, visage flatteur, cheveux, yeux fermés ; chacun lu par rapport aux autres idées du même visage,
+  moyenne et visage le moins marqué (`faceTraits`). Mesuré (473 paires) : formule 63,2 %, + visages 64,5 %, réseau
+  64,7 % (contre 61 % avant).
+- Candidat « Formule, sourire réajusté » : poids du sourire et de l'expression appris sur les choix (63,6 %).
+- Tri éclair : quand l'utilisateur corrige la proposition, « Pourquoi ? » (expression, regard, lumière, cadrage, plus
+  naturel ; facultatif, plusieurs possibles) ; « Les deux se valent » (« Elles se valent ») sur toute pose de plusieurs
+  photos : la pose ne compte ni dans la justesse ni dans l'apprentissage (`unusable`), mais les photos sont bien gardées
+  ou supprimées comme choisi. Raisons et « se valent » gardés dans le journal et la sauvegarde ; Labo : « Vos raisons ».
+- Aucune décision de l'app ne change : la formule reste aux commandes.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.
