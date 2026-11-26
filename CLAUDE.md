@@ -72,6 +72,7 @@ propre à ce test.
   `src/engine/learning/context.ts`. Aucun modèle de plus sur l'iPhone. Visages : SigLIP 2 aussi sur chaque visage
   principal recadré (`FaceMetrics.clip`, `ChoiceRecord.fclip`, passage `config.ranker.eyeVersion`, point 63).
   Jamais la place dans la rafale comme critère (corrélation, pas causalité : utilisateur, 27/11).
+  Réseau de neurones du Labo : `src/engine/learning/nn.ts` (`config.net`, point 64), mesure seulement.
 - Sauvegarde des goûts : `src/engine/learning/backup.ts` (format) et `src/platform/storage/backupFile.ts` (fichier,
   iCloud Drive via la feuille de partage). Une séance peut couvrir une après-midi ou plusieurs jours.
 
@@ -116,4 +117,5 @@ comparé honnêtement à la formule.
 Jalon 7 (plan : `docs/jalon-7.md`, point 61) : labo d'apprentissage, courbe des prédictions séance par séance.
 Jalon 8 en cours (plan : `docs/jalon-8.md`) : l'app découvre vos règles. Étape 1 faite (point 62) : vocabulaire de
 contexte, candidat « Formule + contexte » dans le Labo. Étape 2 faite (point 63) : le nouvel œil regarde chaque visage.
+Réseau de neurones dans le Labo, rattrapage du nouvel œil enchaîné (point 64).
 Modèle restant proposé : objets plus fins.

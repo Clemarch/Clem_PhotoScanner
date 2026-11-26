@@ -175,7 +175,8 @@ export function Labo({ validations, records, excluded, learned, seances, tasteEf
             </p>
             <ul className="labo-candidats">
               {result.candidates.map((c) => {
-                const gain = formula.honest.total ? Math.round((rate(c.honest) - rate(formula.honest)) * 100) : 0;
+                // Au dixième de point : « +3 pt » arrondi ne doit pas contredire la règle des 3 points (27/11).
+                const gain = formula.honest.total ? Math.round((rate(c.honest) - rate(formula.honest)) * 1000) / 10 : 0;
                 return (
                   <li key={c.id} className={c.id === 'formule' ? 'aux-commandes' : ''}>
                     <div>
@@ -185,7 +186,7 @@ export function Labo({ validations, records, excluded, learned, seances, tasteEf
                     <div className="labo-score">
                       <strong>{pctText(c.honest.right, c.honest.total)}</strong>
                       <span className={gain > 0 ? 'vert' : gain < 0 ? 'rouge' : 'doux'}>
-                        {c.id === 'formule' ? 'aux commandes' : `${gain > 0 ? '+' : ''}${gain} pt`}
+                        {c.id === 'formule' ? 'aux commandes' : `${gain > 0 ? '+' : ''}${gain.toLocaleString('fr-FR')} pt`}
                       </span>
                     </div>
                   </li>

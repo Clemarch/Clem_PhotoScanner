@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { contextIdeas, contextScores, contextStats, encodeEmbedding, faceFeatures, faceIdeas, faceStats, labPairs, runLab, topIdeas, LAB_CANDIDATES, type ChoiceRecord, type PoseValidation } from '../../src/engine';
+import { contextIdeas, contextScores, contextStats, encodeEmbedding, faceFeatures, faceIdeas, faceStats, trainPairNet, type NetPair, labPairs, runLab, topIdeas, LAB_CANDIDATES, type ChoiceRecord, type PoseValidation } from '../../src/engine';
 
 // Labo d'apprentissage (jalon 7) : candidats mis en concurrence honnêtement sur les poses validées.
 const unit = (seed: number) => {
@@ -149,5 +149,23 @@ describe('nouvel œil sur les visages (jalon 8, point 63)', () => {
     expect(patched[0]!.clip).toBe(old.clip);
     // Déjà complété : rien à refaire.
     expect(eyePatches([patched[0]!], [item])).toHaveLength(0);
+  });
+});
+
+describe('réseau de neurones (jalon 8, point 64)', () => {
+  it('apprend une règle en contexte qu’une addition ne sait pas faire : yeux fermés, mauvais sauf en méditation', () => {
+    // x = [yeux fermés, méditation]. Vous gardez les yeux ouverts, sauf en méditation où vous gardez les yeux fermés.
+    const pairs: NetPair[] = [];
+    for (let i = 0; i < 60; i++) {
+      const med = i % 2;
+      const open = [0, med];
+      const closed = [1, med];
+      pairs.push(med ? { keep: closed, drop: open, base: 0 } : { keep: open, drop: closed, base: 0 });
+    }
+    const net = trainPairNet(pairs, { hidden: 4, epochs: 400, rate: 0.05, l2: 0.001, formulaScale: 8, seed: 1 });
+    expect(net([0, 0])).toBeGreaterThan(net([1, 0]));
+    expect(net([1, 1])).toBeGreaterThan(net([0, 1]));
+    // Sans exemples : rien n'est ajouté à la formule.
+    expect(trainPairNet([], { hidden: 4, epochs: 10, rate: 0.01, l2: 0.1, formulaScale: 8, seed: 1 })([1, 1])).toBe(0);
   });
 });

@@ -474,7 +474,7 @@ export function App() {
    * Nouvel œil en arrière-plan : une photo à la fois. Chaque résultat complète la photo (empreinte SigLIP 2, émotions
    * des visages) et les choix déjà faits sur elle ; à la fin, la séance est réenregistrée avec ces mesures.
    */
-  const runEye = (sessionId: string, results: AnalyzeResult[], originals: Map<string, Blob>, meta: SavedSessionMeta, note: string | null = null) => {
+  const runEye = (sessionId: string, results: AnalyzeResult[], originals: Map<string, Blob>, meta: SavedSessionMeta, note: string | null = null, after?: () => void) => {
     // Jamais pendant une analyse : ses six moteurs et le nouvel œil ne doivent pas se disputer la mémoire (point 58).
     if (analysing.current) return;
     eyeRun.current?.cancel();
@@ -535,6 +535,8 @@ export function App() {
         void updateSessionMeasures(sessionId, results, meta);
         // Choix faits pendant que le nouvel œil travaillait : complétés avec ses mesures.
         applyEyePatches(results.map((r) => r.item));
+        // Rattrapage : la séance gardée suivante (27/11 : une seule séance revue par lancement, c'était trop peu).
+        after?.();
       },
     );
   };
@@ -550,19 +552,26 @@ export function App() {
       if (r.preview && r.item.kind === 'photo' && !r.item.isRaw && r.item.camera !== false && !r.diagnostic.error && needsEye(r.item))
         missing.set(r.item.id, r.preview);
     if (missing.size === 0) return;
-    runEye(session.id, session.results, missing, sessionMeta(session));
+    const token = eyeToken.current;
+    // Puis les séances gardées qui attendent encore le nouvel œil (27/11).
+    runEye(session.id, session.results, missing, sessionMeta(session), null, () => {
+      if (eyeToken.current === token) void catchUpEye(session.id);
+    });
   }, [session, models]);
 
   // Rattrapage (25/11) : séances gardées dont des photos n'ont jamais eu les mesures du nouvel œil (arrêté en route
   // avant le réglage 16 quinquies). Une séance à la fois, quand aucune séance n'est en cours d'utilisation, à partir de
-  // ses aperçus ; la suivante au prochain lancement. Les choix sont complétés à la fin.
+  // ses aperçus, puis la suivante (27/11 : enchaînées jusqu'à la dernière). Les choix sont complétés à la fin.
   const eyeCaughtUp = useRef(false);
+  /** Séances déjà passées par le rattrapage depuis l'ouverture de l'app : jamais deux fois (une photo que l'œil ne
+   *  sait pas lire ne relance pas la même séance en boucle). */
+  const eyeTried = useRef(new Set<string>());
   /** Lance le nouvel œil sur la première séance gardée (autre que `skip`) dont des photos n'ont pas ses mesures.
    *  Rend le nombre de photos lancées (0 : rien à faire). */
   const catchUpEye = async (skip?: string): Promise<number> => {
     const needs = (it: MediaItem) => it.kind === 'photo' && !it.isRaw && it.camera !== false && needsEye(it);
     for (const s of await listSessions()) {
-      if (s.sessionId === skip) continue;
+      if (s.sessionId === skip || eyeTried.current.has(s.sessionId)) continue;
       if (!(await loadSessionItems(s.sessionId)).some(needs)) continue;
       const saved = await loadSessionById(s.sessionId);
       if (!saved || eyeRun.current || analysing.current) return 0;
@@ -570,7 +579,12 @@ export function App() {
       const missing = new Map<string, Blob>();
       for (const r of results) if (r.preview && !r.diagnostic.error && needs(r.item)) missing.set(r.item.id, r.preview);
       if (missing.size === 0) continue;
-      runEye(s.sessionId, results, missing, saved.meta);
+      eyeTried.current.add(s.sessionId);
+      // Puis la suivante, tant qu'aucune analyse ne commence (`runEye` refuse alors de démarrer).
+      const token = eyeToken.current;
+      runEye(s.sessionId, results, missing, saved.meta, null, () => {
+        if (eyeToken.current === token) void catchUpEye(skip);
+      });
       return missing.size;
     }
     return 0;
@@ -587,13 +601,19 @@ export function App() {
    */
   const launchEye = async (): Promise<number> => {
     if (eyeRun.current || analysing.current || !models?.ready) return 0;
+    // Demandé par l'utilisateur : les séances déjà essayées depuis l'ouverture peuvent être retentées.
+    eyeTried.current.clear();
+    const token = eyeToken.current;
+    const next = () => {
+      if (eyeToken.current === token) void catchUpEye(session && !closed ? session.id : undefined);
+    };
     if (session && !closed) {
       const missing = new Map<string, Blob>();
       for (const r of session.results)
         if (r.preview && r.item.kind === 'photo' && !r.item.isRaw && r.item.camera !== false && !r.diagnostic.error && needsEye(r.item))
           missing.set(r.item.id, r.preview);
       if (missing.size > 0) {
-        runEye(session.id, session.results, missing, sessionMeta(session));
+        runEye(session.id, session.results, missing, sessionMeta(session), null, next);
         return missing.size;
       }
     }

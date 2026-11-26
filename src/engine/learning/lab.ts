@@ -12,6 +12,7 @@ import { FEATURE_NAMES, type ChoiceRecord } from '../types';
 import { decodeEmbedding } from './embeddingCodec';
 import { eyeVector, rankScore, trainRanker } from './ranker';
 import { tooFast, type PoseValidation } from '../triage/calibration';
+import { trainPairNet } from './nn';
 import { contextScores, contextStats, faceFeatures, faceNeutral, faceStats, rankingIdeas } from './context';
 
 export interface LabPair {
@@ -160,6 +161,43 @@ function trainFaces(pairs: readonly LabPair[]): LabScorer {
   return trainOnFormula(train, (r) => (stats ? faceFeatures(r, stats) : null) ?? faceNeutral(), config.context);
 }
 
+/**
+ * Réseau de neurones (point 64) : critères, émotions, idées de l'image entière et des visages, avec des règles qui
+ * dépendent les unes des autres (« les yeux fermés comptent… sauf si… »), ce qu'une simple addition ne sait pas faire.
+ */
+function trainNet(pairs: readonly LabPair[]): LabScorer {
+  const train = sample(pairs, config.context.maxTrainPairs);
+  const records = train.flatMap((p) => [p.keep, p.drop]);
+  // Les 118 idées de l'image entière ne sont pas données au réseau : mesuré le 27/11 sur 473 paires, il apprenait par
+  // cœur (57 à 61 %, contre 64,9 % sans elles). Celles des visages, lues là où se joue la différence, restent.
+  const faces = faceStats(records);
+  const vec = (r: ChoiceRecord): number[] => {
+    const f = faces ? faceFeatures(r, faces) : null;
+    const emo = r.emo && r.emo.length === 6 ? r.emo : [0.5, 0.5, 0.5, 0.5, 0.5, 0.5];
+    return [
+      ...FEATURE_NAMES.map((n) => r.features[n] ?? 0.5),
+      ...emo,
+      ...(f ?? faceNeutral()),
+      f ? 1 : 0,
+    ];
+  };
+  const cache = new Map<string, number[]>();
+  const x = (r: ChoiceRecord) => {
+    let v = cache.get(r.key);
+    if (!v) cache.set(r.key, (v = vec(r)));
+    return v;
+  };
+  const netPairs = train.map((p) => ({ keep: x(p.keep), drop: x(p.drop), base: p.keep.baseScore - p.drop.baseScore }));
+  const n = config.net;
+  const nets = Array.from({ length: n.ensemble }, (_, k) =>
+    trainPairNet(netPairs, { hidden: n.hidden, epochs: n.epochs, rate: n.rate, l2: n.l2, formulaScale: config.lab.formulaScale, seed: 17 + k }),
+  );
+  return (r) => {
+    const v = x(r);
+    return config.lab.formulaScale * r.baseScore + nets.reduce((t, net) => t + net(v), 0) / nets.length;
+  };
+}
+
 export const LAB_CANDIDATES: readonly LabCandidate[] = [
   {
     id: 'formule',
@@ -248,6 +286,12 @@ export const LAB_CANDIDATES: readonly LabCandidate[] = [
     label: 'Formule + visages',
     description: 'La formule, corrigée par ce que le nouvel œil lit sur chaque visage recadré (yeux, regard, expression, netteté) : la moyenne et le visage le moins réussi.',
     train: trainFaces,
+  },
+  {
+    id: 'reseau',
+    label: 'Réseau de neurones',
+    description: 'Un petit réseau de neurones qui part de la formule et apprend des règles qui dépendent les unes des autres, à partir des 18 critères, des émotions et de ce que le nouvel œil lit sur chaque visage.',
+    train: trainNet,
   },
 ];
 
