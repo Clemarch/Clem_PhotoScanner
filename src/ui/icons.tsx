@@ -100,3 +100,14 @@ export const IconNuage = ({ size = 18, className }: IconProps) =>
       <path d="M12 16.5v-6M9.5 12.5 12 10l2.5 2.5" />
     </>,
   );
+
+/** Courbe qui monte : labo d'apprentissage. */
+export const IconLabo = ({ size = 18, className }: IconProps) =>
+  svg(
+    size,
+    className,
+    <>
+      <path d="M4 4v16h16" />
+      <path d="m7 15 4-4 3 3 5-6" />
+    </>,
+  );

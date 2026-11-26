@@ -90,6 +90,7 @@ import { APP_VERSION } from './version';
 import { Accueil } from './screens/Accueil';
 import { Analyse } from './screens/Analyse';
 import { Reglages } from './screens/Reglages';
+import { Labo } from './screens/Labo';
 import { IconCorbeille, IconReglages, IconTrier } from './icons';
 import { Paquets } from './screens/Paquets';
 import { ASupprimer } from './screens/ASupprimer';
@@ -153,6 +154,8 @@ export function App() {
   const [shadow, setShadow] = useState<ShadowComparison | null>(null);
   // Nouvel œil en arrière-plan : progression (affichée dans Réglages) et tâche en cours.
   const [eyeProgress, setEyeProgress] = useState<EyeProgress | null>(null);
+  // Labo d'apprentissage (jalon 7), ouvert par-dessus l'accueil ou les réglages.
+  const [laboOpen, setLaboOpen] = useState(false);
   const eyeRun = useRef<EyeRun | null>(null);
   const eyeToken = useRef(0);
   // Modèles du nouvel œil : état du téléchargement (accueil) et attente avant de lancer l'œil.
@@ -377,9 +380,9 @@ export function App() {
   // Paquets toujours découpés selon ce que montrent les photos (utilisateur, 20/11 : l'interrupteur n'avait pas de sens).
   const day = useMemo(() => analyzeDay(items, gap, learned, joined, true), [items, gap, learned, joined]);
   // Ce que vos goûts appris changent dans cette séance (utilisateur, 26/11 : « je ne vois rien de mes goûts ») :
-  // décisions comparées à celles de la formule seule. Calculé seulement quand Réglages est ouvert.
+  // décisions comparées à celles de la formule seule. Calculé seulement quand le labo est ouvert.
   const tasteEffect = useMemo(() => {
-    if (tab !== 'reglages' || !session || Object.keys(learned).length === 0) return null;
+    if (!laboOpen || !session || Object.keys(learned).length === 0) return null;
     const base = analyzeDay(items, gap, {}, joined, true);
     const baseKeep = new Map<string, boolean>();
     for (const p of base.packs) for (const [id, d] of p.decisions) baseKeep.set(id, d.keep);
@@ -391,7 +394,7 @@ export function App() {
         if (baseKeep.has(id) && baseKeep.get(id) !== d.keep) changed++;
       }
     return { changed, total };
-  }, [tab, session, items, gap, joined, learned, day]);
+  }, [laboOpen, session, items, gap, joined, learned, day]);
 
   // File du tri éclair : poses à trancher, sans celles déjà validées dans cette séance, ni les « sûres » (l'app y a fait
   // ses preuves sur vos validations passées).
@@ -988,14 +991,32 @@ export function App() {
       onRetryModels={retryModels}
       eyeProgress={eyeProgress}
       onLaunchEye={launchEye}
-      tasteEffect={tasteEffect}
       seances={seances}
       currentId={closed ? null : (session?.id ?? null)}
       onReopen={(id) => void reopen(id)}
       onDeleteSession={(id) => void removeSaved(id)}
       onClose={onClose}
+      onLabo={validations.length > 0 ? () => setLaboOpen(true) : undefined}
     />
   );
+
+  if (laboOpen)
+    return (
+      <Labo
+        validations={validations}
+        records={records}
+        excluded={excluded}
+        learned={learned}
+        seances={seances}
+        tasteEffect={tasteEffect}
+        eyeProgress={eyeProgress}
+        onLaunchEye={launchEye}
+        onClose={() => {
+          setLaboOpen(false);
+          window.scrollTo({ top: 0 });
+        }}
+      />
+    );
 
   if (!session) {
     if (settingsOpen) return settings(() => setSettingsOpen(false));
@@ -1008,6 +1029,7 @@ export function App() {
         recordsLoaded={recordsLoaded}
         onRestore={restore}
         onSettings={() => setSettingsOpen(true)}
+        onLabo={validations.length > 0 ? () => setLaboOpen(true) : undefined}
         seances={seances.length}
         models={models}
         onRetryModels={retryModels}

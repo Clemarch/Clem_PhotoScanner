@@ -1064,6 +1064,25 @@ mesurés n'expliquent pas les choix ; le nouvel œil non plus pour l'instant (60
 l'utilisateur, non commencée : un jalon « apprentissage » qui teste d'autres façons d'apprendre, toujours comparées
 honnêtement à la formule.
 
+### 61. Jalon 7 : labo d'apprentissage (26/11)
+
+Demande de l'utilisateur (26/11) : « une page dédiée à l'apprentissage… où je puisse suivre la progression… et voir à
+quel point tes prédictions et tes sélections sont de plus en plus performantes ». Plan : `docs/jalon-7.md`.
+
+- Page « Labo » (`src/ui/screens/Labo.tsx`), ouverte depuis l'accueil et Réglages dès qu'une pose est validée. Le
+  tableau « Progrès séance par séance » de Réglages y déménage.
+- Cinq façons d'apprendre en concurrence (`src/engine/learning/lab.ts`) : formule actuelle, formule + vos goûts (18
+  critères), nouvel œil seul, formule + nouvel œil, formule + photos semblables (vote des photos passées les plus
+  proches selon SigLIP 2). Aucun nouveau modèle : seulement les mesures déjà enregistrées.
+- Deux mesures honnêtes sur les paires « gardée / supprimée » des poses validées : chaque séance testée avec ce qui a
+  été appris sur les autres (justesse générale), et la courbe : chaque séance testée avec ce qui a été appris AVANT
+  elle (ce que l'app aurait prédit ce jour-là). Une photo présente dans deux séances est retirée de l'apprentissage.
+- Rien ne change dans les décisions : la formule reste aux commandes. Un candidat ne serait proposé à l'utilisateur
+  qu'en la battant d'au moins 3 points sur au moins 300 paires (`config.lab`).
+- Calcul dans un Worker (`src/platform/worker/lab.ts`), environ 4 s, gardé tant que les données ne changent pas.
+- Sur la sauvegarde du 26/11 (491 paires) : formule 62 %, + vos goûts 63 %, nouvel œil seul 55 %, formule + œil 59 %,
+  photos semblables 63 % : pas de vainqueur. Points de la courbe sur moins de 10 paires dessinés creux (peu fiables).
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

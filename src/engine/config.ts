@@ -365,6 +365,23 @@ export const config = {
     /** Au plus N paires pour apprendre (prises à intervalles réguliers) : le calcul reste rapide sur l'iPhone. */
     maxTrainPairs: 400,
   },
+  /** Labo d'apprentissage (jalon 7, 26/11) : candidats comparés honnêtement à la formule (`learning/lab.ts`). */
+  lab: {
+    /** Poids de la formule dans les candidats qui partent d'elle (sa note est entre 0 et 1). */
+    formulaScale: 8,
+    /** Frein contre l'apprentissage par cœur, pas et nombre de passes. */
+    lambda: 0.05,
+    rate: 0.5,
+    iterations: 150,
+    /** Au plus N paires pour apprendre : le calcul reste court sur l'iPhone. */
+    maxTrainPairs: 300,
+    /** Photos semblables : nombre de voisins qui votent, et poids du vote face à la note de la formule. */
+    neighbors: 7,
+    neighborWeight: 0.05,
+    /** Un candidat ne bat la formule que s'il fait mieux d'au moins `minGain` (en part des paires) sur `minPairs` paires. */
+    minGain: 0.03,
+    minPairs: 300,
+  },
   /** Tri éclair (jalon 6, `docs/jalon-6.md`). */
   triage: {
     /** Une pose validée plus vite que ça (ms) ne compte ni pour la justesse ni pour l'apprentissage. */
