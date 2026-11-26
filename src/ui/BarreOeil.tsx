@@ -38,14 +38,18 @@ export function BarreOeil({ progress, onLaunch }: { progress: EyeProgress | null
       </div>
       <p className="note">
         Il regarde chaque photo pour apprendre vos goûts. Il se lance tout seul après chaque analyse ; ce bouton le relance
-        sur les photos qu’il n’a pas encore vues, ou dont il n’a pas encore regardé les visages un par un (une séance à
-        la fois).
+        sur les photos qu’il n’a pas encore vues, ou dont il n’a pas encore regardé les visages un par un, séance après
+        séance.
       </p>
       <button
         className="bouton"
         onClick={async () => {
           const n = await onLaunch!();
-          setMessage(n > 0 ? `Lancé sur ${n} photo${n > 1 ? 's' : ''}.` : 'Toutes les photos ont déjà été regardées ✓');
+          setMessage(
+            n > 0
+              ? `Lancé sur ${n} photo${n > 1 ? 's' : ''} ; il enchaîne ensuite seul les autres séances qui l’attendent (gardez l’app ouverte).`
+              : 'Toutes les photos ont déjà été regardées ✓',
+          );
         }}
       >
         Lancer le nouvel œil

@@ -21,8 +21,9 @@ possible », progrès à chaque séance, quitte à valider 2 000 photos. Avancer
    quelques nombres appris sur toutes les photos vues, même non triées.
 4. Arbres de décision et « Règles découvertes » ; galerie « Les erreurs de l'app » avec « pourquoi » ; bouton
    « Les deux se valent » dans le tri éclair.
-5. Réseau de neurones (cinq petits réseaux, partant de la formule), réentraîné après chaque séance ; tri éclair qui
-   montre d'abord les poses où les réseaux ne sont pas d'accord. Point d'arrêt vers 1 000 paires.
+5. Réseau de neurones (point 64) — dans le Labo : 3 petits réseaux partant de la formule, 64,9 % contre 63,2 % sur
+   473 paires. Reste : réentraînement après chaque séance hors du Labo, et tri éclair qui montre d'abord les poses où
+   les réseaux ne sont pas d'accord. Point d'arrêt vers 1 000 paires.
 6. Passage de relais, avec l'accord de l'utilisateur, vers 2 000 paires.
 
 ## Mesures de départ (26/11, 473 paires)

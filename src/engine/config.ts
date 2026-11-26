@@ -383,6 +383,16 @@ export const config = {
     /** Au plus N paires pour apprendre. */
     maxTrainPairs: 2000,
   },
+  /** Réseau de neurones du Labo (jalon 8, étape 5, point 64) : petit, pour apprendre vite sur l'iPhone. */
+  net: {
+    // Réglages mesurés le 27/11 sur 473 paires (2 à 8 neurones : même résultat ; frein 0,1 : moins d'apprentissage par cœur).
+    hidden: 4,
+    epochs: 60,
+    rate: 0.01,
+    l2: 0.1,
+    /** Réseaux entraînés avec des graines différentes, dont on fait la moyenne (plus stable qu'un seul). */
+    ensemble: 3,
+  },
   lab: {
     /** Poids de la formule dans les candidats qui partent d'elle (sa note est entre 0 et 1). */
     formulaScale: 8,

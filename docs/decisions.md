@@ -1133,6 +1133,25 @@ réduite à 224 points, ne départage pas deux photos d'une même pose : un visa
 - Mesures sur l'iPhone du 26/11 (491 paires) : formule 62 %, + vos goûts 63 %, + photos semblables 64 %, + contexte
   62 %, nouvel œil seul 56 %. « Formule + visages » ne pourra être jugé qu'une fois les séances revues.
 
+### 64. Jalon 8 : rattrapage enchaîné du nouvel œil, réseau de neurones dans le Labo (27/11)
+
+Accord de l'utilisateur (27/11 : « continue les étapes suivantes »).
+- Constat sur la sauvegarde du 27/11 : 67 photos sur 641 avec leurs visages, toutes de la séance ouverte ; les six
+  autres séances gardées n'avaient pas été revues (le rattrapage ne lançait qu'une séance par ouverture de l'app, et
+  jamais quand une séance était ouverte). Désormais, après la séance ouverte, le nouvel œil enchaîne seul les séances
+  gardées qui l'attendent ; une séance n'est essayée qu'une fois par ouverture (pas de boucle sur une photo
+  illisible), sauf si l'utilisateur relance ; tout s'arrête si une analyse commence.
+- Réseau de neurones écrit à la main (`src/engine/learning/nn.ts`) : une couche cachée de 4 neurones (tanh) et un
+  lien direct, en correction de la formule (sans exemples, c'est la formule), Adam, graine fixe, moyenne de 3 réseaux
+  (`config.net`). Entrées : 18 critères, émotions, idées des visages (moyenne et pire visage) et un indicateur
+  « visages regardés ». Il sait apprendre une règle en contexte qu'une addition ne sait pas faire (test : yeux fermés,
+  mauvais sauf en méditation).
+- Mesuré sur 473 paires (sauvegarde du 27/11, séance retriée exclue) : formule 63,2 %, réseau 64,9 % (2, 4 ou 8
+  neurones : même résultat) ; avec les 118 idées de l'image entière en plus, il apprend par cœur (57 à 61 %) : elles
+  ne lui sont pas données. Dans le navigateur, sur 491 paires : réseau 65 % (+2,9 points), calcul du Labo 7,7 s. Pas
+  encore de vainqueur (3 points sur 300 paires) ; la formule reste aux commandes.
+- Écarts des candidats affichés au dixième de point (« +3 pt » arrondi contredisait la règle des 3 points).
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.
