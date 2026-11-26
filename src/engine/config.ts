@@ -382,6 +382,14 @@ export const config = {
     rate: 0.3,
     /** Au plus N paires pour apprendre. */
     maxTrainPairs: 2000,
+    /**
+     * Les 10 traits du visage retenus (point 65 : mesuré sur 284 paires, ce sont ceux qui départagent vos choix ;
+     * avec les 35 idées « visage », le réseau apprenait par cœur). Chacun lu par rapport aux autres idées du même
+     * visage (on retire ce qui fait qu'un visage ressemble plus ou moins à toutes les phrases à la fois).
+     */
+    faceTraits: ['v_regard_bas', 'v_ombre', 'v_regard_ailleurs', 'v_tete_penchee', 'v_sourire', 'v_rire', 'v_grimace', 'v_flatteur', 'v_cheveux', 'v_yeux_fermes'] as readonly string[],
+    /** Échelle des traits (écarts de ressemblance de l'ordre de 0,01 → de l'ordre de 0,2). */
+    faceTraitScale: 20,
   },
   /** Réseau de neurones du Labo (jalon 8, étape 5, point 64) : petit, pour apprendre vite sur l'iPhone. */
   net: {

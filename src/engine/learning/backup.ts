@@ -137,6 +137,8 @@ export function decodeBackup(data: unknown): DecodedBackup {
       proposed: v.proposed,
       kept: v.kept,
       ms: typeof v.ms === 'number' ? v.ms : 0,
+      ...(v.tie === true ? { tie: true } : {}),
+      ...(strings(v.why) && v.why.length ? { why: v.why } : {}),
     });
   }
   return { records, skipped, savedAt: typeof file.savedAt === 'number' ? file.savedAt : null, validations };

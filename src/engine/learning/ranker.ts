@@ -7,7 +7,7 @@ import { config } from '../config';
 import { mainFaces } from '../analysis/faces';
 import { FEATURE_NAMES, type ChoiceRecord, type MediaItem } from '../types';
 import { decodeEmbedding } from './embeddingCodec';
-import { tooFast, type PoseValidation } from '../triage/calibration';
+import { unusable, type PoseValidation } from '../triage/calibration';
 
 const HAPPY = 4;
 const NEUTRAL = 5;
@@ -103,7 +103,7 @@ export function shadowCompare(validations: readonly PoseValidation[], records: r
   type Pair = { keep: number[]; drop: number[]; formula: boolean; keys: readonly [string, string] };
   const pairsBySession = new Map<string, Pair[]>();
   for (const v of validations) {
-    if (tooFast(v) || v.keys.length < 2) continue;
+    if (unusable(v)) continue;
     const kept = v.keys.filter((k) => v.kept.includes(k));
     const dropped = v.keys.filter((k) => !v.kept.includes(k));
     for (const a of kept)

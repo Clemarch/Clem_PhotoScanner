@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type TouchEvent } from 'react';
-import { config, type PoseTask } from '../../engine';
+import { config, type PoseTask, WHY_REASONS } from '../../engine';
 import { isLandscape, plural } from '../format';
 import { IconCoche, IconCroix, IconEtoile, IconFermer, IconFleche } from '../icons';
 
@@ -7,7 +7,20 @@ export interface EclairResult {
   task: PoseTask;
   kept: Set<string>;
   ms: number;
+  /** « Les deux se valent » (point 65). */
+  tie: boolean;
+  /** « Pourquoi ? » : raisons de la correction (point 65). */
+  why: string[];
 }
+
+/** Noms affichés des raisons de « Pourquoi ? ». */
+const WHY_LABEL: Record<(typeof WHY_REASONS)[number], string> = {
+  expression: 'Expression',
+  regard: 'Regard',
+  lumiere: 'Lumière',
+  cadrage: 'Cadrage',
+  naturel: 'Plus naturel',
+};
 
 interface Props {
   tasks: PoseTask[];
@@ -28,6 +41,8 @@ export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, o
   const [index, setIndex] = useState(0);
   const [kept, setKept] = useState<Set<string>>(() => new Set(tasks[0]?.proposed ?? []));
   const [zoom, setZoom] = useState<string | null>(null);
+  const [tie, setTie] = useState(false);
+  const [why, setWhy] = useState<string[]>([]);
   const [results, setResults] = useState<Map<string, EclairResult>>(new Map());
   const shownAt = useRef(Date.now());
   const startedAt = useRef(Date.now());
@@ -36,7 +51,10 @@ export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, o
   // Nouvelle pose : sélection reprise (si déjà validée) ou proposition de l'app.
   useEffect(() => {
     if (!task) return;
-    setKept(new Set(results.get(task.key)?.kept ?? task.proposed));
+    const done = results.get(task.key);
+    setKept(new Set(done?.kept ?? task.proposed));
+    setTie(done?.tie ?? false);
+    setWhy(done?.why ?? []);
     setZoom(null);
     shownAt.current = Date.now();
   }, [index]);
@@ -52,7 +70,9 @@ export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, o
 
   const validate = () => {
     if (!task) return;
-    const result = { task, kept: new Set(kept), ms: Date.now() - shownAt.current };
+    // Raisons gardées seulement si la proposition a été corrigée (sinon elles n'expliquent rien).
+    const corrected = task.items.some((it) => kept.has(it.id) !== task.proposed.has(it.id));
+    const result = { task, kept: new Set(kept), ms: Date.now() - shownAt.current, tie, why: corrected && !tie ? why : [] };
     setResults((map) => new Map(map).set(task.key, result));
     onValidate(result);
     setIndex((i) => i + 1);
@@ -64,7 +84,7 @@ export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, o
     // Mêmes règles que la justesse des Réglages : photos seules et poses validées trop vite écartées.
     const same = (r: EclairResult) => r.kept.size === r.task.appProposed.size && [...r.kept].every((id) => r.task.appProposed.has(id));
     // Acceptée trop vite sans rien changer : écartée ; une correction, même rapide, compte.
-    const counted = list.filter((r) => r.task.items.length > 1 && (r.ms >= config.triage.minValidMs || !same(r)));
+    const counted = list.filter((r) => r.task.items.length > 1 && !r.tie && (r.ms >= config.triage.minValidMs || !same(r)));
     const right = counted.filter(same).length;
     const removed = list.reduce((n, r) => n + r.task.items.filter((it) => !r.kept.has(it.id)).length, 0);
     return { poses: list.length, counted: counted.length, right, removed };
@@ -110,6 +130,8 @@ export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, o
   const keepCount = task.items.length - removeCount;
   const best = [...task.items].sort((a, b) => (task.pack.scores.get(b.id)?.score ?? 0) - (task.pack.scores.get(a.id)?.score ?? 0))[0]!;
   const zoomItem = zoom ? task.items.find((it) => it.id === zoom) ?? null : null;
+  const corrected = task.items.some((it) => kept.has(it.id) !== task.proposed.has(it.id));
+  const several = task.items.length > 1;
 
   return (
     <div className="eclair" role="dialog" aria-label="Tri éclair">
@@ -175,7 +197,31 @@ export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, o
       </div>
 
       <footer className="eclair-bas">
-        <p className="note centre">Touchez une photo pour la garder ou la supprimer · ⤢ pour la voir en grand</p>
+        {/* Point 65 : deux gestes facultatifs qui apprennent le plus à l'app. « Pourquoi ? » n'apparaît que si vous avez
+            corrigé sa proposition ; « se valent » retire la pose des mesures (ni juste, ni faux). */}
+        {several && corrected && !tie && (
+          <div className="eclair-pourquoi" role="group" aria-label="Pourquoi ce choix ? (facultatif)">
+            <span className="doux">Pourquoi ?</span>
+            {WHY_REASONS.map((r) => (
+              <button
+                key={r}
+                className={`puce${why.includes(r) ? ' active' : ''}`}
+                aria-pressed={why.includes(r)}
+                onClick={() => setWhy((list) => (list.includes(r) ? list.filter((x) => x !== r) : [...list, r]))}
+              >
+                {WHY_LABEL[r]}
+              </button>
+            ))}
+          </div>
+        )}
+        {several && (
+          <button className={`lien eclair-valent${tie ? ' actif' : ''}`} aria-pressed={tie} onClick={() => setTie((t) => !t)}>
+            {tie ? '✓ ' : ''}
+            {task.items.length > 2 ? 'Elles se valent' : 'Les deux se valent'}
+          </button>
+        )}
+        {/* Rangée « Pourquoi ? » affichée : l'aide est masquée, pour laisser la place aux photos. */}
+        {!(several && corrected && !tie) && <p className="note centre">Touchez une photo pour la garder ou la supprimer · ⤢ pour la voir en grand</p>}
         <div className="eclair-actions">
           <button className="bouton eclair-retour" disabled={index === 0} onClick={() => setIndex((i) => Math.max(0, i - 1))} aria-label="Pose précédente">
             ‹

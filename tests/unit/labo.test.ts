@@ -169,3 +169,26 @@ describe('réseau de neurones (jalon 8, point 64)', () => {
     expect(trainPairNet([], { hidden: 4, epochs: 10, rate: 0.01, l2: 0.1, formulaScale: 8, seed: 1 })([1, 1])).toBe(0);
   });
 });
+
+describe('« Pourquoi ? » et « se valent » (point 65)', () => {
+  it('une pose « qui se vaut » ne compte ni dans la justesse ni dans l’apprentissage, et voyage dans la sauvegarde', async () => {
+    const { accuracy, encodeBackup, decodeBackup } = await import('../../src/engine');
+    const records = ['a', 'b'].map((k) => rec(k, null, 0.5));
+    const v = val('s', 1, ['a', 'b'], ['a']);
+    expect(labPairs([v], records)).toHaveLength(1);
+    expect(labPairs([{ ...v, tie: true }], records)).toHaveLength(0);
+    expect(accuracy([{ ...v, tie: true }]).poses.total).toBe(0);
+    const back = decodeBackup(JSON.parse(JSON.stringify(encodeBackup(records, 1, [{ ...v, tie: true, why: ['naturel', 'regard'] }])))).validations[0]!;
+    expect(back.tie).toBe(true);
+    expect(back.why).toEqual(['naturel', 'regard']);
+  });
+
+  it('les 10 traits du visage : zéros sans visage, une valeur par trait (moyenne, pire) sinon', async () => {
+    const { faceTraits, config } = await import('../../src/engine');
+    const n = config.context.faceTraits.length;
+    expect(faceTraits({ key: 'x|1' })).toEqual(new Array(2 * n + 1).fill(0));
+    const t = faceTraits({ key: 'y|1', fclip: [encodeEmbedding(unit(3))!, encodeEmbedding(unit(4))!] });
+    expect(t).toHaveLength(2 * n + 1);
+    expect(t[2 * n]).toBe(1);
+  });
+});

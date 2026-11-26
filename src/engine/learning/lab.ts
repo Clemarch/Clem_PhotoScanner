@@ -11,9 +11,9 @@ import { config } from '../config';
 import { FEATURE_NAMES, type ChoiceRecord } from '../types';
 import { decodeEmbedding } from './embeddingCodec';
 import { eyeVector, rankScore, trainRanker } from './ranker';
-import { tooFast, type PoseValidation } from '../triage/calibration';
+import { unusable, type PoseValidation } from '../triage/calibration';
 import { trainPairNet } from './nn';
-import { contextScores, contextStats, faceFeatures, faceNeutral, faceStats, rankingIdeas } from './context';
+import { contextScores, contextStats, faceTraits, rankingIdeas } from './context';
 
 export interface LabPair {
   sessionId: string;
@@ -66,7 +66,7 @@ export function labPairs(validations: readonly PoseValidation[], records: readon
   for (const v of validations) if (!excluded.has(v.sessionId)) last.set(v.id, v);
   const out: LabPair[] = [];
   for (const v of last.values()) {
-    if (tooFast(v) || v.keys.length < 2) continue;
+    if (unusable(v)) continue;
     for (const a of v.keys.filter((k) => v.kept.includes(k)))
       for (const b of v.keys.filter((k) => !v.kept.includes(k))) {
         const keep = byKey.get(a);
@@ -154,11 +154,15 @@ function trainContext(pairs: readonly LabPair[]): LabScorer {
   return trainOnFormula(train, vec, config.context);
 }
 
-/** Formule + ce que le nouvel œil lit sur chaque visage recadré (point 63) : moyenne et pire visage de chaque idée. */
+/** Formule + ce que le nouvel œil lit sur chaque visage recadré (points 63, 65) : les 10 traits qui comptent. */
 function trainFaces(pairs: readonly LabPair[]): LabScorer {
-  const train = sample(pairs, config.context.maxTrainPairs);
-  const stats = faceStats(train.flatMap((p) => [p.keep, p.drop]));
-  return trainOnFormula(train, (r) => (stats ? faceFeatures(r, stats) : null) ?? faceNeutral(), config.context);
+  return trainOnFormula(sample(pairs, config.context.maxTrainPairs), (r) => faceTraits(r), config.context);
+}
+
+/** Formule, avec le poids du sourire et de l'expression réajusté sur vos choix (point 65 : quand la formule se trompe,
+ *  vous gardez souvent la photo la moins souriante, plus naturelle). */
+function trainSmile(pairs: readonly LabPair[]): LabScorer {
+  return trainOnFormula(sample(pairs, config.context.maxTrainPairs), (r) => [r.features.sourire ?? 0.5, r.features.expression ?? 0.5], config.context);
 }
 
 /**
@@ -167,19 +171,12 @@ function trainFaces(pairs: readonly LabPair[]): LabScorer {
  */
 function trainNet(pairs: readonly LabPair[]): LabScorer {
   const train = sample(pairs, config.context.maxTrainPairs);
-  const records = train.flatMap((p) => [p.keep, p.drop]);
   // Les 118 idées de l'image entière ne sont pas données au réseau : mesuré le 27/11 sur 473 paires, il apprenait par
-  // cœur (57 à 61 %, contre 64,9 % sans elles). Celles des visages, lues là où se joue la différence, restent.
-  const faces = faceStats(records);
+  // cœur (57 à 61 %, contre 64,9 % sans elles). Des visages, seulement les 10 traits qui comptent (point 65 : avec les
+  // 35 idées « visage », il retombait à 61 %).
   const vec = (r: ChoiceRecord): number[] => {
-    const f = faces ? faceFeatures(r, faces) : null;
     const emo = r.emo && r.emo.length === 6 ? r.emo : [0.5, 0.5, 0.5, 0.5, 0.5, 0.5];
-    return [
-      ...FEATURE_NAMES.map((n) => r.features[n] ?? 0.5),
-      ...emo,
-      ...(f ?? faceNeutral()),
-      f ? 1 : 0,
-    ];
+    return [...FEATURE_NAMES.map((n) => r.features[n] ?? 0.5), ...emo, ...faceTraits(r)];
   };
   const cache = new Map<string, number[]>();
   const x = (r: ChoiceRecord) => {
@@ -284,13 +281,19 @@ export const LAB_CANDIDATES: readonly LabCandidate[] = [
   {
     id: 'visages',
     label: 'Formule + visages',
-    description: 'La formule, corrigée par ce que le nouvel œil lit sur chaque visage recadré (yeux, regard, expression, netteté) : la moyenne et le visage le moins réussi.',
+    description: 'La formule, corrigée par 10 traits que le nouvel œil lit sur chaque visage recadré (ombre, regard bas ou ailleurs, tête penchée, sourire, rire, grimace, visage flatteur, cheveux, yeux fermés).',
     train: trainFaces,
+  },
+  {
+    id: 'sourire',
+    label: 'Formule, sourire réajusté',
+    description: 'La formule, avec le poids du sourire et de l’expression appris sur vos choix (vous gardez parfois la photo la moins souriante, plus naturelle).',
+    train: trainSmile,
   },
   {
     id: 'reseau',
     label: 'Réseau de neurones',
-    description: 'Un petit réseau de neurones qui part de la formule et apprend des règles qui dépendent les unes des autres, à partir des 18 critères, des émotions et de ce que le nouvel œil lit sur chaque visage.',
+    description: 'Un petit réseau de neurones qui part de la formule et apprend des règles qui dépendent les unes des autres, à partir des 18 critères, des émotions et des 10 traits que le nouvel œil lit sur chaque visage.',
     train: trainNet,
   },
 ];

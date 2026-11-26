@@ -19,8 +19,8 @@ possible », progrès à chaque séance, quitte à valider 2 000 photos. Avancer
    La place dans la rafale est retirée des candidats (corrélation, pas causalité).
 3. Moins de poids à apprendre : sens connu d'avance pour chaque idée (bonne ou mauvaise), résumé de l'image en
    quelques nombres appris sur toutes les photos vues, même non triées.
-4. Arbres de décision et « Règles découvertes » ; galerie « Les erreurs de l'app » avec « pourquoi » ; bouton
-   « Les deux se valent » dans le tri éclair.
+4. « Pourquoi ? » et « Les deux se valent » dans le tri éclair (point 65) — faits. Reste : « Règles découvertes »
+   (règles lisibles tirées des choix) et galerie « Les erreurs de l'app », quand les raisons auront été récoltées.
 5. Réseau de neurones (point 64) — dans le Labo : 3 petits réseaux partant de la formule, 64,9 % contre 63,2 % sur
    473 paires. Reste : réentraînement après chaque séance hors du Labo, et tri éclair qui montre d'abord les poses où
    les réseaux ne sont pas d'accord. Point d'arrêt vers 1 000 paires.
