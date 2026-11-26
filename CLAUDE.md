@@ -65,6 +65,11 @@ propre à ce test.
 - Choix de l'utilisateur : IndexedDB (`src/platform/storage/choices.ts`), mesures et empreinte d'image (8 bits),
   jamais d'image. Apprentissage : `src/engine/learning/preferences.ts` ; goûts par l'image, en test :
   `src/engine/learning/taste.ts` ; accord honnête : `src/engine/evaluation.ts`.
+- Labo d'apprentissage (jalon 7, point 61) : candidats `src/engine/learning/lab.ts` (réglages `config.lab`), calcul en
+  Worker `src/platform/worker/lab.ts`, écran `src/ui/screens/Labo.tsx`. Mesure seulement : la formule décide.
+- Vocabulaire de contexte du nouvel œil (jalon 8, point 62) : idées dans `tools/vocab/concepts.py`, converties de mon
+  côté par `tools/vocab/build.py` en `src/engine/learning/vocab.generated.ts` (ne pas modifier à la main), lues par
+  `src/engine/learning/context.ts`. Aucun modèle de plus sur l'iPhone.
 - Sauvegarde des goûts : `src/engine/learning/backup.ts` (format) et `src/platform/storage/backupFile.ts` (fichier,
   iCloud Drive via la feuille de partage). Une séance peut couvrir une après-midi ou plusieurs jours.
 
@@ -106,4 +111,7 @@ Réglage 10 bis (point 39) et réglage 11 (point 40) : séances terminées et ro
 Jalon 6 (plan : `docs/jalon-6.md`), réglage 12 (point 41) : tri éclair pose par pose, justesse honnête mesurée sur
 les poses validées, confiance calibrée. Réglage 13 (point 42) : nouvel œil en coulisse (CLIP + émotions des visages),
 comparé honnêtement à la formule.
+Jalon 7 (plan : `docs/jalon-7.md`, point 61) : labo d'apprentissage, courbe des prédictions séance par séance.
+Jalon 8 en cours (plan : `docs/jalon-8.md`) : l'app découvre vos règles. Étape 1 faite (point 62) : vocabulaire de
+contexte, candidat « Formule + contexte » dans le Labo.
 Modèle restant proposé : objets plus fins.

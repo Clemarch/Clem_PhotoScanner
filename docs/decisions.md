@@ -1064,6 +1064,50 @@ mesurés n'expliquent pas les choix ; le nouvel œil non plus pour l'instant (60
 l'utilisateur, non commencée : un jalon « apprentissage » qui teste d'autres façons d'apprendre, toujours comparées
 honnêtement à la formule.
 
+### 61. Jalon 7 : labo d'apprentissage (26/11)
+
+Demande de l'utilisateur (26/11) : « une page dédiée à l'apprentissage… où je puisse suivre la progression… et voir à
+quel point tes prédictions et tes sélections sont de plus en plus performantes ». Plan : `docs/jalon-7.md`.
+
+- Page « Labo » (`src/ui/screens/Labo.tsx`), ouverte depuis l'accueil et Réglages dès qu'une pose est validée. Le
+  tableau « Progrès séance par séance » de Réglages y déménage.
+- Cinq façons d'apprendre en concurrence (`src/engine/learning/lab.ts`) : formule actuelle, formule + vos goûts (18
+  critères), nouvel œil seul, formule + nouvel œil, formule + photos semblables (vote des photos passées les plus
+  proches selon SigLIP 2). Aucun nouveau modèle : seulement les mesures déjà enregistrées.
+- Deux mesures honnêtes sur les paires « gardée / supprimée » des poses validées : chaque séance testée avec ce qui a
+  été appris sur les autres (justesse générale), et la courbe : chaque séance testée avec ce qui a été appris AVANT
+  elle (ce que l'app aurait prédit ce jour-là). Une photo présente dans deux séances est retirée de l'apprentissage.
+- Rien ne change dans les décisions : la formule reste aux commandes. Un candidat ne serait proposé à l'utilisateur
+  qu'en la battant d'au moins 3 points sur au moins 300 paires (`config.lab`).
+- Calcul dans un Worker (`src/platform/worker/lab.ts`), environ 4 s, gardé tant que les données ne changent pas.
+- Sur la sauvegarde du 26/11 (491 paires) : formule 62 %, + vos goûts 63 %, nouvel œil seul 55 %, formule + œil 59 %,
+  photos semblables 63 % : pas de vainqueur. Points de la courbe sur moins de 10 paires dessinés creux (peu fiables).
+
+### 62. Jalon 8, étape 1 : vocabulaire de contexte du nouvel œil (26/11)
+
+Accord de l'utilisateur (26/11) : viser un réseau de neurones entraîné sur l'iPhone, qui apprenne des règles en contexte
+(« les yeux fermés, c'est mauvais, sauf en méditation »), avec un vocabulaire de phrases « le plus riche possible ».
+Plan et points d'arrêt : `docs/jalon-8.md`.
+
+- Vocabulaire : 205 idées en 7 familles (situations, émotions, personnes, cadrage, lumière, lieux, types d'image),
+  2 à 3 formulations anglaises chacune × 3 gabarits (`tools/vocab/concepts.py`). Converties une fois de mon côté par
+  la partie texte du même SigLIP 2 (`tools/vocab/build.py`, ONNX d'onnx-community, Apache-2.0) en directions de
+  768 valeurs sur 8 bits (`src/engine/learning/vocab.generated.ts`, 220 Ko). Aucun modèle de plus sur l'iPhone ;
+  toutes les photos déjà vues par le nouvel œil en profitent. Codage 8 bits vérifié : 99,9 % de corrélation.
+- Vérifications : texte en minuscules, complété à 64 jetons (comme à l'entraînement) ; les photos d'essai se
+  rangent sous les bonnes idées.
+- Place dans la rafale ajoutée aux paires (`LabPair.keepAt`, ordre de prise de vue lu dans la clé de la photo).
+- Nouveau candidat du Labo « Formule + contexte » : critères, émotions, place dans la rafale et les 118 idées des
+  familles personnes, émotions, cadrage, lumière (`config.context`), en correction de la formule.
+- Résultat honnête sur 473 paires (sauvegarde du 26/11, une photo vue dans la séance testée retirée de
+  l'apprentissage) : formule 63,2 %, formule + contexte 63,8 % (64,5 à 64,9 % dans mon calcul hors app) ; sans les
+  phrases, critères + émotions + rafale font autant. Point d'arrêt 1 (+2 points) non atteint : avec 473 paires, 118
+  poids à apprendre, c'est trop. Les idées une à une : la photo gardée est moins souvent « plan large » ou « grand
+  groupe » (60 % des paires) et a moins souvent la tête coupée (59 %).
+- La formule se trompe sur 30 % des paires même quand elle est très sûre d'elle (écart > 0,1 : 158 paires) ; sur
+  les quasi-égalités (écart < 0,02 : 125 paires), elle fait 50 %. Ce sont les deux gisements.
+- Rien ne change dans les décisions de l'app.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

@@ -6,6 +6,10 @@ siglip2_base_int8.onnx (depuis le 24/11, remplace CLIP ViT-B/32)
   par onnx-community (huggingface.co/onnx-community/siglip2-base-patch16-224-ONNX, onnx/vision_model_int8.onnx).
   SHA-256 0dd31785a2713f1113ef2272472165c69d580473dae38d7b47568ac587795e70
 
+Vocabulaire de contexte (src/engine/learning/vocab.generated.ts, depuis le 26/11)
+  Directions calculées une fois, hors de l'iPhone, par la partie texte du même modèle (onnx/text_model_int8.onnx et
+  tokenizer.json du même dépôt onnx-community), licence Apache-2.0. Aucun modèle texte n'est embarqué.
+
 hsemotion_b0_va.onnx
   HSEmotion EfficientNet-B0, 8 émotions + valence + éveil (A. Savchenko), licence Apache-2.0
   (github.com/av-savchenko/face-emotion-recognition, models/affectnet_emotions/onnx/enet_b0_8_va_mtl.onnx).

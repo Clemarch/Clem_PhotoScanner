@@ -497,3 +497,42 @@ table.progres th { text-align: right; font-weight: 500; color: var(--doux); font
 table.progres th:first-child, table.progres td:first-child { text-align: left; }
 table.progres td { text-align: right; padding: 6px 2px; border-top: 1px solid var(--trait); }
 table.progres tr.hors td { color: var(--doux-2); }
+
+/* Labo d'apprentissage (jalon 7). Couleurs des séries vérifiées sur le fond des cartes (#1c1c1e). */
+.labo { --serie-1: #338ced; --serie-2: #e76624; }
+.labo-chiffres { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 12px; }
+.labo-chiffres div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.labo-chiffres strong { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.5px; }
+.labo-chiffres span { font-size: 13px; color: var(--doux); }
+.courbe { margin: 4px 0 0; }
+.courbe svg { width: 100%; height: auto; display: block; overflow: visible; }
+.courbe .grille { stroke: var(--trait); stroke-width: 0.5; }
+.courbe .grille.hasard { stroke: var(--doux-2); stroke-dasharray: 4 4; stroke-width: 1; }
+.courbe .axe { fill: var(--doux); font-size: 10px; font-variant-numeric: tabular-nums; }
+.courbe .selection { fill: var(--carte-2); }
+.courbe polyline { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.courbe circle { stroke: var(--carte); stroke-width: 2; }
+.courbe .s1 polyline { stroke: var(--serie-1); }
+.courbe .s1 circle { fill: var(--serie-1); }
+.courbe .s2 polyline { stroke: var(--serie-2); }
+.courbe .s2 circle { fill: var(--serie-2); }
+.courbe .cible { fill: transparent; cursor: pointer; }
+.legende-courbe { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--doux); margin-top: 6px; }
+.legende-courbe span { display: inline-flex; align-items: center; gap: 6px; }
+.legende-courbe i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; }
+.legende-courbe i.s1 { background: var(--serie-1); }
+.legende-courbe i.s2 { background: var(--serie-2); }
+.legende-courbe i.hasard { height: 0; border-top: 1.5px dashed var(--doux-2); }
+.labo-detail { color: var(--texte); font-variant-numeric: tabular-nums; }
+.labo-candidats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.labo-candidats li { display: flex; gap: 12px; align-items: center; padding: 10px 0; }
+.labo-candidats li + li { border-top: 0.5px solid var(--trait); }
+.labo-candidats li > div:first-child { flex: 1; min-width: 0; }
+.labo-score { display: flex; flex-direction: column; align-items: flex-end; flex: none; font-variant-numeric: tabular-nums; }
+.labo-score strong { font-size: 20px; }
+.labo-score span { font-size: 12px; }
+.legende-courbe .axe-titre { flex-basis: 100%; font-size: 12px; color: var(--doux-2); }
+.courbe circle.creux { fill: var(--carte); stroke-width: 2; }
+.courbe .s1 circle.creux { stroke: var(--serie-1); }
+.courbe .s2 circle.creux { stroke: var(--serie-2); }
+.legende-courbe i.creux { width: 8px; height: 8px; border-radius: 50%; border: 2px solid var(--doux); }

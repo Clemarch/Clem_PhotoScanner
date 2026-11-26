@@ -6,7 +6,7 @@ import type { ChoiceRecord, PoseValidation } from '../../engine';
 import type { LastRun } from '../../platform/storage/lastRun';
 import { loadLastBackup } from '../../platform/storage/backupFile';
 import { formatDate, formatShortTime, plural } from '../format';
-import { IconChevron, IconNuage, IconReglages, IconTrier } from '../icons';
+import { IconChevron, IconLabo, IconNuage, IconReglages, IconTrier } from '../icons';
 import { APP_VERSION } from '../version';
 import type { ModelsState } from '../../platform/storage/models';
 import { EtatModeles } from '../EtatModeles';
@@ -25,6 +25,8 @@ interface Props {
   recordsLoaded: boolean;
   onRestore: (records: ChoiceRecord[], validations?: PoseValidation[]) => Promise<{ added: number; updated: number }>;
   onSettings: () => void;
+  /** Ouvre le labo d'apprentissage (absent tant qu'aucune pose n'a été validée). */
+  onLabo?: () => void;
   /** Nombre de séances gardées (à rouvrir dans Réglages). */
   seances: number;
   /** Modèles du nouvel œil : téléchargement et état. */
@@ -34,7 +36,7 @@ interface Props {
   eyeProgress: EyeProgress | null;
 }
 
-export function Accueil({ onFiles, interrupted, lastRun, records, recordsLoaded, onRestore, onSettings, seances, models, onRetryModels, eyeProgress }: Props) {
+export function Accueil({ onFiles, interrupted, lastRun, records, recordsLoaded, onRestore, onSettings, onLabo, seances, models, onRetryModels, eyeProgress }: Props) {
   const [update, setUpdate] = useState<UpdateStatus>(null);
   useEffect(() => watchUpdate(setUpdate), []);
   const installed = isInstalled();
@@ -125,6 +127,18 @@ export function Accueil({ onFiles, interrupted, lastRun, records, recordsLoaded,
           </div>
           <IconChevron size={14} className="chevron" />
         </button>
+        {onLabo && (
+          <button className="ligne-info ligne-bouton" onClick={onLabo}>
+            <span className="icone-ronde">
+              <IconLabo size={18} />
+            </span>
+            <div>
+              <strong>Labo d’apprentissage</strong>
+              <span className="note bloc">Mes prédictions s’améliorent-elles ? Séance par séance</span>
+            </div>
+            <IconChevron size={14} className="chevron" />
+          </button>
+        )}
         {seances > 0 && (
           <button className="ligne-info ligne-bouton" onClick={onSettings}>
             <span className="icone-ronde gris">
