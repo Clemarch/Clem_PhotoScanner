@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { contextIdeas, contextScores, contextStats, encodeEmbedding, labPairs, runLab, topIdeas, LAB_CANDIDATES, type ChoiceRecord, type PoseValidation } from '../../src/engine';
+import { contextIdeas, contextScores, contextStats, encodeEmbedding, faceFeatures, faceIdeas, faceStats, labPairs, runLab, topIdeas, LAB_CANDIDATES, type ChoiceRecord, type PoseValidation } from '../../src/engine';
 
 // Labo d'apprentissage (jalon 7) : candidats mis en concurrence honnêtement sur les poses validées.
 const unit = (seed: number) => {
@@ -101,12 +101,53 @@ describe('vocabulaire de contexte du nouvel œil (jalon 8)', () => {
     expect(contextScores({ key: 'sans|1', clip: undefined })).toBeNull();
   });
 
-  it('candidat « contexte » : sans empreinte, c’est la formule ; la place dans la rafale est connue', () => {
+  it('candidats « contexte » et « visages » : sans empreinte, c’est la formule', () => {
     const { records, validations } = world(false);
     const pairs = labPairs(validations, records);
-    expect(pairs[0]!.keepAt).toBe(0);
-    expect(pairs[0]!.dropAt).toBe(1);
-    const r = runLab(pairs, LAB_CANDIDATES.filter((c) => c.id === 'formule' || c.id === 'contexte'));
-    expect(r.candidates.find((c) => c.id === 'contexte')!.honest.total).toBe(45);
+    const r = runLab(pairs, LAB_CANDIDATES.filter((c) => c.id === 'formule' || c.id === 'contexte' || c.id === 'visages'));
+    for (const id of ['contexte', 'visages']) expect(r.candidates.find((c) => c.id === id)!.honest).toEqual({ right: 0, total: 45 });
+  });
+});
+
+describe('nouvel œil sur les visages (jalon 8, point 63)', () => {
+  it('le candidat « visages » apprend les yeux fermés quand la formule ne les voit pas', async () => {
+    const { VOCAB } = await import('../../src/engine/learning/vocab.generated');
+    const { decodeEmbedding } = await import('../../src/engine');
+    const face = (id: string) => encodeEmbedding(Array.from(decodeEmbedding(VOCAB.find((v) => v[0] === id)![3])!))!;
+    const open = face('v_yeux_ouverts');
+    const closed = face('v_yeux_fermes');
+    const records: ChoiceRecord[] = [];
+    const validations: PoseValidation[] = [];
+    for (const s of ['1', '2', '3'])
+      for (let i = 0; i < 15; i++) {
+        const a = `${s}-${i}-a`;
+        const b = `${s}-${i}-b`;
+        // La formule préfère la photo aux yeux fermés ; vous gardez celle aux yeux ouverts (même nombre de visages).
+        records.push({ ...rec(a, null, 0.5), fclip: [open, open] }, { ...rec(b, null, 0.6), fclip: [open, closed] });
+        validations.push(val(s, i, [a, b], [a]));
+      }
+    const r = runLab(labPairs(validations, records), LAB_CANDIDATES.filter((c) => c.id === 'formule' || c.id === 'visages'));
+    expect(r.candidates.find((c) => c.id === 'formule')!.honest.right).toBe(0);
+    expect(r.candidates.find((c) => c.id === 'visages')!.honest.right).toBe(45);
+    expect(faceFeatures({ key: 'x|1', fclip: [open, closed] }, faceStats(records)!)!).toHaveLength(2 * faceIdeas().length);
+  });
+
+  it('une photo vue avant le passage « visages » est revue si elle a des visages, et ses choix sont complétés', async () => {
+    const { needsEye, eyePatches, faceClipsOf } = await import('../../src/ui/choices');
+    const box = { x: 0.4, y: 0.3, width: 0.2, height: 0.2 };
+    const f = { box, areaRatio: 0.04, clip: unit(5) };
+    const item = { id: 'i', fileName: 'a.jpg', capturedAt: 1, kind: 'photo', clip: unit(4), faces: [f], eyeV: undefined } as unknown as Parameters<typeof needsEye>[0];
+    expect(needsEye(item)).toBe(true);
+    expect(needsEye({ ...item, eyeV: 2 })).toBe(false);
+    expect(needsEye({ ...item, faces: [] })).toBe(false);
+    expect(faceClipsOf(item)).toHaveLength(1);
+    const key = 'a.jpg|1';
+    const old = { ...rec(key, unit(4), 0.5) };
+    const patched = eyePatches([old], [item]);
+    expect(patched).toHaveLength(1);
+    expect(patched[0]!.fclip).toHaveLength(1);
+    expect(patched[0]!.clip).toBe(old.clip);
+    // Déjà complété : rien à refaire.
+    expect(eyePatches([patched[0]!], [item])).toHaveLength(0);
   });
 });

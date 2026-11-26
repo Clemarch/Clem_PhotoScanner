@@ -33,7 +33,7 @@ function flushMirror(): void {
   if (mirrorTimer) clearTimeout(mirrorTimer);
   mirrorTimer = null;
   try {
-    const rows = [...memory.values()].map((r) => ({ ...r, embedding: undefined, clip: undefined }));
+    const rows = [...memory.values()].map((r) => ({ ...r, embedding: undefined, clip: undefined, fclip: undefined }));
     localStorage.setItem(MIRROR_KEY, JSON.stringify(encodeBackup(rows, Date.now())));
   } catch {
     // Copie de secours facultative (stockage plein ou indisponible).

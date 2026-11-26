@@ -24,7 +24,7 @@ export function BarreOeil({ progress, onLaunch }: { progress: EyeProgress | null
         <p className="note">
           {progress.waiting
             ? `Il démarre dans un instant (l’iPhone libère la mémoire de l’analyse) : ${progress.total} photos de la ${progress.label} à regarder.`
-            : `Il regarde les photos de la ${progress.label} en arrière-plan (environ 1 s chacune). Vous pouvez trier pendant ce temps ; gardez l’app ouverte.`}
+            : `Il regarde les photos de la ${progress.label} en arrière-plan (environ 1 s par photo, un peu plus par visage). Vous pouvez trier pendant ce temps ; gardez l’app ouverte.`}
         </p>
       </section>
     );
@@ -38,7 +38,8 @@ export function BarreOeil({ progress, onLaunch }: { progress: EyeProgress | null
       </div>
       <p className="note">
         Il regarde chaque photo pour apprendre vos goûts. Il se lance tout seul après chaque analyse ; ce bouton le relance
-        sur les photos qu’il n’a pas encore vues (une séance à la fois).
+        sur les photos qu’il n’a pas encore vues, ou dont il n’a pas encore regardé les visages un par un (une séance à
+        la fois).
       </p>
       <button
         className="bouton"

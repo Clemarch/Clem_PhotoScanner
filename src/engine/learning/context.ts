@@ -96,3 +96,73 @@ export function topIdeas(r: Pick<ChoiceRecord, 'key' | 'clip'>, stats: { mean: F
     .sort((a, b) => b.z - a.z)
     .slice(0, count);
 }
+
+// --- Visages recadrés (point 63) ---
+
+/** Idées lues sur les visages recadrés (famille « visage »). */
+export function faceIdeas(): number[] {
+  return contextIdeas().flatMap((idea, i) => (idea.family === 'visage' ? [i] : []));
+}
+
+/** Scores des idées « visage » pour chaque visage principal de la photo (vide si non regardés). */
+export function faceScores(r: Pick<ChoiceRecord, 'key' | 'fclip'>): Float32Array[] {
+  const ideas = faceIdeas();
+  return (r.fclip ?? []).flatMap((code, k) => {
+    const all = contextScores({ key: `${r.key}#v${k}`, clip: code });
+    return all ? [Float32Array.from(ideas, (j) => all[j]!)] : [];
+  });
+}
+
+export interface FaceStats {
+  mean: Float32Array;
+  sd: Float32Array;
+}
+
+/** Moyenne et écart de chaque idée « visage » sur tous les visages des photos données. */
+export function faceStats(records: Iterable<Pick<ChoiceRecord, 'key' | 'fclip'>>): FaceStats | null {
+  const n = faceIdeas().length;
+  const sum = new Float64Array(n);
+  const sq = new Float64Array(n);
+  let count = 0;
+  for (const r of records)
+    for (const s of faceScores(r)) {
+      count++;
+      for (let j = 0; j < n; j++) {
+        sum[j]! += s[j]!;
+        sq[j]! += s[j]! * s[j]!;
+      }
+    }
+  if (count < 2) return null;
+  const mean = Float32Array.from(sum, (v) => v / count);
+  const sd = Float32Array.from(sq, (v, j) => Math.sqrt(Math.max(v / count - mean[j]! * mean[j]!, 0)) + 1e-6);
+  return { mean, sd };
+}
+
+/**
+ * Pour chaque idée « visage » : la moyenne sur les visages principaux et la valeur la plus basse (en groupe, un seul
+ * visage raté suffit à gâcher la photo). Écarts à la normale ; null si les visages n'ont pas été regardés.
+ */
+export function faceFeatures(r: Pick<ChoiceRecord, 'key' | 'fclip'>, stats: FaceStats): number[] | null {
+  const faces = faceScores(r);
+  if (faces.length === 0) return null;
+  const n = stats.mean.length;
+  const mean: number[] = [];
+  const low: number[] = [];
+  for (let j = 0; j < n; j++) {
+    let sum = 0;
+    let min = Infinity;
+    for (const f of faces) {
+      const z = (f[j]! - stats.mean[j]!) / stats.sd[j]!;
+      sum += z;
+      min = Math.min(min, z);
+    }
+    mean.push(sum / faces.length);
+    low.push(min);
+  }
+  return [...mean, ...low];
+}
+
+/** Photo sans visage regardé : valeurs moyennes (ni bonus, ni pénalité). */
+export function faceNeutral(): number[] {
+  return new Array<number>(2 * faceIdeas().length).fill(0);
+}

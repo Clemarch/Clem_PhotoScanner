@@ -11,3 +11,4 @@ tests/fixtures/*
 *.dng
 *.DNG
 public/models/wasm/
+__pycache__/

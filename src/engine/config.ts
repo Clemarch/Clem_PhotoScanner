@@ -356,6 +356,9 @@ export const config = {
     clipScale: 3,
     /** Taille de l'empreinte du modèle actuel (SigLIP 2) ; les autres (CLIP, 512) sont ignorées. */
     eyeDims: 768,
+    /** Passage du nouvel œil : 2 = visages principaux aussi regardés un par un par SigLIP 2 (point 63). Les photos d'un
+     *  passage plus ancien qui ont des visages sont revues (une séance gardée à la fois, à partir des aperçus). */
+    eyeVersion: 2,
     /** Frein contre l'apprentissage par cœur, pas et nombre de passes de l'apprentissage. */
     lambda: 0.05,
     rate: 0.5,

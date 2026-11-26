@@ -12,24 +12,12 @@ import { FEATURE_NAMES, type ChoiceRecord } from '../types';
 import { decodeEmbedding } from './embeddingCodec';
 import { eyeVector, rankScore, trainRanker } from './ranker';
 import { tooFast, type PoseValidation } from '../triage/calibration';
-import { contextScores, contextStats, rankingIdeas } from './context';
+import { contextScores, contextStats, faceFeatures, faceNeutral, faceStats, rankingIdeas } from './context';
 
 export interface LabPair {
   sessionId: string;
   keep: ChoiceRecord;
   drop: ChoiceRecord;
-  /** Place dans la rafale (0 : première photo de la pose, 1 : dernière). */
-  keepAt?: number;
-  dropAt?: number;
-}
-
-/** Heure de prise de vue lue dans la clé d'une photo (« nom|heure »), 0 si absente. */
-const shotTime = (key: string): number => Number(key.split('|')[1]) || 0;
-
-/** Place de chaque photo dans sa pose, dans l'ordre de prise de vue (0 à 1). */
-function burstPositions(keys: readonly string[]): Map<string, number> {
-  const sorted = [...keys].sort((a, b) => shotTime(a) - shotTime(b));
-  return new Map(sorted.map((k, i) => [k, sorted.length > 1 ? i / (sorted.length - 1) : 0.5]));
 }
 
 /** Un candidat apprend sur des paires et rend une note par photo (plus haut = à garder). */
@@ -41,8 +29,8 @@ export interface LabCandidate {
   train: (pairs: readonly LabPair[]) => LabScorer;
 }
 
-/** Note d'une photo (plus haut = à garder) ; `at` : sa place dans la rafale, si connue. */
-export type LabScorer = (r: ChoiceRecord, at?: number) => number;
+/** Note d'une photo (plus haut = à garder). */
+export type LabScorer = (r: ChoiceRecord) => number;
 
 export interface Score {
   right: number;
@@ -78,12 +66,11 @@ export function labPairs(validations: readonly PoseValidation[], records: readon
   const out: LabPair[] = [];
   for (const v of last.values()) {
     if (tooFast(v) || v.keys.length < 2) continue;
-    const at = burstPositions(v.keys);
     for (const a of v.keys.filter((k) => v.kept.includes(k)))
       for (const b of v.keys.filter((k) => !v.kept.includes(k))) {
         const keep = byKey.get(a);
         const drop = byKey.get(b);
-        if (keep && drop) out.push({ sessionId: v.sessionId, keep, drop, keepAt: at.get(a), dropAt: at.get(b) });
+        if (keep && drop) out.push({ sessionId: v.sessionId, keep, drop });
       }
   }
   return out;
@@ -104,13 +91,13 @@ const featureVector = (r: ChoiceRecord): number[] => FEATURE_NAMES.map((n) => r.
  */
 function trainOnFormula(
   pairs: readonly LabPair[],
-  vec: (r: ChoiceRecord, at: number | undefined) => number[] | null,
+  vec: (r: ChoiceRecord) => number[] | null,
   opts: { lambda: number; rate: number; iterations: number } = config.lab,
 ): LabScorer {
   const c = config.lab;
   const usable = pairs.flatMap((p) => {
-    const a = vec(p.keep, p.keepAt);
-    const b = vec(p.drop, p.dropAt);
+    const a = vec(p.keep);
+    const b = vec(p.drop);
     return a && b ? [{ base: p.keep.baseScore - p.drop.baseScore, d: a.map((v, i) => v - b[i]!) }] : [];
   });
   const dims = usable[0]?.d.length ?? 0;
@@ -130,30 +117,12 @@ function trainOnFormula(
       w[i]! -= opts.rate * speed[i]!;
     }
   }
-  return (r: ChoiceRecord, at?: number): number => {
-    const x = vec(r, at);
+  return (r: ChoiceRecord): number => {
+    const x = vec(r);
     let s = c.formulaScale * r.baseScore;
     if (x) for (let i = 0; i < dims; i++) s += w[i]! * x[i]!;
     return s;
   };
-}
-
-/** Formule + critères + émotions + place dans la rafale + vocabulaire de contexte (jalon 8, point 62). */
-function trainContext(pairs: readonly LabPair[]): LabScorer {
-  const train = sample(pairs, config.context.maxTrainPairs);
-  const stats = contextStats(train.flatMap((p) => [p.keep, p.drop]));
-  const ideas = rankingIdeas();
-  const vec = (r: ChoiceRecord, at: number | undefined): number[] => {
-    const s = stats ? contextScores(r) : null;
-    const emo = r.emo && r.emo.length === 6 ? r.emo : [0.5, 0.5, 0.5, 0.5, 0.5, 0.5];
-    return [
-      ...FEATURE_NAMES.map((n) => r.features[n] ?? 0.5),
-      ...emo,
-      at ?? 0.5,
-      ...ideas.map((j) => (s && stats ? (s[j]! - stats.mean[j]!) / stats.sd[j]! : 0)),
-    ];
-  };
-  return trainOnFormula(train, vec, config.context);
 }
 
 /** Empreinte SigLIP 2 normalisée, ou null (photo pas encore regardée par le nouvel œil). */
@@ -162,6 +131,33 @@ function clipUnit(r: ChoiceRecord): Float32Array | null {
   if (!v || v.length !== config.ranker.eyeDims) return null;
   const n = Math.hypot(...v) || 1;
   return Float32Array.from(v, (x) => x / n);
+}
+
+// La place dans la rafale n'entre dans aucun candidat (utilisateur, 27/11 : « c'est une corrélation, pas une
+// causalité ») : l'app ne doit pas apprendre à garder la dernière photo d'une rafale parce qu'elle est la dernière.
+
+/** Formule + critères + émotions + vocabulaire de contexte sur l'image entière (jalon 8, point 62). */
+function trainContext(pairs: readonly LabPair[]): LabScorer {
+  const train = sample(pairs, config.context.maxTrainPairs);
+  const stats = contextStats(train.flatMap((p) => [p.keep, p.drop]));
+  const ideas = rankingIdeas();
+  const vec = (r: ChoiceRecord): number[] => {
+    const s = stats ? contextScores(r) : null;
+    const emo = r.emo && r.emo.length === 6 ? r.emo : [0.5, 0.5, 0.5, 0.5, 0.5, 0.5];
+    return [
+      ...FEATURE_NAMES.map((n) => r.features[n] ?? 0.5),
+      ...emo,
+      ...ideas.map((j) => (s && stats ? (s[j]! - stats.mean[j]!) / stats.sd[j]! : 0)),
+    ];
+  };
+  return trainOnFormula(train, vec, config.context);
+}
+
+/** Formule + ce que le nouvel œil lit sur chaque visage recadré (point 63) : moyenne et pire visage de chaque idée. */
+function trainFaces(pairs: readonly LabPair[]): LabScorer {
+  const train = sample(pairs, config.context.maxTrainPairs);
+  const stats = faceStats(train.flatMap((p) => [p.keep, p.drop]));
+  return trainOnFormula(train, (r) => (stats ? faceFeatures(r, stats) : null) ?? faceNeutral(), config.context);
 }
 
 export const LAB_CANDIDATES: readonly LabCandidate[] = [
@@ -244,14 +240,20 @@ export const LAB_CANDIDATES: readonly LabCandidate[] = [
   {
     id: 'contexte',
     label: 'Formule + contexte',
-    description: `La formule, corrigée par ce que le nouvel œil lit dans l’image (regard, yeux, émotions, cadrage, lumière : plus de 100 idées) et la place dans la rafale.`,
+    description: `La formule, corrigée par ce que le nouvel œil lit dans l’image (regard, yeux, émotions, cadrage, lumière : plus de 100 idées).`,
     train: trainContext,
+  },
+  {
+    id: 'visages',
+    label: 'Formule + visages',
+    description: 'La formule, corrigée par ce que le nouvel œil lit sur chaque visage recadré (yeux, regard, expression, netteté) : la moyenne et le visage le moins réussi.',
+    train: trainFaces,
   },
 ];
 
 function scorePairs(scorer: LabScorer, test: readonly LabPair[]): Score {
   let right = 0;
-  for (const p of test) if (scorer(p.keep, p.keepAt) > scorer(p.drop, p.dropAt)) right++;
+  for (const p of test) if (scorer(p.keep) > scorer(p.drop)) right++;
   return { right, total: test.length };
 }
 

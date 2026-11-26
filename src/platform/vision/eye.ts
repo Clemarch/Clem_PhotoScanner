@@ -26,6 +26,10 @@ const FACE_STD = [0.229, 0.224, 0.225];
 const FACE_MARGIN = 0.12;
 /** Au plus N visages par photo (les plus grands), pour garder l'analyse rapide. */
 const MAX_FACES = 4;
+/** SigLIP 2 sur chaque visage (point 63) : recadrage large (tête, cheveux, épaules), pour lire le regard, les yeux,
+ *  l'expression et l'attitude là où ils se jouent ; sur l'image entière réduite à 224 points, un visage de groupe
+ *  n'en fait que quelques-uns. */
+const FACE_CLIP_MARGIN = 0.45;
 
 /**
  * Plafond de mémoire du moteur (25/11, point 58). onnxruntime-web crée sa mémoire « partagée » avec un plafond de
@@ -57,6 +61,8 @@ export interface Eye {
   clip(bitmap: ImageBitmap): Promise<number[] | null>;
   /** Émotions de chaque visage (boîtes en proportions de l'image), dans le même ordre ; null si non calculées. */
   emotions(bitmap: ImageBitmap, boxes: readonly Box[]): Promise<(FaceEmotion | null)[]>;
+  /** Empreinte SigLIP 2 de chaque visage recadré large, dans le même ordre ; null si non calculée. */
+  faceClips(bitmap: ImageBitmap, boxes: readonly Box[]): Promise<(number[] | null)[]>;
   close(): void;
 }
 
@@ -81,6 +87,30 @@ function tensorData(bitmap: ImageBitmap, size: number, mean: number[], std: numb
   canvas.width = 0;
   canvas.height = 0;
   return out;
+}
+
+/** Les N plus grands visages, dans l'ordre des boîtes reçues. */
+function largest(boxes: readonly Box[]): number[] {
+  return boxes
+    .map((b, i) => ({ i, area: b.width * b.height }))
+    .sort((a, b) => b.area - a.area)
+    .slice(0, MAX_FACES)
+    .map((x) => x.i);
+}
+
+/** Carré autour du visage (sinon il serait déformé), agrandi de `margin` de chaque côté, décalé pour rester dans
+ *  l'image, y compris à droite et en bas. En proportions de l'image. */
+function squareAround(b: Box, bitmap: ImageBitmap, margin: number): Box {
+  const side = Math.min(Math.max(b.width * bitmap.width, b.height * bitmap.height) * (1 + 2 * margin), bitmap.width, bitmap.height);
+  const cx = (b.x + b.width / 2) * bitmap.width;
+  const cy = (b.y + b.height / 2) * bitmap.height;
+  const clamp = (v: number, max: number) => Math.min(Math.max(0, v), max);
+  return {
+    x: clamp(cx - side / 2, bitmap.width - side) / bitmap.width,
+    y: clamp(cy - side / 2, bitmap.height - side) / bitmap.height,
+    width: side / bitmap.width,
+    height: side / bitmap.height,
+  };
 }
 
 const softmax = (x: readonly number[]): number[] => {
@@ -115,41 +145,28 @@ export async function createEye(base = new URL('./models/onnx/', document.baseUR
     throw e;
   }
 
+  /** Empreinte SigLIP 2 normalisée de l'image entière, ou d'une partie (`crop`, en proportions). */
+  const embed = async (bitmap: ImageBitmap, crop?: Box): Promise<number[] | null> => {
+    try {
+      const input = new ort.Tensor('float32', tensorData(bitmap, CLIP_SIZE, CLIP_MEAN, CLIP_STD, crop), [1, 3, CLIP_SIZE, CLIP_SIZE]);
+      const result = await clipSession.run({ [clipSession.inputNames[0]!]: input });
+      // SigLIP : sortie « pooler_output » (résumé de l'image) ; sinon la première sortie.
+      const name = clipSession.outputNames.includes('pooler_output') ? 'pooler_output' : clipSession.outputNames[0]!;
+      const data = result[name]!.data as Float32Array;
+      const norm = Math.hypot(...data) || 1;
+      return Array.from(data, (v) => v / norm);
+    } catch {
+      return null;
+    }
+  };
+
   return {
-    async clip(bitmap) {
-      try {
-        const input = new ort.Tensor('float32', tensorData(bitmap, CLIP_SIZE, CLIP_MEAN, CLIP_STD), [1, 3, CLIP_SIZE, CLIP_SIZE]);
-        const result = await clipSession.run({ [clipSession.inputNames[0]!]: input });
-        // SigLIP : sortie « pooler_output » (résumé de l'image) ; sinon la première sortie.
-        const name = clipSession.outputNames.includes('pooler_output') ? 'pooler_output' : clipSession.outputNames[0]!;
-        const data = result[name]!.data as Float32Array;
-        const norm = Math.hypot(...data) || 1;
-        return Array.from(data, (v) => v / norm);
-      } catch {
-        return null;
-      }
-    },
+    clip: (bitmap) => embed(bitmap),
     async emotions(bitmap, boxes) {
-      const order = boxes
-        .map((b, i) => ({ i, area: b.width * b.height }))
-        .sort((a, b) => b.area - a.area)
-        .slice(0, MAX_FACES)
-        .map((x) => x.i);
       const out: (FaceEmotion | null)[] = boxes.map(() => null);
-      for (const i of order) {
-        const b = boxes[i]!;
-        // Carré (sinon le visage serait déformé), décalé pour rester dans l'image, y compris à droite et en bas.
-        const side = Math.min(Math.max(b.width * bitmap.width, b.height * bitmap.height) * (1 + 2 * FACE_MARGIN), bitmap.width, bitmap.height);
-        const cx = (b.x + b.width / 2) * bitmap.width;
-        const cy = (b.y + b.height / 2) * bitmap.height;
-        const clamp = (v: number, max: number) => Math.min(Math.max(0, v), max);
-        const crop: Box = {
-          x: clamp(cx - side / 2, bitmap.width - side) / bitmap.width,
-          y: clamp(cy - side / 2, bitmap.height - side) / bitmap.height,
-          width: side / bitmap.width,
-          height: side / bitmap.height,
-        };
+      for (const i of largest(boxes)) {
         try {
+          const crop = squareAround(boxes[i]!, bitmap, FACE_MARGIN);
           const input = new ort.Tensor('float32', tensorData(bitmap, FACE_SIZE, FACE_MEAN, FACE_STD, crop), [1, 3, FACE_SIZE, FACE_SIZE]);
           const result = await faceSession.run({ [faceSession.inputNames[0]!]: input });
           const scores = Array.from(result[faceSession.outputNames[0]!]!.data as Float32Array);
@@ -159,6 +176,11 @@ export async function createEye(base = new URL('./models/onnx/', document.baseUR
           out[i] = null;
         }
       }
+      return out;
+    },
+    async faceClips(bitmap, boxes) {
+      const out: (number[] | null)[] = boxes.map(() => null);
+      for (const i of largest(boxes)) out[i] = await embed(bitmap, squareAround(boxes[i]!, bitmap, FACE_CLIP_MARGIN));
       return out;
     },
     close() {

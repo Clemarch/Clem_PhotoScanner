@@ -187,3 +187,16 @@ export const asideLabel: Record<AsideKind, string> = {
   capture: 'capture d’écran ou image enregistrée',
   document: 'photo d’un document ou d’un écran',
 };
+
+/** Critères qui mesurent un défaut (plus la valeur est haute, plus il y en a). */
+const DEFECTS: ReadonlySet<FeatureName> = new Set(['masquage', 'devant', 'arrierePlan', 'objets', 'penchee', 'membres', 'bords']);
+
+/**
+ * Ce qu'un goût appris veut dire, en clair (utilisateur, 27/11 : « compte plus pour vous : visage masqué » se lisait à
+ * l'envers). Poids positif : la photo qui a plus de ce critère est gardée plus souvent que la formule ne le prévoit.
+ */
+export function tasteLine(name: FeatureName, weight: number): string {
+  const label = featureLabel[name];
+  if (DEFECTS.has(name)) return weight > 0 ? `Vous le pardonnez plus que l’app : ${label}` : `Vous le sanctionnez plus que l’app : ${label}`;
+  return weight > 0 ? `Compte plus pour vous que pour l’app : ${label}` : `Compte moins pour vous que pour l’app : ${label}`;
+}

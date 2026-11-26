@@ -14,9 +14,9 @@ possible », progrès à chaque séance, quitte à valider 2 000 photos. Avancer
 
 1. Vocabulaire de contexte (point 62) — fait. Point d'arrêt 1 (+2 points dès maintenant) non atteint : il manque
    des exemples pour 118 poids. Le candidat reste dans le Labo pour suivre sa courbe séance après séance.
-2. Le nouvel œil sur les visages : SigLIP 2 et les émotions sur chaque visage principal recadré (aujourd'hui l'image
-   entière est réduite à 224 px : un visage y fait quelques pixels). Les idées « yeux fermés », « regarde ailleurs »,
-   « grimace » lues sur le visage lui-même, la où se joue la différence entre deux photos d'une pose.
+2. Le nouvel œil sur les visages (point 63) — fait : SigLIP 2 sur chaque visage principal recadré, 35 idées lues sur
+   le visage, candidat « Formule + visages ». À juger dans le Labo une fois les séances gardées revues par l'œil.
+   La place dans la rafale est retirée des candidats (corrélation, pas causalité).
 3. Moins de poids à apprendre : sens connu d'avance pour chaque idée (bonne ou mauvaise), résumé de l'image en
    quelques nombres appris sur toutes les photos vues, même non triées.
 4. Arbres de décision et « Règles découvertes » ; galerie « Les erreurs de l'app » avec « pourquoi » ; bouton

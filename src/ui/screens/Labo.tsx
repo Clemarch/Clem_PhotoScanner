@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { accuracy, FEATURE_NAMES, type ChoiceRecord, type LabResult, type LearnedWeights, type PoseValidation } from '../../engine';
 import type { SessionSummary } from '../../platform/storage/sessionStore';
 import { runLabInBackground } from '../../platform/worker/lab';
-import { featureLabel } from '../reasons';
+import { tasteLine } from '../reasons';
 import { formatDate, formatShortTime, plural } from '../format';
 import { IconFermer } from '../icons';
 import { BarreOeil } from '../BarreOeil';
@@ -35,7 +35,7 @@ const pctText = (right: number, total: number): string => (total ? `${pct(right,
  */
 export function Labo({ validations, records, excluded, learned, seances, tasteEffect, eyeProgress, onLaunchEye, onClose }: Props) {
   const scrolled = useScrolled();
-  const key = `${validations.length}|${records.length}|${records.filter((r) => r.clip).length}|${[...excluded].sort().join(',')}`;
+  const key = `${validations.length}|${records.length}|${records.filter((r) => r.clip).length}|${records.filter((r) => r.fclip?.length).length}|${[...excluded].sort().join(',')}`;
   const [result, setResult] = useState<LabResult | null>(cache?.key === key ? cache.result : null);
   const [error, setError] = useState<string | null>(null);
   const [chosen, setChosen] = useState<string | null>(null);
@@ -60,13 +60,17 @@ export function Labo({ validations, records, excluded, learned, seances, tasteEf
   const counted = useMemo(() => validations.filter((v) => !excluded.has(v.sessionId)), [validations, excluded]);
   const app = accuracy(counted);
   const firstAt = new Map(seances.map((s) => [s.sessionId, s.firstAt]));
-  const sessionName = (id: string) => {
-    const at = firstAt.get(id) ?? Number(id);
-    // Plusieurs séances le même jour : l'heure les distingue.
-    return at ? `${formatDate(at).slice(0, 5)} ${formatShortTime(at)}` : '?';
+  // Une séance est nommée par le jour où elle a été triée (son identifiant), dans l'ordre du temps ; le jour des photos
+  // vient en plus (utilisateur, 27/11 : « séance 7, du 14/11 » pour une séance triée le 25/11 prêtait à confusion).
+  const when = (at: number) => `${formatDate(at).slice(0, 5)} ${formatShortTime(at)}`;
+  const sessionName = (id: string) => (Number(id) ? when(Number(id)) : '?');
+  const photosOf = (id: string) => {
+    const at = firstAt.get(id);
+    return at ? formatDate(at).slice(0, 5) : null;
   };
   const appBySession = [...new Set(counted.map((v) => v.sessionId))].sort().map((id) => ({ id, ...accuracy(counted.filter((v) => v.sessionId === id)).photos }));
   const eyeSeen = records.filter((r) => r.clip).length;
+  const facesSeen = records.filter((r) => r.fclip?.length).length;
   const top = FEATURE_NAMES.filter((n) => learned[n] !== undefined)
     .sort((a, b) => Math.abs(learned[b]!) - Math.abs(learned[a]!))
     .slice(0, 6);
@@ -107,7 +111,7 @@ export function Labo({ validations, records, excluded, learned, seances, tasteEf
         </div>
         <div>
           <strong>{eyeSeen}</strong>
-          <span>photos vues par le nouvel œil</span>
+          <span>photos vues par le nouvel œil{facesSeen ? ` (${facesSeen} avec leurs visages)` : ''}</span>
         </div>
       </section>
 
@@ -146,7 +150,8 @@ export function Labo({ validations, records, excluded, learned, seances, tasteEf
               const s = shown.curve[i]!;
               return (
                 <p className="note labo-detail" role="status">
-                  Séance {i + 1}, du {sessionName(result.sessions[i]!)} ({plural(f.total, 'paire')}) : formule {pctText(f.right, f.total)} ·{' '}
+                  Séance {i + 1}, triée le {sessionName(result.sessions[i]!)}
+                  {photosOf(result.sessions[i]!) ? `, photos du ${photosOf(result.sessions[i]!)}` : ''} ({plural(f.total, 'paire')}) : formule {pctText(f.right, f.total)} ·{' '}
                   {shown.label.toLowerCase()} {pctText(s.right, s.total)}
                   {excluded.has(result.sessions[i]!) ? ' · hors statistiques' : ''}
                 </p>
@@ -201,7 +206,7 @@ export function Labo({ validations, records, excluded, learned, seances, tasteEf
         <table className="progres">
           <thead>
             <tr>
-              <th>Séance (poses)</th>
+              <th>Triée le (poses)</th>
               <th>App juste</th>
               {result && <th>Formule</th>}
               {result && shown && <th>{shown.id === 'oeil' ? 'Œil' : shown.label.replace('Formule + ', '+ ')}</th>}
@@ -217,6 +222,7 @@ export function Labo({ validations, records, excluded, learned, seances, tasteEf
                   <td>
                     {sessionName(id)}
                     <span className="doux"> ({a.poses.total})</span>
+                    {photosOf(id) && <span className="note bloc">photos du {photosOf(id)}</span>}
                   </td>
                   <td>{pctText(a.photos.right, a.photos.total)}</td>
                   {result && <td>{f ? pctText(f.right, f.total) : '—'}</td>}
@@ -242,8 +248,7 @@ export function Labo({ validations, records, excluded, learned, seances, tasteEf
           <ul className="gouts">
             {top.map((name) => (
               <li key={name} className={learned[name]! > 0 ? 'plus' : 'moins'}>
-                {learned[name]! > 0 ? 'Compte plus pour vous : ' : 'Compte moins pour vous : '}
-                {featureLabel[name]}
+                {tasteLine(name, learned[name]!)}
               </li>
             ))}
           </ul>

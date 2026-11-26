@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { accuracy, type ShadowComparison, FEATURE_NAMES, evaluateDay, preferencePairs, type ChoiceRecord, type PoseValidation, type DayAnalysis, type LearnedWeights } from '../../engine';
 import type { EyeProgress, Session } from '../session';
 import { BarreOeil } from '../BarreOeil';
-import { featureLabel } from '../reasons';
+import { tasteLine } from '../reasons';
 import { agreementLine, buildReport, copyText, shareText, summarize } from '../report';
 import { RapportsEnregistres } from '../RapportsEnregistres';
 import { SauvegardeGouts } from '../SauvegardeGouts';
@@ -237,8 +237,7 @@ function RapportEtDiagnostic({
           <ul className="gouts">
             {learnedList.map((name) => (
               <li key={name} className={learned[name]! > 0 ? 'plus' : 'moins'}>
-                {learned[name]! > 0 ? 'Compte plus pour vous : ' : 'Compte moins pour vous : '}
-                {featureLabel[name]}
+                {tasteLine(name, learned[name]!)}
               </li>
             ))}
           </ul>
