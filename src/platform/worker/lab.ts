@@ -1,6 +1,7 @@
-// Lance le labo d'apprentissage dans son propre fil ; si les fils manquent, le calcul se fait dans la page.
+// Lance le labo d'apprentissage dans son propre fil ; si les fils manquent, le calcul se fait dans la page (chargé
+// seulement alors : l'écran principal n'embarque pas le vocabulaire du nouvel œil).
 
-import { labPairs, runLab, type ChoiceRecord, type LabResult, type PoseValidation } from '../../engine';
+import type { ChoiceRecord, LabResult, PoseValidation } from '../../engine';
 import type { LabRequest, LabResponse } from './lab.worker';
 
 export function runLabInBackground(validations: PoseValidation[], records: ChoiceRecord[], excluded: ReadonlySet<string>): Promise<LabResult> {
@@ -9,11 +10,9 @@ export function runLabInBackground(validations: PoseValidation[], records: Choic
     try {
       worker = new Worker(new URL('./lab.worker.ts', import.meta.url), { type: 'module' });
     } catch {
-      try {
-        resolve(runLab(labPairs(validations, records, excluded)));
-      } catch (e) {
-        reject(e instanceof Error ? e : new Error(String(e)));
-      }
+      import('../../engine/learning/lab')
+        .then(({ labPairs, runLab }) => resolve(runLab(labPairs(validations, records, excluded))))
+        .catch((e: unknown) => reject(e instanceof Error ? e : new Error(String(e))));
       return;
     }
     worker.onmessage = (event: MessageEvent<LabResponse>) => {

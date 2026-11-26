@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { encodeEmbedding, labPairs, runLab, LAB_CANDIDATES, type ChoiceRecord, type PoseValidation } from '../../src/engine';
+import { contextIdeas, contextScores, contextStats, encodeEmbedding, labPairs, runLab, topIdeas, LAB_CANDIDATES, type ChoiceRecord, type PoseValidation } from '../../src/engine';
 
 // Labo d'apprentissage (jalon 7) : candidats mis en concurrence honnêtement sur les poses validées.
 const unit = (seed: number) => {
@@ -82,4 +82,31 @@ describe('labo d’apprentissage (jalon 7)', () => {
     expect(r.pairs).toBe(315);
     expect(r.winner).toBe('oeil');
   }, 30000);
+});
+
+describe('vocabulaire de contexte du nouvel œil (jalon 8)', () => {
+  it('chaque idée est lisible, et une photo « qui ressemble » à une idée la place en tête', async () => {
+    const { VOCAB } = await import('../../src/engine/learning/vocab.generated');
+    const { decodeEmbedding } = await import('../../src/engine');
+    expect(contextIdeas().length).toBe(VOCAB.length);
+    expect(contextIdeas().some((i) => i.id === 'meditation')).toBe(true);
+    const j = contextIdeas().findIndex((i) => i.id === 'regard_ailleurs');
+    const photo = { key: 'x|1', clip: encodeEmbedding(Array.from(decodeEmbedding(VOCAB[j]![3])!))! };
+    // Autres « photos » : chacune ressemble à une autre idée du vocabulaire.
+    const others = VOCAB.filter((_, i) => i !== j).map((v, i) => ({ key: `o${i}|1`, clip: encodeEmbedding(Array.from(decodeEmbedding(v[3])!))! }));
+    const stats = contextStats([photo, ...others])!;
+    expect(topIdeas(photo, stats, 3).map((t) => t.idea.id)).toContain('regard_ailleurs');
+    const s = contextScores(photo)!;
+    expect(s[j]).toBeGreaterThan(0.99);
+    expect(contextScores({ key: 'sans|1', clip: undefined })).toBeNull();
+  });
+
+  it('candidat « contexte » : sans empreinte, c’est la formule ; la place dans la rafale est connue', () => {
+    const { records, validations } = world(false);
+    const pairs = labPairs(validations, records);
+    expect(pairs[0]!.keepAt).toBe(0);
+    expect(pairs[0]!.dropAt).toBe(1);
+    const r = runLab(pairs, LAB_CANDIDATES.filter((c) => c.id === 'formule' || c.id === 'contexte'));
+    expect(r.candidates.find((c) => c.id === 'contexte')!.honest.total).toBe(45);
+  });
 });

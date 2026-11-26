@@ -12,11 +12,24 @@ import { FEATURE_NAMES, type ChoiceRecord } from '../types';
 import { decodeEmbedding } from './embeddingCodec';
 import { eyeVector, rankScore, trainRanker } from './ranker';
 import { tooFast, type PoseValidation } from '../triage/calibration';
+import { contextScores, contextStats, rankingIdeas } from './context';
 
 export interface LabPair {
   sessionId: string;
   keep: ChoiceRecord;
   drop: ChoiceRecord;
+  /** Place dans la rafale (0 : première photo de la pose, 1 : dernière). */
+  keepAt?: number;
+  dropAt?: number;
+}
+
+/** Heure de prise de vue lue dans la clé d'une photo (« nom|heure »), 0 si absente. */
+const shotTime = (key: string): number => Number(key.split('|')[1]) || 0;
+
+/** Place de chaque photo dans sa pose, dans l'ordre de prise de vue (0 à 1). */
+function burstPositions(keys: readonly string[]): Map<string, number> {
+  const sorted = [...keys].sort((a, b) => shotTime(a) - shotTime(b));
+  return new Map(sorted.map((k, i) => [k, sorted.length > 1 ? i / (sorted.length - 1) : 0.5]));
 }
 
 /** Un candidat apprend sur des paires et rend une note par photo (plus haut = à garder). */
@@ -25,8 +38,11 @@ export interface LabCandidate {
   label: string;
   /** Ce qu'il regarde, en une phrase (pour l'écran). */
   description: string;
-  train: (pairs: readonly LabPair[]) => (r: ChoiceRecord) => number;
+  train: (pairs: readonly LabPair[]) => LabScorer;
 }
+
+/** Note d'une photo (plus haut = à garder) ; `at` : sa place dans la rafale, si connue. */
+export type LabScorer = (r: ChoiceRecord, at?: number) => number;
 
 export interface Score {
   right: number;
@@ -62,11 +78,12 @@ export function labPairs(validations: readonly PoseValidation[], records: readon
   const out: LabPair[] = [];
   for (const v of last.values()) {
     if (tooFast(v) || v.keys.length < 2) continue;
+    const at = burstPositions(v.keys);
     for (const a of v.keys.filter((k) => v.kept.includes(k)))
       for (const b of v.keys.filter((k) => !v.kept.includes(k))) {
         const keep = byKey.get(a);
         const drop = byKey.get(b);
-        if (keep && drop) out.push({ sessionId: v.sessionId, keep, drop });
+        if (keep && drop) out.push({ sessionId: v.sessionId, keep, drop, keepAt: at.get(a), dropAt: at.get(b) });
       }
   }
   return out;
@@ -85,16 +102,22 @@ const featureVector = (r: ChoiceRecord): number[] => FEATURE_NAMES.map((n) => r.
  * Logistique avec la formule comme point de départ : z = échelle × (note A − note B) + w · (xA − xB). Sans paires,
  * w = 0 et le candidat est exactement la formule ; il ne s'en écarte que si les paires le justifient.
  */
-function trainOnFormula(pairs: readonly { keep: ChoiceRecord; drop: ChoiceRecord }[], vec: (r: ChoiceRecord) => number[] | null) {
+function trainOnFormula(
+  pairs: readonly LabPair[],
+  vec: (r: ChoiceRecord, at: number | undefined) => number[] | null,
+  opts: { lambda: number; rate: number; iterations: number } = config.lab,
+): LabScorer {
   const c = config.lab;
   const usable = pairs.flatMap((p) => {
-    const a = vec(p.keep);
-    const b = vec(p.drop);
+    const a = vec(p.keep, p.keepAt);
+    const b = vec(p.drop, p.dropAt);
     return a && b ? [{ base: p.keep.baseScore - p.drop.baseScore, d: a.map((v, i) => v - b[i]!) }] : [];
   });
   const dims = usable[0]?.d.length ?? 0;
   const w = new Array<number>(dims).fill(0);
-  for (let it = 0; it < c.iterations && usable.length > 0; it++) {
+  // Descente avec élan (convergence plus rapide quand les mesures sont nombreuses).
+  const speed = new Array<number>(dims).fill(0);
+  for (let it = 0; it < opts.iterations && usable.length > 0; it++) {
     const grad = new Array<number>(dims).fill(0);
     for (const u of usable) {
       let z = c.formulaScale * u.base;
@@ -102,14 +125,35 @@ function trainOnFormula(pairs: readonly { keep: ChoiceRecord; drop: ChoiceRecord
       const g = -1 / (1 + Math.exp(z));
       for (let i = 0; i < dims; i++) grad[i]! += (g * u.d[i]!) / usable.length;
     }
-    for (let i = 0; i < dims; i++) w[i]! -= c.rate * (grad[i]! + c.lambda * w[i]!);
+    for (let i = 0; i < dims; i++) {
+      speed[i] = 0.8 * speed[i]! + grad[i]! + opts.lambda * w[i]!;
+      w[i]! -= opts.rate * speed[i]!;
+    }
   }
-  return (r: ChoiceRecord): number => {
-    const x = vec(r);
+  return (r: ChoiceRecord, at?: number): number => {
+    const x = vec(r, at);
     let s = c.formulaScale * r.baseScore;
     if (x) for (let i = 0; i < dims; i++) s += w[i]! * x[i]!;
     return s;
   };
+}
+
+/** Formule + critères + émotions + place dans la rafale + vocabulaire de contexte (jalon 8, point 62). */
+function trainContext(pairs: readonly LabPair[]): LabScorer {
+  const train = sample(pairs, config.context.maxTrainPairs);
+  const stats = contextStats(train.flatMap((p) => [p.keep, p.drop]));
+  const ideas = rankingIdeas();
+  const vec = (r: ChoiceRecord, at: number | undefined): number[] => {
+    const s = stats ? contextScores(r) : null;
+    const emo = r.emo && r.emo.length === 6 ? r.emo : [0.5, 0.5, 0.5, 0.5, 0.5, 0.5];
+    return [
+      ...FEATURE_NAMES.map((n) => r.features[n] ?? 0.5),
+      ...emo,
+      at ?? 0.5,
+      ...ideas.map((j) => (s && stats ? (s[j]! - stats.mean[j]!) / stats.sd[j]! : 0)),
+    ];
+  };
+  return trainOnFormula(train, vec, config.context);
 }
 
 /** Empreinte SigLIP 2 normalisée, ou null (photo pas encore regardée par le nouvel œil). */
@@ -131,7 +175,7 @@ export const LAB_CANDIDATES: readonly LabCandidate[] = [
     id: 'gouts',
     label: 'Formule + vos goûts',
     description: 'La formule, corrigée par ce que vos choix disent de ses 18 critères.',
-    train: (pairs) => trainOnFormula(sample(pairs, config.lab.maxTrainPairs), featureVector),
+    train: (pairs) => trainOnFormula(sample(pairs, config.lab.maxTrainPairs), (r) => featureVector(r)),
   },
   {
     id: 'oeil',
@@ -158,7 +202,7 @@ export const LAB_CANDIDATES: readonly LabCandidate[] = [
     id: 'hybride',
     label: 'Formule + nouvel œil',
     description: 'La formule comme point de départ, corrigée par l’image entière et les émotions.',
-    train: (pairs) => trainOnFormula(sample(pairs, config.lab.maxTrainPairs), eyeVector),
+    train: (pairs) => trainOnFormula(sample(pairs, config.lab.maxTrainPairs), (r) => eyeVector(r)),
   },
   {
     id: 'voisins',
@@ -197,11 +241,17 @@ export const LAB_CANDIDATES: readonly LabCandidate[] = [
       };
     },
   },
+  {
+    id: 'contexte',
+    label: 'Formule + contexte',
+    description: `La formule, corrigée par ce que le nouvel œil lit dans l’image (regard, yeux, émotions, cadrage, lumière : plus de 100 idées) et la place dans la rafale.`,
+    train: trainContext,
+  },
 ];
 
-function scorePairs(scorer: (r: ChoiceRecord) => number, test: readonly LabPair[]): Score {
+function scorePairs(scorer: LabScorer, test: readonly LabPair[]): Score {
   let right = 0;
-  for (const p of test) if (scorer(p.keep) > scorer(p.drop)) right++;
+  for (const p of test) if (scorer(p.keep, p.keepAt) > scorer(p.drop, p.dropAt)) right++;
   return { right, total: test.length };
 }
 

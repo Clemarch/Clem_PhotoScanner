@@ -366,6 +366,20 @@ export const config = {
     maxTrainPairs: 400,
   },
   /** Labo d'apprentissage (jalon 7, 26/11) : candidats comparés honnêtement à la formule (`learning/lab.ts`). */
+  /** Vocabulaire de contexte du nouvel œil (jalon 8, point 62). */
+  context: {
+    /**
+     * Familles d'idées qui départagent les photos d'une même pose (regard, yeux, émotions, cadrage, lumière) ; situations
+     * et lieux, presque identiques dans une pose, serviront au réseau de neurones pour remettre les règles en contexte.
+     */
+    families: ['personnes', 'emotion', 'cadrage', 'lumiere'] as readonly string[],
+    /** Frein contre l'apprentissage par cœur (mesuré sur 473 paires, 26/11 : 0,2), passes, pas. */
+    lambda: 0.2,
+    iterations: 300,
+    rate: 0.3,
+    /** Au plus N paires pour apprendre. */
+    maxTrainPairs: 2000,
+  },
   lab: {
     /** Poids de la formule dans les candidats qui partent d'elle (sa note est entre 0 et 1). */
     formulaScale: 8,

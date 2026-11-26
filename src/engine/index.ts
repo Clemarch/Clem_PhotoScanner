@@ -26,3 +26,4 @@ export { buildQueue, poseKey, poseMargin, type PoseTask } from './triage/queue';
 export { emotionSummary, eyeVector, rankScore, shadowCompare, trainRanker, type RankerModel, type ShadowComparison } from './learning/ranker';
 export { encodeBackup, decodeBackup, mergeChoices, BACKUP_FORMAT, BACKUP_VERSION, type BackupFile, type DecodedBackup } from './learning/backup';
 export { labPairs, runLab, LAB_CANDIDATES, type LabCandidate, type LabCandidateResult, type LabPair, type LabResult } from './learning/lab';
+export { contextIdeas, contextScores, contextStats, topIdeas, type ContextIdea } from './learning/context';
