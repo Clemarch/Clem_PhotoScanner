@@ -102,6 +102,13 @@ export function GuideAlbums() {
             Créer un album photo » y ajoute les photos, sans copie. N’utilisez pas « Enregistrer dans l’album photo » : elle
             copierait chaque photo.
           </p>
+          <p className="note">
+            <strong>Photos en double ?</strong> (27/11) Ouvrez « {KEEP_SHORTCUT_NAME} » et regardez le dernier bloc, tout en
+            bas : il doit s’appeler <strong>Créer un album photo</strong>. S’il s’appelle « Enregistrer dans l’album photo »,
+            supprimez-le (croix ✕) et refaites l’étape précédente. Pour nettoyer : app Photos › <strong>Albums</strong> ›
+            descendez jusqu’à <strong>Doublons</strong> › <strong>Fusionner</strong> (iOS garde la meilleure version et ses
+            albums). Depuis le 27/11, l’app n’envoie plus jamais deux fois la même photo vers « {KEPT_ALBUM} ».
+          </p>
         </>
       )}
 

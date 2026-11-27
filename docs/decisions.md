@@ -1231,6 +1231,25 @@ considérées comme traitées. »
 - Limite : l'app ne connaît que les photos choisies dans une séance ; les autres photos de la bibliothèque passent par
   l'album « À trier » (point 48).
 
+### 69. Photos en double dans « Triées » : jamais deux fois la même photo (27/11)
+
+Constat de l'utilisateur (27/11) : « plein de photos en doublons… IMG_1505 en triple, systématiquement dans
+Triées, dont une « saved from… » », sur tout un lot.
+- L'app n'écrit jamais dans Photos et ne partage jamais d'image : seuls les raccourcis touchent la photothèque. Une
+  copie ne peut venir que d'un raccourci qui enregistre les photos au lieu de les ranger (« Enregistrer dans l'album
+  photo », ou « Créer un album photo » si iOS 27 enregistre une copie quand la photo est déjà dans l'album : à
+  vérifier par l'utilisateur, l'app ne voit ni la photothèque ni les raccourcis).
+- Ce qui multipliait les envois, côté app : le rangement était suivi par séance, et « Le raccourci a affiché une
+  erreur ? Tout ranger à nouveau » s'affichait même quand tout était rangé ; un toucher renvoyait toutes les photos
+  gardées de toutes les séances terminées au raccourci « Photo Triage Garder ». IMG_1505 (gardée, séance du 25/11) en
+  faisait partie. Deux renvois = trois exemplaires, si chaque envoi copie.
+- Correctif : suivi photo par photo (`photo-triage.photos-rangees`, `src/ui/Rangement.tsx`) : une photo envoyée vers
+  « Triées » ne l'est plus jamais, même si sa séance est rouverte (« Revoir », point 68). Les photos des séances déjà
+  rangées comptent comme envoyées dès l'ouverture de cette version. « Tout ranger à nouveau » est retiré ; à sa place,
+  juste après un envoi : « Renvoyer ce lot » (ce lot seulement, après confirmation).
+- Guide des albums : vérifier que le dernier bloc de « Photo Triage Garder » est « Créer un album photo », et
+  nettoyer avec Photos › Albums › Doublons › Fusionner.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

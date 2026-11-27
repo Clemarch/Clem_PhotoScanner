@@ -121,4 +121,5 @@ Réseau de neurones dans le Labo, rattrapage du nouvel œil enchaîné (point 64
 « Pourquoi ? » et « Les deux se valent » dans le tri éclair (point 65). Raisons précises, « Autre… », « Aucune n'est
 vraiment bonne » (point 66). Flou de bougé repéré : photo ratée, montrée dans le tri éclair (point 67).
 Toutes les poses dans le tri éclair (photos seules et « sûres » comprises), Réglages › « Poses jamais vues » (point 68).
+Rangement dans « Triées » suivi photo par photo : jamais deux fois la même photo (point 69, doublons du 27/11).
 Modèle restant proposé : objets plus fins.
