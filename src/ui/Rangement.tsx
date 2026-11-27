@@ -1,131 +1,76 @@
 import { useEffect, useState } from 'react';
-import { photoKey, type ChoiceRecord, type MediaItem } from '../engine';
-import { plural } from './format';
-import { listSessions, loadSessionItems } from '../platform/storage/sessionStore';
-import {
-  albumsEnabled,
-  KEPT_ALBUM,
-  KEPT_BATCH,
-  PREP_LIMIT,
-  runKeepThenPrep,
-  shortcutCount,
-  TODO_ALBUM,
-  type ShortcutPhoto,
-} from '../platform/shortcut';
+import { uncovered, type MediaItem, type Span } from '../engine';
+import { formatDate, formatShortTime } from './format';
+import { listSessions } from '../platform/storage/sessionStore';
+import { PREP_LIMIT, PREP_SHORTCUT_NAME, runPrepShortcut, shortcutCount, TODO_ALBUM, type ShortcutPhoto } from '../platform/shortcut';
 
 /** Photo telle que le raccourci la cherche : nom et instant de prise de vue. */
 export const asPhoto = (item: MediaItem): ShortcutPhoto => ({ fileName: item.fileName, at: item.instant ?? item.capturedAt });
 /** Le raccourci retrouve la photo (nom et heure connus) ? */
 export const findable = (item: MediaItem): boolean => shortcutCount([asPhoto(item)]) === 1;
 
-// Séances terminées dont les photos gardées sont déjà parties vers « Triées ».
-const RANGED_KEY = 'photo-triage.seances-rangees';
-function loadRanged(): Set<string> {
-  try {
-    return new Set(JSON.parse(localStorage.getItem(RANGED_KEY) ?? '[]') as string[]);
-  } catch {
-    return new Set();
-  }
-}
-function saveRanged(ids: Set<string>): void {
-  try {
-    localStorage.setItem(RANGED_KEY, JSON.stringify([...ids]));
-  } catch {
-    // Mémoire seulement.
-  }
-}
+const when = (at: number) => `${formatDate(at)} à ${formatShortTime(at)}`;
 
-interface Pending {
-  photos: ShortcutPhoto[];
-  sessionIds: string[];
+/** Une période à choisir, dite simplement. */
+function spanText(s: Span, now: number): string {
+  if (!Number.isFinite(s.start)) return `prises avant le ${when(s.end)}`;
+  if (now - s.end < 60 * 60 * 1000) return `prises après le ${when(s.start)}`;
+  return `prises entre le ${when(s.start)} et le ${when(s.end)}`;
 }
 
 /**
- * Photos gardées des séances terminées, pas encore rangées : toutes leurs photos datées, sauf celles que vous avez
- * supprimées (à la fin d'une séance, chaque photo a un choix, explicite ou accord silencieux).
+ * « Prochain tri » (points 70, 71) : l'app sait quelles périodes ses séances ont couvertes et dit lesquelles restent à
+ * trier, la plus récente d'abord. Un toucher envoie cette période à « Préparer le tri », qui copie au plus
+ * `PREP_LIMIT` photos dans « À trier » et supprime les originales (confirmation d'iOS) : un seul exemplaire de chaque
+ * photo, et un album qui ne contient que des photos jamais triées.
  */
-async function pendingKept(records: ChoiceRecord[], include?: string): Promise<Pending> {
-  const removed = new Set(records.filter((r) => r.choice === 'supprimer').map((r) => r.key));
-  const ranged = loadRanged();
-  const seen = new Set<string>();
-  const photos: ShortcutPhoto[] = [];
-  const sessionIds: string[] = [];
-  for (const s of await listSessions()) {
-    // `include` : séance qui vient de se terminer (sa clôture est peut-être encore en cours d'écriture).
-    if ((!s.closedAt && s.sessionId !== include) || ranged.has(s.sessionId)) continue;
-    sessionIds.push(s.sessionId);
-    for (const item of await loadSessionItems(s.sessionId)) {
-      const key = photoKey(item);
-      if (removed.has(key) || seen.has(key) || !findable(item)) continue;
-      seen.add(key);
-      photos.push(asPhoto(item));
-    }
-  }
-  return { photos, sessionIds };
-}
-
-/**
- * « Prochain tri » (utilisateur, 25/11 : tout doit se faire depuis l'app, d'un toucher) : range les photos gardées
- * des séances terminées dans « Triées », puis remplit « À trier » avec les photos pas encore triées les plus récentes.
- * Un seul bouton ; l'app Raccourcis s'ouvre, enchaîne les deux raccourcis, puis on revient par « ◀ ».
- */
-export function ProchainTri({ records, include }: { records: ChoiceRecord[]; include?: string }) {
-  const [pending, setPending] = useState<Pending | null>(null);
-  const [batch, setBatch] = useState(0);
+export function ProchainTri() {
+  const [gaps, setGaps] = useState<Span[] | null>(null);
+  const [now] = useState(() => Date.now());
   const [launched, setLaunched] = useState(false);
-  const [reload, setReload] = useState(0);
   useEffect(() => {
     let alive = true;
-    void pendingKept(records, include).then((p) => alive && setPending(p));
+    void listSessions().then((list) => {
+      const spans = list.flatMap((s) => (s.firstAt !== null && s.lastAt !== null ? [{ start: s.firstAt, end: s.lastAt }] : []));
+      if (alive) setGaps(spans.length ? uncovered(spans, now) : null);
+    });
     return () => {
       alive = false;
     };
-  }, [records, include, reload]);
-  if (!albumsEnabled() || !pending) return null;
-
-  const n = pending.photos.length;
-  const batches = Math.max(1, Math.ceil(n / KEPT_BATCH));
-  const go = () => {
-    runKeepThenPrep(pending.photos.slice(batch * KEPT_BATCH, (batch + 1) * KEPT_BATCH));
-    setLaunched(true);
-    if (batch + 1 >= batches) {
-      // Rangement envoyé : ces séances ne seront plus reproposées.
-      saveRanged(new Set([...loadRanged(), ...pending.sessionIds]));
-    } else setBatch((b) => b + 1);
-  };
-  const last = batch + 1 >= batches;
-
+  }, [now]);
+  if (!gaps || gaps.length === 0) return null;
+  const [next, ...older] = gaps;
+  const oldest = older[older.length - 1];
   return (
     <section className="groupe prochain-tri">
       <strong>Prochain tri</strong>
       <span className="note bloc">
-        {n > 0
-          ? `Un toucher : vos ${plural(n, 'photo')} gardée${n > 1 ? 's' : ''} rejoignent l’album « ${KEPT_ALBUM} », puis l’album « ${TODO_ALBUM} » se remplit avec les ${PREP_LIMIT} photos pas encore triées les plus récentes.`
-          : `Un toucher : l’album « ${TODO_ALBUM} » se remplit avec les ${PREP_LIMIT} photos pas encore triées les plus récentes.`}
+        Photos à trier en premier : <strong>{spanText(next!, now)}</strong>. Un toucher les met dans l’album « {TODO_ALBUM} »
+        ({PREP_LIMIT} au plus, les plus récentes d’abord).
       </span>
-      <button className="bouton grand" onClick={go}>
-        {batches > 1 && !launched ? `Préparer le prochain tri (1 sur ${batches})` : batches > 1 && !last ? `Continuer (${batch + 1} sur ${batches})` : 'Préparer le prochain tri'}
+      <button
+        className="bouton grand"
+        onClick={() => {
+          // Période jusqu'à maintenant pour la plus récente (photos prises depuis l'ouverture de l'accueil comprises).
+          runPrepShortcut({ start: next!.start, end: Number.isFinite(next!.end) && now - next!.end < 60 * 60 * 1000 ? Date.now() : next!.end });
+          setLaunched(true);
+        }}
+      >
+        Remplir « {TODO_ALBUM} »
       </button>
       {launched && (
         <span className="note bloc">
-          L’app Raccourcis s’en occupe (quelques secondes). Revenez ensuite par « ◀ Photo Triage » en haut à gauche,
-          touchez « Choisir les photos », puis l’album « {TODO_ALBUM} ». Pour en choisir plusieurs, posez le doigt sur la
-          photo la plus à droite et glissez vers la gauche, puis vers le bas (vers la droite, iOS referme l’album).
+          L’app Raccourcis lance « {PREP_SHORTCUT_NAME} ». iOS vous demande de confirmer la suppression des photos d’origine :
+          c’est normal, elles viennent d’être copiées dans « {TODO_ALBUM} ». Revenez ensuite par « ◀ Photo Triage » en haut à
+          gauche, touchez « Choisir les photos », ouvrez l’album « {TODO_ALBUM} » et sélectionnez tout (doigt posé sur la
+          photo la plus à droite, glissez vers la gauche puis vers le bas).
         </span>
       )}
-      {(launched || n === 0) && (
-        <button
-          className="lien"
-          onClick={() => {
-            // Rangement refusé par l'iPhone (25/11) : les séances redeviennent à ranger.
-            saveRanged(new Set());
-            setLaunched(false);
-            setBatch(0);
-            setReload((r) => r + 1);
-          }}
-        >
-          Le raccourci a affiché une erreur ? Tout ranger à nouveau
-        </button>
+      {older.length > 0 && (
+        <span className="note bloc">
+          Restent aussi : {older.length > 1 ? `${older.length - 1} période${older.length > 2 ? 's' : ''} entre deux séances, et ` : ''}
+          les photos {spanText(oldest!, now)}.
+        </span>
       )}
     </section>
   );

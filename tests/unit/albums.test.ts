@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { KEEP_SHORTCUT_NAME, keepThenPrepUrl, prepShortcutUrl, shortcutText, shortcutUrl } from '../../src/platform/shortcut';
+import { KEEP_SHORTCUT_NAME, PREP_LIMIT, prepShortcutUrl, prepText, shortcutText, shortcutUrl } from '../../src/platform/shortcut';
 
 // Albums « Triées » et « À trier » (24/11, point 48).
 describe('albums', () => {
@@ -20,16 +20,15 @@ describe('albums', () => {
     expect(shortcutUrl(photos)).toBe(shortcutUrl(photos, 'Photo Triage'));
   });
 
-  it('le raccourci « Préparer le tri » s’ouvre par son nom', () => {
-    expect(prepShortcutUrl()).toBe('shortcuts://run-shortcut?name=Pr%C3%A9parer%20le%20tri');
-  });
-
-  it('« Préparer le prochain tri » : ranger, puis préparer dès que le rangement a réussi', () => {
-    const url = new URL(keepThenPrepUrl(photos).replace('shortcuts://', 'https://x/'));
-    expect(url.pathname).toBe('/x-callback-url/run-shortcut');
-    expect(url.searchParams.get('name')).toBe('Photo Triage Garder');
-    expect(url.searchParams.get('text')).toBe(shortcutText(photos));
-    expect(url.searchParams.get('x-success')).toBe(prepShortcutUrl());
+  it('« Préparer le tri » reçoit la période à trier (point 71), lots de moins de 50 photos', () => {
+    const span = { start: new Date(2026, 10, 26, 18, 30, 0).getTime(), end: new Date(2026, 10, 27, 22, 10, 5).getTime() };
+    expect(prepText(span)).toBe('2026-11-26 18:30:00|2026-11-27 22:10:05');
+    // Avant la première séance : période sans début, envoyée depuis l'an 2000.
+    expect(prepText({ start: -Infinity, end: span.end })).toBe('2000-01-01 00:00:00|2026-11-27 22:10:05');
+    const url = new URL(prepShortcutUrl(span).replace('shortcuts://', 'https://x/'));
+    expect(url.searchParams.get('name')).toBe('Préparer le tri');
+    expect(url.searchParams.get('text')).toBe(prepText(span));
+    expect(PREP_LIMIT).toBeLessThan(50);
   });
 });
 

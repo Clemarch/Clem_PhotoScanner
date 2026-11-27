@@ -1,2 +1,2 @@
 /** Version affichée à l'utilisateur (accueil, réglages) : il la lit pour vérifier que la mise à jour est arrivée. */
-export const APP_VERSION = 'jalon 8, toutes les poses et poses jamais vues';
+export const APP_VERSION = 'jalon 8, album « À trier » sans doublons';

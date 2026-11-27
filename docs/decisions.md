@@ -1231,6 +1231,64 @@ considérées comme traitées. »
 - Limite : l'app ne connaît que les photos choisies dans une séance ; les autres photos de la bibliothèque passent par
   l'album « À trier » (point 48).
 
+### 69. Photos en double dans « Triées » : jamais deux fois la même photo (27/11)
+
+Constat de l'utilisateur (27/11) : « plein de photos en doublons… IMG_1505 en triple, systématiquement dans
+Triées, dont une « saved from… » », sur tout un lot.
+- L'app n'écrit jamais dans Photos et ne partage jamais d'image : seuls les raccourcis touchent la photothèque. Une
+  copie ne peut venir que d'un raccourci qui enregistre les photos au lieu de les ranger (« Enregistrer dans l'album
+  photo », ou « Créer un album photo » si iOS 27 enregistre une copie quand la photo est déjà dans l'album : à
+  vérifier par l'utilisateur, l'app ne voit ni la photothèque ni les raccourcis).
+- Ce qui multipliait les envois, côté app : le rangement était suivi par séance, et « Le raccourci a affiché une
+  erreur ? Tout ranger à nouveau » s'affichait même quand tout était rangé ; un toucher renvoyait toutes les photos
+  gardées de toutes les séances terminées au raccourci « Photo Triage Garder ». IMG_1505 (gardée, séance du 25/11) en
+  faisait partie. Deux renvois = trois exemplaires, si chaque envoi copie.
+- Correctif : suivi photo par photo (`photo-triage.photos-rangees`, `src/ui/Rangement.tsx`) : une photo envoyée vers
+  « Triées » ne l'est plus jamais, même si sa séance est rouverte (« Revoir », point 68). Les photos des séances déjà
+  rangées comptent comme envoyées dès l'ouverture de cette version. « Tout ranger à nouveau » est retiré ; à sa place,
+  juste après un envoi : « Renvoyer ce lot » (ce lot seulement, après confirmation).
+- Guide des albums : vérifier que le dernier bloc de « Photo Triage Garder » est « Créer un album photo », et
+  nettoyer avec Photos › Albums › Doublons › Fusionner.
+
+### 70. Albums retirés : « Créer un album photo » copie chaque photo (27/11)
+
+Captures de l'utilisateur (27/11) : dans « Photo Triage Garder », le bloc « Créer un album photo Triées avec
+A ranger » a pour sortie « Fichier multimédia photo enregistré » : il enregistre une copie de chaque photo. Toutes les
+photos en triple vont d'IMG_0998 (21/11) à IMG_1569 (25/11), une originale et deux copies, les albums n'étant pas
+dupliqués.
+- Explication : « Préparer le tri » remplissait « À trier » avec ce même bloc (copie 1, que l'utilisateur choisissait
+  ensuite dans l'app), puis « Photo Triage Garder » rangeait dans « Triées » (copie 2). Les photos triées par les albums
+  (point 48, du 24/11) sont exactement celles-là. L'hypothèse du point 48 (« Créer un album photo » ajoute sans copier
+  si l'album existe) était fausse ; aucun bloc de Raccourcis ne range une photo existante dans un album.
+- Correctif : albums retirés (`albumsEnabled` toujours faux, plus de lancement de « Photo Triage Garder » ni de
+  « Préparer le tri »). « Prochain tri » sur l'accueil : l'app calcule les périodes que ses séances n'ont pas couvertes
+  (`uncovered`, `src/engine/coverage.ts`) et dit lesquelles choisir, la plus récente d'abord (« photos prises après le
+  … », « entre le … et le … », « avant le … »).
+- Nettoyage (Réglages, « Albums retirés ») : Photos › Albums › Doublons › Sélectionner › Tout sélectionner ›
+  Fusionner (iOS garde le meilleur exemplaire et ses albums) ; supprimer les deux raccourcis ; supprimer les albums si
+  l'on veut (aucune photo effacée).
+- Le raccourci de suppression ne change pas : il cherche par nom et heure, donc il supprime aussi les copies d'une photo
+  à supprimer.
+
+### 71. Album « À trier » refait : copier puis supprimer les originales (27/11)
+
+L'utilisateur (27/11) : « je voudrais avoir un album clair avec toutes les photos que je n'ai jamais vu passer… ajouter
+un step pour supprimer la photo originale ». Conséquences expliquées (photo gardée = la copie : Live Photo, retouches,
+favori, nom de fichier peuvent se perdre ; confirmation d'iOS à chaque lot ; originales 30 jours dans « Supprimés
+récemment » ; suppression faite par un raccourci). Accord explicite : « Oui ok on procède comme ça… je n'utilise pas
+Live Photo ».
+- « Préparer le tri » reçoit de l'app une période « début|fin » : la plus récente que les séances n'ont pas couverte
+  (`uncovered`), jusqu'à maintenant ; avant la première séance, depuis l'an 2000 (`prepText`). Il vide « À trier »
+  (« Supprimer de l'album photo », rien n'est effacé), cherche les images de la période (plus récentes d'abord, 40 au
+  plus : iOS refuse qu'un raccourci en supprime 50), les copie dans « À trier » (« Créer un album photo »), puis
+  supprime ces originales (« Supprimer les photos », avec la confirmation d'iOS). Chaque photo reste en un seul
+  exemplaire, et l'album ne contient que des photos jamais triées.
+- Accueil, « Prochain tri » : période à trier, bouton « Remplir « À trier » », marche à suivre au retour.
+- « Photo Triage Garder » et l'album « Triées » ne servent plus (guide « Ce qui ne sert plus »).
+- Guide pas à pas dans Réglages, avec un premier essai à 3 photos (vérifier un seul exemplaire et la date de prise de
+  vue de la copie : si iOS donnait à la copie la date du jour, la période suivante la reprendrait).
+- Le raccourci de suppression ne change pas (nom et heure : la copie garde son nom et sa date).
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

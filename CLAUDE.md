@@ -14,8 +14,10 @@ Décisions prises et écarts : `docs/decisions.md` — à mettre à jour à chaq
 - Pas d'ordinateur côté utilisateur : tout se teste sur iPhone via l'URL GitHub Pages.
 - Aucune suppression automatique. L'écran final rend la suppression la plus simple possible : bouton qui passe la
   liste au raccourci « Photo Triage » (app Raccourcis), une recherche par photo (nom + fenêtre de ±2 s), aperçu puis confirmation d'iOS
-  (`docs/decisions.md`, points 31 et 33). Photos gardées rangées dans l'album « Triées » (raccourci « Photo Triage
-  Garder ») ; raccourci « Préparer le tri » pour l'album « À trier » (point 48).
+  (`docs/decisions.md`, points 31 et 33). « Créer un album photo » (Raccourcis) enregistre toujours une copie
+  (point 70) : plus d'album « Triées » ni de « Photo Triage Garder ». Album « À trier » (point 71, accord de
+  l'utilisateur, 27/11) : l'app envoie la période non triée la plus récente (`src/engine/coverage.ts`) ; « Préparer le
+  tri » copie 40 photos de cette période dans « À trier » puis supprime les originales (confirmation d'iOS).
 - Jamais de photos dans le dépôt (`tests/fixtures/` est ignoré par git).
 - Interface en français, fluide, soignée, utilisable d'une main.
 - RAW repérés et mis de côté. Vidéos plus tard (`MediaItem.kind`). Live Photos non ciblées.
@@ -121,4 +123,6 @@ Réseau de neurones dans le Labo, rattrapage du nouvel œil enchaîné (point 64
 « Pourquoi ? » et « Les deux se valent » dans le tri éclair (point 65). Raisons précises, « Autre… », « Aucune n'est
 vraiment bonne » (point 66). Flou de bougé repéré : photo ratée, montrée dans le tri éclair (point 67).
 Toutes les poses dans le tri éclair (photos seules et « sûres » comprises), Réglages › « Poses jamais vues » (point 68).
+Rangement dans « Triées » suivi photo par photo (point 69), puis albums retirés : ils copiaient chaque photo (point 70).
+Album « À trier » refait : copie de la période à trier puis suppression des originales, un seul exemplaire (point 71).
 Modèle restant proposé : objets plus fins.
