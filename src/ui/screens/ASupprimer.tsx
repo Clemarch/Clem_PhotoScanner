@@ -38,6 +38,19 @@ function loadDone(): Set<string> {
   }
 }
 
+/** Paquets « Fait » rouverts : une photo y est passée à supprimer après coup (pose revue, 27/11). */
+export function reopenDonePacks(packKeys: readonly string[]): void {
+  const done = loadDone();
+  let changed = false;
+  for (const key of packKeys) changed = done.delete(key) || changed;
+  if (changed) {
+    saveDone(done);
+    window.dispatchEvent(new Event(DONE_EVENT));
+  }
+}
+
+const DONE_EVENT = 'photo-triage:faits';
+
 function saveDone(done: Set<string>): void {
   try {
     localStorage.setItem(DONE_KEY, JSON.stringify([...done]));
@@ -90,6 +103,12 @@ export function ASupprimer({ session, day, choices, onChoose, onComment, onConfi
     });
   const scrolled = useScrolled();
   useEffect(() => saveDone(done), [done]);
+  // Paquet rouvert ailleurs (pose revue dans le tri éclair) : relu.
+  useEffect(() => {
+    const reload = () => setDone(loadDone());
+    window.addEventListener(DONE_EVENT, reload);
+    return () => window.removeEventListener(DONE_EVENT, reload);
+  }, []);
 
 
   const entries = useMemo(() => dayEntries(day), [day]);

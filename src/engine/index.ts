@@ -28,3 +28,4 @@ export { encodeBackup, decodeBackup, mergeChoices, BACKUP_FORMAT, BACKUP_VERSION
 export { labPairs, runLab, LAB_CANDIDATES, type LabCandidate, type LabCandidateResult, type LabPair, type LabResult } from './learning/lab';
 export { trainPairNet, type NetPair } from './learning/nn';
 export { contextIdeas, contextScores, contextStats, faceFeatures, faceIdeas, faceScores, faceStats, faceTraits, topIdeas, type ContextIdea } from './learning/context';
+export { measureMotion, offAxisDeg, type Motion } from './analysis/motion';

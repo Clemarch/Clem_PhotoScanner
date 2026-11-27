@@ -329,7 +329,7 @@ export const config = {
       signatureLight: 0.04,
     },
     /** Défauts qui empêchent de garder une photo en plus de la meilleure. */
-    blocking: ['parle', 'visage-masque', 'devant', 'visage-flou', 'tres-floue', 'visage-cache', 'regard-ailleurs', 'erreur-probable'] as readonly string[],
+    blocking: ['parle', 'visage-masque', 'devant', 'visage-flou', 'tres-floue', 'bouge', 'visage-cache', 'regard-ailleurs', 'erreur-probable'] as readonly string[],
     /** Deux photos dont l'empreinte diffère de moins de ceci sont des quasi-doublons : on n'en garde qu'une.
      *  Avec l'empreinte fine : ressemblance d'au moins `nearDuplicateSimilar`. */
     nearDuplicate: 0.015,
@@ -466,7 +466,20 @@ export const config = {
     groupGazeBelow: 0.6,
     /** Photo probablement prise par erreur : pas de visage ni de personne, netteté sous `maxSharpness`, et penchée de
      *  plus de `minTiltDeg` (pied, sol pris en marchant). Jamais supprimée d'office : « à vérifier ». */
-    accident: { maxSharpness: 250, minTiltDeg: 8, minTiltStrength: 0.03, penalty: 0.3 },
+    accident: {
+      maxSharpness: 250,
+      minTiltDeg: 8,
+      minTiltStrength: 0.03,
+      penalty: 0.3,
+      /**
+       * Flou de bougé (point 67, photo IMG_2327 du 26/11 : traînées de lumière, jamais montrée) : contours alignés sur
+       * toute l'image et dans chaque case, en biais. Mesuré : bougé 0,78 et 0,75 à 28° de la verticale ; photos nettes
+       * avec des personnes : 0,26 à 0,54 ; un horizon de coucher de soleil est aligné aussi, mais à l'horizontale.
+       */
+      motionCoherence: 0.65,
+      motionLocal: 0.65,
+      motionOffAxisDeg: 15,
+    },
     /** Note « visages » d'une photo : le visage le plus raté pèse le plus. */
     worstFaceWeight: 0.6,
     meanFaceWeight: 0.4,

@@ -119,5 +119,6 @@ Jalon 8 en cours (plan : `docs/jalon-8.md`) : l'app découvre vos règles. Étap
 contexte, candidat « Formule + contexte » dans le Labo. Étape 2 faite (point 63) : le nouvel œil regarde chaque visage.
 Réseau de neurones dans le Labo, rattrapage du nouvel œil enchaîné (point 64). Visages en 10 traits, sourire réajusté,
 « Pourquoi ? » et « Les deux se valent » dans le tri éclair (point 65). Raisons précises, « Autre… », « Aucune n'est
-vraiment bonne » (point 66).
+vraiment bonne » (point 66). Flou de bougé repéré : photo ratée, montrée dans le tri éclair (point 67).
+Toutes les poses dans le tri éclair (photos seules et « sûres » comprises), Réglages › « Poses jamais vues » (point 68).
 Modèle restant proposé : objets plus fins.

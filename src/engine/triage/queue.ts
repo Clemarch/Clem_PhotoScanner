@@ -32,8 +32,8 @@ export function poseMargin(pack: PackAnalysis, pose: PoseGroup): number {
 
 /**
  * `state(item, pack)` : décision finale actuelle (garder ? à vérifier ?), choix de l'utilisateur compris.
- * Une pose entre dans la file si elle demande un choix : 2 photos ou plus, ou une photo seule proposée à la
- * suppression ou « à vérifier ».
+ * Toutes les poses entrent dans la file, photos seules comprises (utilisateur, 27/11 : « je souhaite toutes les voir,
+ * avec la décision de les supprimer ou non » ; une photo bougée, seule et gardée, ne lui avait jamais été montrée).
  */
 export function buildQueue(
   day: DayAnalysis,
@@ -45,7 +45,6 @@ export function buildQueue(
     for (const pose of pack.poses) {
       const states = pose.items.map((it) => state(it, pack));
       const single = pose.items.length === 1;
-      if (single && states[0]!.keep && !states[0]!.review) continue;
       const margin = poseMargin(pack, pose);
       tasks.push({
         key: poseKey(pack, pose),
