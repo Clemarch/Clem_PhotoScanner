@@ -1192,6 +1192,25 @@ plus que vous n'en retirez) ; avant, elle en proposait 2,0 et vous en gardiez 1,
 baissé (0,93 par pose contre 1,1) : la règle du point 55 est gardée ; le réseau apprendra quelles « presque aussi
 bonnes » vous gardez.
 
+### 67. Photo bougée jamais montrée : détection du flou de bougé (27/11)
+
+Constat de l'utilisateur (27/11) : une photo entièrement floue, prise en bougeant (traînées de lumière, IMG_2327), ne
+lui a jamais été proposée, alors qu'elle « aurait clairement dû être supprimée ».
+- Cause, reproduite dans le navigateur : seule dans son paquet (« paysage », 1 photo), elle était gardée d'office
+  (« GARDER (seule) », note 1,00) ; le tri éclair ne montre pas une photo seule que l'app garde. Sa netteté mesurée
+  (variance du Laplacien, 383) la disait nette : les traînées sont des contours bien nets, dans une seule direction.
+  La règle « prise par erreur » demandait une netteté sous 250.
+- Correctif : mesure du bougé (`src/engine/analysis/motion.ts`, `MediaItem.motion`) : on additionne la direction des
+  contours sur toute l'image, réduite par moyenne de blocs. Une vraie scène a des contours dans toutes les directions ;
+  un bougé les aligne partout. Mesuré dans l'app : photo bougée 0,76 / 0,76 à 119° ; selfies 0,26 à 0,32 ; un horizon
+  est aligné aussi (0,89 à 0,96) mais à l'horizontale. Seuils (`config.selection.accident`) : 0,65 sur toute l'image
+  et case par case, traînées à au moins 15° de l'horizontale et de la verticale, sans personne.
+- Une telle photo est « ratée » (raison « Floue, prise en bougeant ») : proposée à la suppression, donc montrée dans le
+  tri éclair. Avec des personnes, rien ne change (leurs visages sont jugés à part).
+- Limite : la mesure n'existe que pour les photos analysées à partir de cette version ; un bougé horizontal ou
+  vertical franc n'est pas repéré (pour ne pas confondre avec un horizon).
+- Rapport : « bougé » ajouté aux mesures de chaque photo.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

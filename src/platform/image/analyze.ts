@@ -2,7 +2,7 @@
 // Fonctionne aussi bien dans un Web Worker que dans la page.
 
 import exifr from 'exifr';
-import { config, detectFormat, imageSignature, measureColor, measureExposure, measureObstruction, measureTilt, rgbaToGray, sharpnessFromGray, type MediaItem } from '../../engine';
+import { config, detectFormat, imageSignature, measureColor, measureExposure, measureMotion, measureObstruction, measureTilt, rgbaToGray, sharpnessFromGray, type MediaItem } from '../../engine';
 import type { AnalysisFrame, AnalyzeResult, FileDiagnostic } from './types';
 
 interface ExifData {
@@ -280,6 +280,7 @@ export async function analyzeFile(
       const tilt = measureTilt(gray, size.w, size.h);
       item.tiltDeg = tilt.degrees;
       item.tiltStrength = tilt.strength;
+      item.motion = measureMotion(gray, size.w, size.h);
       item.exposure = measureExposure(gray);
       item.color = measureColor(pixels.data, size.w, size.h);
       item.signature = imageSignature(pixels.data, size.w, size.h);

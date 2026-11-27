@@ -29,6 +29,8 @@ export function reasonText(reason: Reason, numberOf: (id: string) => number | nu
       return 'Bords masqués (hublot, doigt, ombre…)';
     case 'tres-floue':
       return 'Très floue';
+    case 'bouge':
+      return 'Floue, prise en bougeant (traînées)';
     case 'parle':
       return 'Bouche ouverte, en train de parler';
     case 'pose':

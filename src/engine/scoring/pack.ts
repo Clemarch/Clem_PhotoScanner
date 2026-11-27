@@ -3,6 +3,7 @@
 // la technique (netteté, yeux) ne sert qu'à repérer un défaut, jamais à préférer une photo « plus nette ».
 // Ce qui est recherché dépend du type de photo (selfie, portrait, groupe, paysage, coucher de soleil).
 
+import { offAxisDeg } from '../analysis/motion';
 import { config } from '../config';
 import { analyzeContent, compareFaces, countSubjects, holdsSubjectObject, recurringPersons, subjectPersons } from '../analysis/content';
 import { mainFaces } from '../analysis/faces';
@@ -450,14 +451,24 @@ export function scorePackDetailed(
 
     // Photo probablement prise par erreur (pied, sol en marchant) : ni visage ni personne, floue et très penchée.
     const ac = cfg.accident;
+    const nobody = faces.length === 0 && !(item.objects ?? []).some((o) => o.label === 'person' && o.score >= 0.5);
+    // Ou bougé : contours tous alignés en biais (point 67), même si la netteté mesurée paraît bonne.
+    const shaken =
+      !!item.motion &&
+      item.motion.coherence >= ac.motionCoherence &&
+      item.motion.local >= ac.motionLocal &&
+      offAxisDeg(item.motion.angleDeg) >= ac.motionOffAxisDeg;
+    // Bougé franc sans personne à juger : photo ratée en elle-même, proposée à la suppression (utilisateur, 27/11 :
+    // « elle aurait clairement dû être supprimée »), et montrée dans le tri éclair.
+    if (nobody && shaken) reasons.push({ code: 'bouge', tone: 'veto' });
     const accidental =
-      faces.length === 0 &&
-      !(item.objects ?? []).some((o) => o.label === 'person' && o.score >= 0.5) &&
-      item.sharpness !== null &&
-      item.sharpness < ac.maxSharpness &&
-      item.tiltDeg !== null &&
-      Math.abs(item.tiltDeg) >= ac.minTiltDeg &&
-      (item.tiltStrength ?? 0) >= ac.minTiltStrength;
+      nobody &&
+      (shaken ||
+        (item.sharpness !== null &&
+          item.sharpness < ac.maxSharpness &&
+          item.tiltDeg !== null &&
+          Math.abs(item.tiltDeg) >= ac.minTiltDeg &&
+          (item.tiltStrength ?? 0) >= ac.minTiltStrength));
     if (accidental) reasons.push({ code: 'erreur-probable', tone: 'moins' });
 
     const dark = clamp01((c.darkFaceBelow - faceBrightness) / (c.darkFaceBelow - c.darkFaceFull));
@@ -514,7 +525,7 @@ export function scorePackDetailed(
       baseScore,
       learned: 0,
       features,
-      failed: vetoed || veryBlurry,
+      failed: vetoed || veryBlurry || (nobody && shaken),
       extraEdgeSkin,
       extraObstruction,
     };

@@ -153,6 +153,8 @@ export interface MediaItem {
    *  et force de cette mesure entre 0 (aucune ligne nette) et 1. */
   tiltDeg: number | null;
   tiltStrength: number | null;
+  /** Flou de bougé (point 67) : alignement des contours et direction des traînées ; absent pour les anciennes séances. */
+  motion?: { coherence: number; local: number; angleDeg: number } | null;
   /** Exposition mesurée sur l'image réduite ; null si non mesurée. */
   exposure: Exposure | null;
   /** Couleurs et contraste ; null si non mesurés. */
@@ -320,6 +322,7 @@ export type ReasonCode =
   | 'membre-coupe'
   | 'bords-masques'
   | 'tres-floue'
+  | 'bouge'
   | 'devant'
   | 'visage-sombre'
   | 'surexposee'
