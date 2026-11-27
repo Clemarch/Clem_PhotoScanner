@@ -116,7 +116,7 @@ describe('tri éclair : justesse et confiance calibrée (jalon 6)', () => {
 
 describe('tri éclair : file des poses', () => {
   const twoFaces = (smile: number) => [face(0.3, { smile }), face(0.7)];
-  it('poses de plusieurs photos dans la file, proposition de l’app cochée ; photo seule gardée : sautée', () => {
+  it('toutes les poses dans la file, proposition de l’app cochée ; photo seule comprise (27/11)', () => {
     const items = [
       photo('a', 0, { faces: twoFaces(0.8), embedding: [1, 0, 0] }),
       photo('b', 1, { faces: twoFaces(0.79), embedding: [1, 0.01, 0] }),
@@ -124,8 +124,11 @@ describe('tri éclair : file des poses', () => {
     ];
     const day = analyzeDay(items, 60, {}, new Set(), true);
     const queue = buildQueue(day, (it, p) => ({ keep: p.decisions.get(it.id)?.keep ?? true, review: p.decisions.get(it.id)?.review === true }), calibrate([]));
-    expect(queue).toHaveLength(1);
+    // Utilisateur, 27/11 : « je souhaite toutes les voir » (une photo bougée, seule et gardée, n'était jamais montrée).
+    expect(queue).toHaveLength(2);
     expect(queue[0]!.items.map((i) => i.id)).toEqual(['a', 'b']);
+    expect(queue[1]!.items.map((i) => i.id)).toEqual(['paysage']);
+    expect(queue[1]!.proposed.has('paysage')).toBe(true);
     expect(queue[0]!.proposed.size).toBeGreaterThan(0);
     expect(queue[0]!.sure).toBe(false);
     expect(queue[0]!.margin).toBeGreaterThanOrEqual(0);

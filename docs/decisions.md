@@ -1211,6 +1211,26 @@ lui a jamais été proposée, alors qu'elle « aurait clairement dû être suppr
   vertical franc n'est pas repéré (pour ne pas confondre avec un horizon).
 - Rapport : « bougé » ajouté aux mesures de chaque photo.
 
+### 68. Toutes les poses montrées, « Poses jamais vues » (27/11)
+
+L'utilisateur (27/11) : « oui je souhaite toutes les voir (avec la décision de les supprimer ou non) » ; et « beaucoup
+de photos encore présentes que je n'ai jamais vues en comparaison… des rafales où j'aurais voulu n'en garder qu'une…
+considérées comme traitées. »
+- Rappel confirmé : l'app ne supprime jamais rien. Elle propose (croix rouge), l'utilisateur valide dans le tri éclair,
+  puis la liste part au raccourci, et iOS demande encore confirmation.
+- Tri éclair : toutes les poses entrent dans la file, photos seules comprises (avec la proposition de l'app), et les
+  poses « sûres » ne sont plus mises de côté (`buildQueue`, `pending`).
+- Causes des poses jamais vues : photos seules gardées (jamais dans la file), poses « sûres » (montrées seulement à la
+  demande), et paquets envoyés à la suppression ou marqués « Fait » sans passer par le tri éclair (photos non touchées
+  comptées comme accords).
+- Réglages › « Poses jamais vues » : « Chercher » reprend chaque séance gardée (`loadSessionPlan`, mêmes paquets et
+  poses qu'à l'époque), compte les poses sans validation dont une photo au moins est encore gardée ; « Revoir » rouvre
+  la séance et lance le tri éclair sur ses poses pas encore validées.
+- Une photo passée à supprimer dans un paquet déjà marqué « Fait » rouvre ce paquet dans Supprimer
+  (`reopenDonePacks`), sinon elle ne partirait jamais au raccourci.
+- Limite : l'app ne connaît que les photos choisies dans une séance ; les autres photos de la bibliothèque passent par
+  l'album « À trier » (point 48).
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

@@ -364,6 +364,16 @@ export async function loadSessionItems(sessionId: string): Promise<MediaItem[]> 
   }
 }
 
+/** Photos et réglages (écart, paquets réunis) d'une séance gardée, sans ses images : pour retrouver ses poses. */
+export async function loadSessionPlan(sessionId: string): Promise<{ items: MediaItem[]; settings: SessionSettings | null }> {
+  try {
+    const record = await get<FullRecord>(full(sessionId));
+    return { items: Array.isArray(record?.results) ? record.results.map((r) => r.item) : [], settings: record?.settings ?? null };
+  } catch {
+    return { items: [], settings: null };
+  }
+}
+
 /** Toutes les séances gardées, la plus récente d'abord. */
 export async function listSessions(): Promise<SessionSummary[]> {
   try {

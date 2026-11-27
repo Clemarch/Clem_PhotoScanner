@@ -34,6 +34,7 @@ import {
 import { clearValidations, loadValidations, saveValidation } from '../platform/storage/validations';
 import { loadExcludedSessions, saveExcludedSessions } from '../platform/storage/excludedSessions';
 import { TriEclair, type EclairResult } from './screens/TriEclair';
+import { reopenDonePacks } from './screens/ASupprimer';
 import { clearChoices, loadChoices, removeChoice, saveChoice, saveChoices } from '../platform/storage/choices';
 import { loadReports, saveReport, type SavedReport } from '../platform/storage/reports';
 import { loadLastRun, runSignature, saveLastRun, type LastRun } from '../platform/storage/lastRun';
@@ -43,6 +44,7 @@ import {
   listSessions,
   loadSession,
   loadSessionItems,
+  loadSessionPlan,
   loadSessionById,
   saveSession,
   saveSessionSettings,
@@ -401,8 +403,44 @@ export function App() {
     const prefix = `${session?.id ?? ''}|`;
     return new Set(validations.filter((v) => v.id.startsWith(prefix)).map((v) => v.id.slice(prefix.length)));
   }, [validations, session]);
-  const pending = useMemo(() => queue.filter((t) => !t.sure && !validatedHere.has(t.key)), [queue, validatedHere]);
+  // Toutes les poses pas encore validées, « sûres » comprises (utilisateur, 27/11 : « je souhaite toutes les voir »).
+  const pending = useMemo(() => queue.filter((t) => !validatedHere.has(t.key)), [queue, validatedHere]);
   const sureLeft = useMemo(() => queue.filter((t) => t.sure && !validatedHere.has(t.key)), [queue, validatedHere]);
+  /**
+   * Poses jamais vues dans le tri éclair, séance par séance (utilisateur, 27/11 : « beaucoup de photos que je n'ai
+   * jamais vues en comparaison… je voudrais les voir de nouveau »). Une pose compte si aucune validation ne la
+   * concerne et qu'au moins une de ses photos est encore gardée (les autres sont déjà parties à la suppression).
+   */
+  const [unseen, setUnseen] = useState<Map<string, number> | null>(null);
+  const findUnseen = async () => {
+    const out = new Map<string, number>();
+    const validated = new Set(validations.map((v) => v.id));
+    for (const s of await listSessions()) {
+      const plan = await loadSessionPlan(s.sessionId);
+      if (plan.items.length === 0) continue;
+      const d = analyzeDay(plan.items, plan.settings?.gap ?? config.grouping.packGapSeconds, learned, new Set(plan.settings?.joined ?? []), true);
+      const tasks = buildQueue(d, (it, p) => finalKeep(it, p, choices), calibration);
+      const count = tasks.filter((t) => !validated.has(`${s.sessionId}|${t.key}`) && t.items.some((it) => finalKeep(it, t.pack, choices).keep)).length;
+      if (count > 0) out.set(s.sessionId, count);
+      // Laisse respirer l'écran entre deux séances.
+      await new Promise((r) => window.setTimeout(r, 0));
+    }
+    setUnseen(out);
+    return out;
+  };
+  // « Revoir » : la séance est rouverte, puis le tri éclair s'ouvre sur ses poses pas encore validées.
+  // Une pose validée de plus : le compte des poses jamais vues n'est plus juste, il sera refait à la demande.
+  useEffect(() => setUnseen(null), [validations.length]);
+  const reviewAfterOpen = useRef<string | null>(null);
+  const reviewUnseen = async (sessionId: string) => {
+    reviewAfterOpen.current = sessionId;
+    await reopen(sessionId);
+  };
+  useEffect(() => {
+    if (!session || reviewAfterOpen.current !== session.id || closed) return;
+    reviewAfterOpen.current = null;
+    if (pending.length > 0) setEclair(pending);
+  }, [session, closed, pending]);
   const openEclair = (which: 'suite' | 'sures' | 'tout') =>
     setEclair(which === 'suite' ? pending : which === 'sures' ? sureLeft : queue);
   // Une analyse vient de se terminer : le tri éclair s'ouvre de lui-même s'il y a des poses à trancher.
@@ -921,6 +959,9 @@ export function App() {
     };
     void saveValidation(validation);
     setValidations((list) => [...list.filter((v) => v.id !== validation.id), validation]);
+    // Photo passée à supprimer dans un paquet déjà marqué « Fait » (pose revue après coup) : le paquet est rouvert,
+    // sinon elle ne partirait jamais au raccourci.
+    if (task.items.some((it) => task.proposed.has(it.id) && !kept.has(it.id))) reopenDonePacks([task.pack.key]);
     const changed = task.items.some((it) => kept.has(it.id) !== task.proposed.has(it.id));
     if (!changed && tooFast(validation)) return;
     const fresh = task.items.map((it) => makeRecord(it, task.pack, kept.has(it.id) ? 'garder' : 'supprimer', false, 'pose'));
@@ -1016,6 +1057,9 @@ export function App() {
       currentId={closed ? null : (session?.id ?? null)}
       onReopen={(id) => void reopen(id)}
       onDeleteSession={(id) => void removeSaved(id)}
+      unseen={unseen}
+      onFindUnseen={findUnseen}
+      onReviewUnseen={(id) => void reviewUnseen(id)}
       onClose={onClose}
       onLabo={validations.length > 0 ? () => setLaboOpen(true) : undefined}
     />
@@ -1098,7 +1142,7 @@ export function App() {
           onChoose={choose}
           onComment={comment}
           onGoDelete={() => goTab('supprimer')}
-          eclair={{ pending: pending.length, sure: sureLeft.length, total: queue.length }}
+          eclair={{ pending: pending.length, sure: 0, total: queue.length }}
           onEclair={openEclair}
           recovering={recovering}
           onRecoverImages={(files) => void recoverImages(files)}

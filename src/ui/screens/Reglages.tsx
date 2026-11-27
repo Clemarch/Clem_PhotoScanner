@@ -9,7 +9,7 @@ import { SauvegardeGouts } from '../SauvegardeGouts';
 import { GuideRaccourci } from '../GuideRaccourci';
 import { GuideAlbums } from '../GuideAlbums';
 import type { SavedReport } from '../../platform/storage/reports';
-import { formatMs } from '../format';
+import { formatDate, formatMs, plural } from '../format';
 import { IconChevron, IconFermer, IconLabo, IconPartager } from '../icons';
 import { useScrolled } from '../useScrolled';
 import { Seances } from '../Seances';
@@ -49,10 +49,14 @@ interface Props {
   onClose?: () => void;
   /** Ouvre le labo d'apprentissage. */
   onLabo?: () => void;
+  /** Poses jamais vues dans le tri éclair, par séance (null : pas encore cherchées). */
+  unseen: Map<string, number> | null;
+  onFindUnseen: () => Promise<Map<string, number>>;
+  onReviewUnseen: (sessionId: string) => void;
 }
 
 /** Réglages : sauvegarde des goûts, séances, raccourci, rapports, diagnostic et effacement (caché). */
-export function Reglages({ session, day, records, learned, reports, onRestore, onForget, validations, excluded, onToggleCounted, shadow, models, onRetryModels, eyeProgress, onLaunchEye, seances, currentId, onReopen, onDeleteSession, onClose, onLabo }: Props) {
+export function Reglages({ session, day, records, learned, reports, onRestore, onForget, validations, excluded, onToggleCounted, shadow, models, onRetryModels, eyeProgress, onLaunchEye, seances, currentId, onReopen, onDeleteSession, onClose, onLabo, unseen, onFindUnseen, onReviewUnseen }: Props) {
   const scrolled = useScrolled();
   return (
     <main className={`page${onClose ? ' par-dessus' : ''}`}>
@@ -91,6 +95,7 @@ export function Reglages({ session, day, records, learned, reports, onRestore, o
       <BarreOeil progress={eyeProgress} onLaunch={onLaunchEye} />
 
       <h2 className="titre-groupe">Séances</h2>
+      <JamaisVues unseen={unseen} seances={seances} onFind={onFindUnseen} onReview={onReviewUnseen} />
       <Seances seances={seances} currentId={currentId} onReopen={onReopen} onDelete={onDeleteSession} excluded={excluded} onToggleCounted={onToggleCounted} />
 
       <h2 className="titre-groupe">Raccourci de suppression</h2>
@@ -248,5 +253,68 @@ function RapportEtDiagnostic({
         </details>
       </details>
     </>
+  );
+}
+
+/**
+ * Poses jamais vues dans le tri éclair (utilisateur, 27/11 : rafales jamais comparées, « considérées comme traitées »).
+ * La recherche reprend chaque séance gardée ; « Revoir » la rouvre et lance le tri éclair sur ces poses.
+ */
+function JamaisVues({
+  unseen,
+  seances,
+  onFind,
+  onReview,
+}: {
+  unseen: Map<string, number> | null;
+  seances: SessionSummary[];
+  onFind: () => Promise<Map<string, number>>;
+  onReview: (sessionId: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const total = unseen ? [...unseen.values()].reduce((a, b) => a + b, 0) : 0;
+  const when = (s: SessionSummary) => (s.firstAt ? `photos du ${formatDate(s.firstAt)}` : 'sans date');
+  return (
+    <section className="groupe">
+      <strong>Poses jamais vues</strong>
+      <p className="note">
+        Poses de vos séances gardées qui ne sont jamais passées par le tri éclair (rafales comprises), dont une photo au moins
+        est encore gardée. Revoyez-les : l’app propose, vous validez ; rien n’est supprimé sans vous.
+      </p>
+      {unseen === null ? (
+        <button
+          className="bouton"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await onFind();
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {busy ? 'Recherche…' : 'Chercher les poses jamais vues'}
+        </button>
+      ) : total === 0 ? (
+        <p className="note">Aucune : toutes les poses de vos séances ont été vues ✓</p>
+      ) : (
+        <ul className="seances">
+          {seances
+            .filter((s) => unseen.has(s.sessionId))
+            .map((s) => (
+              <li key={s.sessionId} className="ligne-info">
+                <div>
+                  <strong>{plural(unseen.get(s.sessionId)!, 'pose')} jamais vue{unseen.get(s.sessionId)! > 1 ? 's' : ''}</strong>
+                  <span className="note bloc">Séance {when(s)}</span>
+                </div>
+                <button className="bouton" onClick={() => onReview(s.sessionId)}>
+                  Revoir
+                </button>
+              </li>
+            ))}
+        </ul>
+      )}
+    </section>
   );
 }
