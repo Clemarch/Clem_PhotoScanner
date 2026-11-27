@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type TouchEvent } from 'react';
-import { config, type PoseTask, WHY_REASONS } from '../../engine';
+import { config, type PoseTask, WHY_LABELS, WHY_REASONS } from '../../engine';
 import { isLandscape, plural } from '../format';
 import { IconCoche, IconCroix, IconEtoile, IconFermer, IconFleche } from '../icons';
 
@@ -11,16 +11,12 @@ export interface EclairResult {
   tie: boolean;
   /** « Pourquoi ? » : raisons de la correction (point 65). */
   why: string[];
+  /** « Autre… » : raison écrite (point 66). */
+  note: string;
+  /** « Aucune n'est vraiment bonne » (point 66). */
+  weak: boolean;
 }
 
-/** Noms affichés des raisons de « Pourquoi ? ». */
-const WHY_LABEL: Record<(typeof WHY_REASONS)[number], string> = {
-  expression: 'Expression',
-  regard: 'Regard',
-  lumiere: 'Lumière',
-  cadrage: 'Cadrage',
-  naturel: 'Plus naturel',
-};
 
 interface Props {
   tasks: PoseTask[];
@@ -43,6 +39,9 @@ export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, o
   const [zoom, setZoom] = useState<string | null>(null);
   const [tie, setTie] = useState(false);
   const [why, setWhy] = useState<string[]>([]);
+  const [note, setNote] = useState('');
+  const [writing, setWriting] = useState(false);
+  const [weak, setWeak] = useState(false);
   const [results, setResults] = useState<Map<string, EclairResult>>(new Map());
   const shownAt = useRef(Date.now());
   const startedAt = useRef(Date.now());
@@ -55,6 +54,9 @@ export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, o
     setKept(new Set(done?.kept ?? task.proposed));
     setTie(done?.tie ?? false);
     setWhy(done?.why ?? []);
+    setNote(done?.note ?? '');
+    setWriting(Boolean(done?.note));
+    setWeak(done?.weak ?? false);
     setZoom(null);
     shownAt.current = Date.now();
   }, [index]);
@@ -72,7 +74,7 @@ export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, o
     if (!task) return;
     // Raisons gardées seulement si la proposition a été corrigée (sinon elles n'expliquent rien).
     const corrected = task.items.some((it) => kept.has(it.id) !== task.proposed.has(it.id));
-    const result = { task, kept: new Set(kept), ms: Date.now() - shownAt.current, tie, why: corrected && !tie ? why : [] };
+    const result = { task, kept: new Set(kept), ms: Date.now() - shownAt.current, tie, why: corrected && !tie ? why : [], note: corrected && !tie ? note.trim() : '', weak };
     setResults((map) => new Map(map).set(task.key, result));
     onValidate(result);
     setIndex((i) => i + 1);
@@ -200,25 +202,49 @@ export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, o
         {/* Point 65 : deux gestes facultatifs qui apprennent le plus à l'app. « Pourquoi ? » n'apparaît que si vous avez
             corrigé sa proposition ; « se valent » retire la pose des mesures (ni juste, ni faux). */}
         {several && corrected && !tie && (
-          <div className="eclair-pourquoi" role="group" aria-label="Pourquoi ce choix ? (facultatif)">
-            <span className="doux">Pourquoi ?</span>
-            {WHY_REASONS.map((r) => (
-              <button
-                key={r}
-                className={`puce${why.includes(r) ? ' active' : ''}`}
-                aria-pressed={why.includes(r)}
-                onClick={() => setWhy((list) => (list.includes(r) ? list.filter((x) => x !== r) : [...list, r]))}
-              >
-                {WHY_LABEL[r]}
+          <>
+            {/* Une seule ligne qui défile de côté : les photos gardent leur place (point 66). */}
+            <div className="eclair-pourquoi" role="group" aria-label="Pourquoi ce choix ? (facultatif)">
+              <span className="doux">Pourquoi ?</span>
+              {WHY_REASONS.map((r) => (
+                <button
+                  key={r}
+                  className={`puce${why.includes(r) ? ' active' : ''}`}
+                  aria-pressed={why.includes(r)}
+                  onClick={() => setWhy((list) => (list.includes(r) ? list.filter((x) => x !== r) : [...list, r]))}
+                >
+                  {WHY_LABELS[r]}
+                </button>
+              ))}
+              <button className={`puce${writing ? ' active' : ''}`} aria-pressed={writing} onClick={() => setWriting((w) => !w)}>
+                Autre…
               </button>
-            ))}
-          </div>
+            </div>
+            {writing && (
+              <input
+                className="eclair-note"
+                type="text"
+                maxLength={200}
+                placeholder="En quelques mots (facultatif)"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                enterKeyHint="done"
+                onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+              />
+            )}
+          </>
         )}
         {several && (
-          <button className={`lien eclair-valent${tie ? ' actif' : ''}`} aria-pressed={tie} onClick={() => setTie((t) => !t)}>
-            {tie ? '✓ ' : ''}
-            {task.items.length > 2 ? 'Elles se valent' : 'Les deux se valent'}
-          </button>
+          <div className="eclair-liens">
+            <button className={`lien eclair-valent${tie ? ' actif' : ''}`} aria-pressed={tie} onClick={() => setTie((t) => !t)}>
+              {tie ? '✓ ' : ''}
+              {task.items.length > 2 ? 'Elles se valent' : 'Les deux se valent'}
+            </button>
+            <button className={`lien eclair-valent${weak ? ' actif' : ''}`} aria-pressed={weak} onClick={() => setWeak((w) => !w)}>
+              {weak ? '✓ ' : ''}
+              Aucune n’est vraiment bonne
+            </button>
+          </div>
         )}
         {/* Rangée « Pourquoi ? » affichée : l'aide est masquée, pour laisser la place aux photos. */}
         {!(several && corrected && !tie) && <p className="note centre">Touchez une photo pour la garder ou la supprimer · ⤢ pour la voir en grand</p>}
