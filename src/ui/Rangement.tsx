@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { uncovered, type MediaItem, type Span } from '../engine';
 import { formatDate, formatShortTime } from './format';
 import { listSessions } from '../platform/storage/sessionStore';
-import { shortcutCount, type ShortcutPhoto } from '../platform/shortcut';
+import { PREP_LIMIT, PREP_SHORTCUT_NAME, runPrepShortcut, shortcutCount, TODO_ALBUM, type ShortcutPhoto } from '../platform/shortcut';
 
 /** Photo telle que le raccourci la cherche : nom et instant de prise de vue. */
 export const asPhoto = (item: MediaItem): ShortcutPhoto => ({ fileName: item.fileName, at: item.instant ?? item.capturedAt });
@@ -19,13 +19,15 @@ function spanText(s: Span, now: number): string {
 }
 
 /**
- * « Prochain tri » sans albums (27/11, point 70 : le bloc « Créer un album photo » de l'app Raccourcis enregistre une
- * copie de chaque photo ; les albums « À trier » et « Triées » avaient mis 2 copies de chaque photo triée). L'app sait
- * quelles périodes ses séances ont couvertes : elle dit lesquelles restent à trier, la plus récente d'abord.
+ * « Prochain tri » (points 70, 71) : l'app sait quelles périodes ses séances ont couvertes et dit lesquelles restent à
+ * trier, la plus récente d'abord. Un toucher envoie cette période à « Préparer le tri », qui copie au plus
+ * `PREP_LIMIT` photos dans « À trier » et supprime les originales (confirmation d'iOS) : un seul exemplaire de chaque
+ * photo, et un album qui ne contient que des photos jamais triées.
  */
 export function ProchainTri() {
   const [gaps, setGaps] = useState<Span[] | null>(null);
   const [now] = useState(() => Date.now());
+  const [launched, setLaunched] = useState(false);
   useEffect(() => {
     let alive = true;
     void listSessions().then((list) => {
@@ -43,9 +45,27 @@ export function ProchainTri() {
     <section className="groupe prochain-tri">
       <strong>Prochain tri</strong>
       <span className="note bloc">
-        Touchez « Choisir les photos », puis choisissez les photos <strong>{spanText(next!, now)}</strong> (au plus 200 à la
-        fois : l’analyse reste rapide).
+        Photos à trier en premier : <strong>{spanText(next!, now)}</strong>. Un toucher les met dans l’album « {TODO_ALBUM} »
+        ({PREP_LIMIT} au plus, les plus récentes d’abord).
       </span>
+      <button
+        className="bouton grand"
+        onClick={() => {
+          // Période jusqu'à maintenant pour la plus récente (photos prises depuis l'ouverture de l'accueil comprises).
+          runPrepShortcut({ start: next!.start, end: Number.isFinite(next!.end) && now - next!.end < 60 * 60 * 1000 ? Date.now() : next!.end });
+          setLaunched(true);
+        }}
+      >
+        Remplir « {TODO_ALBUM} »
+      </button>
+      {launched && (
+        <span className="note bloc">
+          L’app Raccourcis lance « {PREP_SHORTCUT_NAME} ». iOS vous demande de confirmer la suppression des photos d’origine :
+          c’est normal, elles viennent d’être copiées dans « {TODO_ALBUM} ». Revenez ensuite par « ◀ Photo Triage » en haut à
+          gauche, touchez « Choisir les photos », ouvrez l’album « {TODO_ALBUM} » et sélectionnez tout (doigt posé sur la
+          photo la plus à droite, glissez vers la gauche puis vers le bas).
+        </span>
+      )}
       {older.length > 0 && (
         <span className="note bloc">
           Restent aussi : {older.length > 1 ? `${older.length - 1} période${older.length > 2 ? 's' : ''} entre deux séances, et ` : ''}

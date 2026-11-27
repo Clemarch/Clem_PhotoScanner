@@ -10,10 +10,15 @@
 export const SHORTCUT_NAME = 'Photo Triage';
 /** Copie de « Photo Triage » qui range les photos reçues dans l'album « Triées » au lieu de les supprimer (24/11). */
 export const KEEP_SHORTCUT_NAME = 'Photo Triage Garder';
-/** Raccourci qui remplit l'album « À trier » avec les photos pas encore triées, les plus récentes d'abord. */
+/**
+ * Raccourci qui remplit l'album « À trier » (point 71, accord de l'utilisateur, 27/11) : il reçoit une période
+ * « début|fin » (la plus récente que les séances n'ont pas couverte), copie les photos de cette période dans
+ * « À trier » (le bloc « Créer un album photo » copie toujours), puis supprime les originales, avec la confirmation
+ * d'iOS : chaque photo reste en un seul exemplaire, dans « À trier ».
+ */
 export const PREP_SHORTCUT_NAME = 'Préparer le tri';
-/** Nombre de photos mises dans « À trier » à chaque préparation (une séance confortable). */
-export const PREP_LIMIT = 200;
+/** Photos mises dans « À trier » à chaque préparation : iOS refuse qu'un raccourci en supprime 50 ou plus. */
+export const PREP_LIMIT = 40;
 /** Album des photos déjà triées et gardées, et album des photos à trier (créés par l'utilisateur dans Photos). */
 export const KEPT_ALBUM = 'Triées';
 export const TODO_ALBUM = 'À trier';
@@ -80,23 +85,22 @@ export function runKeepShortcut(photos: readonly ShortcutPhoto[]): void {
   window.location.href = shortcutUrl(photos, KEEP_SHORTCUT_NAME);
 }
 
-/**
- * « Préparer le prochain tri » en un seul toucher (utilisateur, 25/11 : « je n'irai jamais dans Raccourcis ») : les
- * photos gardées partent vers « Photo Triage Garder », et dès qu'il a fini, iOS lance « Préparer le tri » (lien de
- * retour `x-success`, prévu par l'app Raccourcis). Aucun raccourci à modifier.
- */
-export function keepThenPrepUrl(photos: readonly ShortcutPhoto[]): string {
-  const then = encodeURIComponent(prepShortcutUrl());
-  return `shortcuts://x-callback-url/run-shortcut?name=${encodeURIComponent(KEEP_SHORTCUT_NAME)}&input=text&text=${encodeURIComponent(shortcutText(photos))}&x-success=${then}`;
-}
-export function runKeepThenPrep(photos: readonly ShortcutPhoto[]): void {
-  window.location.href = photos.length > 0 ? keepThenPrepUrl(photos) : prepShortcutUrl();
+
+
+/** Avant la première photo connue : une date assez ancienne pour tout couvrir. */
+const EARLIEST = new Date(2000, 0, 1).getTime();
+
+/** Période envoyée à « Préparer le tri » : « 2026-11-26 18:30:00|2026-11-27 22:10:00 » (bornes comprises). */
+export function prepText(span: { start: number; end: number }): string {
+  const start = Number.isFinite(span.start) ? span.start : EARLIEST;
+  return `${shortcutDate(start)}|${shortcutDate(span.end)}`;
 }
 
-/** Ouvre « Préparer le tri » (pas un appel réseau : iOS ouvre l'app Raccourcis). */
-export const prepShortcutUrl = (): string => `shortcuts://run-shortcut?name=${encodeURIComponent(PREP_SHORTCUT_NAME)}`;
-export function runPrepShortcut(): void {
-  window.location.href = prepShortcutUrl();
+/** Ouvre « Préparer le tri » avec la période à trier (pas un appel réseau : iOS ouvre l'app Raccourcis). */
+export const prepShortcutUrl = (span: { start: number; end: number }): string =>
+  `shortcuts://run-shortcut?name=${encodeURIComponent(PREP_SHORTCUT_NAME)}&input=text&text=${encodeURIComponent(prepText(span))}`;
+export function runPrepShortcut(span: { start: number; end: number }): void {
+  window.location.href = prepShortcutUrl(span);
 }
 
 /** Photos gardées envoyées par lots (adresse de taille raisonnable). */

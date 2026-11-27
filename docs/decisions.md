@@ -1270,6 +1270,25 @@ dupliqués.
 - Le raccourci de suppression ne change pas : il cherche par nom et heure, donc il supprime aussi les copies d'une photo
   à supprimer.
 
+### 71. Album « À trier » refait : copier puis supprimer les originales (27/11)
+
+L'utilisateur (27/11) : « je voudrais avoir un album clair avec toutes les photos que je n'ai jamais vu passer… ajouter
+un step pour supprimer la photo originale ». Conséquences expliquées (photo gardée = la copie : Live Photo, retouches,
+favori, nom de fichier peuvent se perdre ; confirmation d'iOS à chaque lot ; originales 30 jours dans « Supprimés
+récemment » ; suppression faite par un raccourci). Accord explicite : « Oui ok on procède comme ça… je n'utilise pas
+Live Photo ».
+- « Préparer le tri » reçoit de l'app une période « début|fin » : la plus récente que les séances n'ont pas couverte
+  (`uncovered`), jusqu'à maintenant ; avant la première séance, depuis l'an 2000 (`prepText`). Il vide « À trier »
+  (« Supprimer de l'album photo », rien n'est effacé), cherche les images de la période (plus récentes d'abord, 40 au
+  plus : iOS refuse qu'un raccourci en supprime 50), les copie dans « À trier » (« Créer un album photo »), puis
+  supprime ces originales (« Supprimer les photos », avec la confirmation d'iOS). Chaque photo reste en un seul
+  exemplaire, et l'album ne contient que des photos jamais triées.
+- Accueil, « Prochain tri » : période à trier, bouton « Remplir « À trier » », marche à suivre au retour.
+- « Photo Triage Garder » et l'album « Triées » ne servent plus (guide « Ce qui ne sert plus »).
+- Guide pas à pas dans Réglages, avec un premier essai à 3 photos (vérifier un seul exemplaire et la date de prise de
+  vue de la copie : si iOS donnait à la copie la date du jour, la période suivante la reprendrait).
+- Le raccourci de suppression ne change pas (nom et heure : la copie garde son nom et sa date).
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.
