@@ -1174,6 +1174,24 @@ Changements :
   ou supprimées comme choisi. Raisons et « se valent » gardés dans le journal et la sauvegarde ; Labo : « Vos raisons ».
 - Aucune décision de l'app ne change : la formule reste aux commandes.
 
+### 66. Raisons plus précises, « Autre… », « Aucune n'est vraiment bonne » (27/11)
+
+Retour de l'utilisateur (27/11) : les raisons sont « un peu vastes et peu précises… un geste non désiré, des gens non
+désirés » ; et « régulièrement aucune photo n'est bien mais je veux quand même en garder 1 ou 2 ».
+- « Pourquoi ? » : 9 raisons (expression, regard, yeux, geste en trop, gens en trop, flou, cadrage, lumière, plus
+  naturel), sur une seule ligne qui défile de côté, plus « Autre… » qui ouvre un champ de quelques mots
+  (`PoseValidation.note`).
+- « Aucune n'est vraiment bonne » (`PoseValidation.weak`) à côté de « se valent » : la pose est ratée mais des photos
+  sont gardées. Le choix reste un jugement relatif (la moins mauvaise) : la pose sert toujours à apprendre. Ces poses
+  serviront à repérer les poses ratées.
+- Labo : raisons avec leurs nouveaux noms, nombre de poses « ratées », 5 dernières raisons écrites.
+Mesures (sauvegarde du 27/11 à 10 h 55, 546 paires, séance retriée exclue) : formule 62,8 %, réseau 64,5 %,
+visages 64,1 %, photos semblables 64,1 % ; dans l'app (564 paires) : réseau +2,3 points. Dernière séance : formule 60 %,
+réseau 63 %. Depuis le point 55, l'app propose 1,0 à 1,2 photo par pose et vous en gardez 1,4 à 2,1 (vous en ajoutez
+plus que vous n'en retirez) ; avant, elle en proposait 2,0 et vous en gardiez 1,3 à 1,6. Les écarts par photo ont
+baissé (0,93 par pose contre 1,1) : la règle du point 55 est gardée ; le réseau apprendra quelles « presque aussi
+bonnes » vous gardez.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

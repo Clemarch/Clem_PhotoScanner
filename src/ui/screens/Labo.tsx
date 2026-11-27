@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { accuracy, FEATURE_NAMES, type ChoiceRecord, type LabResult, type LearnedWeights, type PoseValidation } from '../../engine';
+import { accuracy, FEATURE_NAMES, WHY_LABELS, type ChoiceRecord, type LabResult, type LearnedWeights, type PoseValidation } from '../../engine';
 import type { SessionSummary } from '../../platform/storage/sessionStore';
 import { runLabInBackground } from '../../platform/worker/lab';
 import { tasteLine } from '../reasons';
@@ -250,7 +250,8 @@ export function Labo({ validations, records, excluded, learned, seances, tasteEf
           const ties = list.filter((v) => v.tie).length;
           const counts = new Map<string, number>();
           for (const v of list) for (const w of v.why ?? []) counts.set(w, (counts.get(w) ?? 0) + 1);
-          const label: Record<string, string> = { expression: 'expression', regard: 'regard', lumiere: 'lumière', cadrage: 'cadrage', naturel: 'plus naturel' };
+          const weak = list.filter((v) => v.weak).length;
+          const notes = list.filter((v) => v.note).slice(-5).reverse();
           const sorted = [...counts].sort((a, b) => b[1] - a[1]);
           return (
             <>
@@ -258,7 +259,7 @@ export function Labo({ validations, records, excluded, learned, seances, tasteEf
                 <ul className="gouts">
                   {sorted.map(([w, n]) => (
                     <li key={w}>
-                      {label[w] ?? w} : {n} fois
+                      {WHY_LABELS[w] ?? w} : {n} fois
                     </li>
                   ))}
                 </ul>
@@ -266,10 +267,18 @@ export function Labo({ validations, records, excluded, learned, seances, tasteEf
                 <p className="note">Pas encore de raison donnée.</p>
               )}
               <p className="note">
-                Quand vous corrigez l’app dans le tri éclair, « Pourquoi ? » vous propose 5 raisons (facultatif, un toucher) :
+                Quand vous corrigez l’app dans le tri éclair, « Pourquoi ? » vous propose 9 raisons et « Autre… » (facultatif, un toucher) :
                 elles disent à l’app quel critère regarder. « Les deux se valent » retire une pose des mesures (ni juste, ni
-                faux){ties ? ` : ${plural(ties, 'pose')} jusqu’ici` : ''}.
+                faux){ties ? ` : ${plural(ties, 'pose')} jusqu’ici` : ''}. « Aucune n’est vraiment bonne » : la pose est
+                ratée mais vous en gardez quand même{weak ? ` (${plural(weak, 'pose')} jusqu’ici)` : ''}.
               </p>
+              {notes.length > 0 && (
+                <ul className="gouts">
+                  {notes.map((v) => (
+                    <li key={v.id}>« {v.note} »</li>
+                  ))}
+                </ul>
+              )}
             </>
           );
         })()}

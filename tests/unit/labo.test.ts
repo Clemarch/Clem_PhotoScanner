@@ -178,9 +178,13 @@ describe('« Pourquoi ? » et « se valent » (point 65)', () => {
     expect(labPairs([v], records)).toHaveLength(1);
     expect(labPairs([{ ...v, tie: true }], records)).toHaveLength(0);
     expect(accuracy([{ ...v, tie: true }]).poses.total).toBe(0);
-    const back = decodeBackup(JSON.parse(JSON.stringify(encodeBackup(records, 1, [{ ...v, tie: true, why: ['naturel', 'regard'] }])))).validations[0]!;
+    const back = decodeBackup(JSON.parse(JSON.stringify(encodeBackup(records, 1, [{ ...v, tie: true, why: ['naturel', 'gens'], note: 'pouce levé', weak: true }])))).validations[0]!;
     expect(back.tie).toBe(true);
-    expect(back.why).toEqual(['naturel', 'regard']);
+    expect(back.why).toEqual(['naturel', 'gens']);
+    expect(back.note).toBe('pouce levé');
+    expect(back.weak).toBe(true);
+    // « Aucune n'est vraiment bonne » : le choix reste un jugement relatif, la pose sert à apprendre.
+    expect(labPairs([{ ...v, weak: true }], records)).toHaveLength(1);
   });
 
   it('les 10 traits du visage : zéros sans visage, une valeur par trait (moyenne, pire) sinon', async () => {

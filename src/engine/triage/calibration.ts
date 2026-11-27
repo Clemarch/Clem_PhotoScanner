@@ -25,10 +25,29 @@ export interface PoseValidation {
   tie?: boolean;
   /** « Pourquoi ? » (point 65) : raisons données en corrigeant l'app (`WHY_REASONS`). */
   why?: string[];
+  /** « Autre… » : raison écrite en quelques mots (point 66). */
+  note?: string;
+  /** « Aucune n'est vraiment bonne » (point 66) : photos gardées quand même, faute de mieux. Le choix reste un
+   *  jugement relatif valable (la moins mauvaise), mais la pose est ratée. */
+  weak?: boolean;
 }
 
-/** Raisons proposées par « Pourquoi ? » dans le tri éclair (point 65). */
-export const WHY_REASONS = ['expression', 'regard', 'lumiere', 'cadrage', 'naturel'] as const;
+/** Raisons proposées par « Pourquoi ? » dans le tri éclair (points 65, 66 : plus précises, à la demande de
+ *  l'utilisateur, 27/11 : « un geste non désiré, des gens non désirés »). */
+export const WHY_REASONS = ['expression', 'regard', 'yeux', 'geste', 'gens', 'flou', 'cadrage', 'lumiere', 'naturel'] as const;
+
+/** Noms affichés des raisons (tri éclair, Labo). */
+export const WHY_LABELS: Record<string, string> = {
+  expression: 'Expression',
+  regard: 'Regard',
+  yeux: 'Yeux',
+  geste: 'Geste en trop',
+  gens: 'Gens en trop',
+  flou: 'Flou',
+  cadrage: 'Cadrage',
+  lumiere: 'Lumière',
+  naturel: 'Plus naturel',
+};
 
 const sameSet = (a: readonly string[], b: readonly string[]): boolean => a.length === b.length && a.every((k) => b.includes(k));
 
