@@ -27,7 +27,7 @@ function spanText(s: Span, now: number): string {
 export function ProchainTri() {
   const [gaps, setGaps] = useState<Span[] | null>(null);
   const [now] = useState(() => Date.now());
-  const [launched, setLaunched] = useState(false);
+  const [launched, setLaunched] = useState<number | null>(null);
   useEffect(() => {
     let alive = true;
     void listSessions().then((list) => {
@@ -39,37 +39,32 @@ export function ProchainTri() {
     };
   }, [now]);
   if (!gaps || gaps.length === 0) return null;
-  const [next, ...older] = gaps;
-  const oldest = older[older.length - 1];
+  // Toutes les périodes non triées, la plus récente d'abord (28/11 : la plus récente peut être vide, par exemple
+  // aucune photo prise depuis la dernière séance ; le raccourci vidait alors « À trier » sans rien y mettre).
+  const shown = gaps.slice(0, 4);
+  const fill = (span: Span, i: number) => {
+    // Période jusqu'à maintenant pour la plus récente (photos prises depuis l'ouverture de l'accueil comprises).
+    runPrepShortcut({ start: span.start, end: now - span.end < 60 * 60 * 1000 ? Date.now() : span.end });
+    setLaunched(i);
+  };
   return (
     <section className="groupe prochain-tri">
       <strong>Prochain tri</strong>
       <span className="note bloc">
-        Photos à trier en premier : <strong>{spanText(next!, now)}</strong>. Un toucher les met dans l’album « {TODO_ALBUM} »
-        ({PREP_LIMIT} au plus, les plus récentes d’abord).
+        Périodes jamais triées, la plus récente d’abord. Un toucher met leurs photos dans l’album « {TODO_ALBUM} » ({PREP_LIMIT}{' '}
+        au plus, les plus récentes d’abord). Si l’album reste vide, cette période n’a pas de photo : prenez la suivante.
       </span>
-      <button
-        className="bouton grand"
-        onClick={() => {
-          // Période jusqu'à maintenant pour la plus récente (photos prises depuis l'ouverture de l'accueil comprises).
-          runPrepShortcut({ start: next!.start, end: Number.isFinite(next!.end) && now - next!.end < 60 * 60 * 1000 ? Date.now() : next!.end });
-          setLaunched(true);
-        }}
-      >
-        Remplir « {TODO_ALBUM} »
-      </button>
-      {launched && (
+      {shown.map((span, i) => (
+        <button key={i} className={`bouton${i === 0 ? ' grand' : ''}`} onClick={() => fill(span, i)}>
+          {launched === i ? '✓ ' : ''}Photos {spanText(span, now)}
+        </button>
+      ))}
+      {launched !== null && (
         <span className="note bloc">
           L’app Raccourcis lance « {PREP_SHORTCUT_NAME} ». iOS vous demande de confirmer la suppression des photos d’origine :
           c’est normal, elles viennent d’être copiées dans « {TODO_ALBUM} ». Revenez ensuite par « ◀ Photo Triage » en haut à
           gauche, touchez « Choisir les photos », ouvrez l’album « {TODO_ALBUM} » et sélectionnez tout (doigt posé sur la
           photo la plus à droite, glissez vers la gauche puis vers le bas).
-        </span>
-      )}
-      {older.length > 0 && (
-        <span className="note bloc">
-          Restent aussi : {older.length > 1 ? `${older.length - 1} période${older.length > 2 ? 's' : ''} entre deux séances, et ` : ''}
-          les photos {spanText(oldest!, now)}.
         </span>
       )}
     </section>
