@@ -29,3 +29,4 @@ export { labPairs, runLab, LAB_CANDIDATES, type LabCandidate, type LabCandidateR
 export { trainPairNet, type NetPair } from './learning/nn';
 export { contextIdeas, contextScores, contextStats, faceFeatures, faceIdeas, faceScores, faceStats, faceTraits, topIdeas, type ContextIdea } from './learning/context';
 export { measureMotion, offAxisDeg, type Motion } from './analysis/motion';
+export { uncovered, type Span } from './coverage';

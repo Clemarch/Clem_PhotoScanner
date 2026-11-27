@@ -5,7 +5,7 @@ import { AlerteGoutsPerdus, backupDue, whenText } from '../SauvegardeGouts';
 import type { ChoiceRecord, PoseValidation } from '../../engine';
 import type { LastRun } from '../../platform/storage/lastRun';
 import { loadLastBackup } from '../../platform/storage/backupFile';
-import { formatDate, formatShortTime, plural } from '../format';
+import { plural } from '../format';
 import { IconChevron, IconLabo, IconNuage, IconReglages, IconTrier } from '../icons';
 import { APP_VERSION } from '../version';
 import type { ModelsState } from '../../platform/storage/models';
@@ -13,7 +13,6 @@ import { EtatModeles } from '../EtatModeles';
 import { BarreOeil } from '../BarreOeil';
 import type { EyeProgress } from '../session';
 import { ProchainTri } from '../Rangement';
-import { albumsEnabled, TODO_ALBUM } from '../../platform/shortcut';
 
 
 interface Props {
@@ -36,7 +35,7 @@ interface Props {
   eyeProgress: EyeProgress | null;
 }
 
-export function Accueil({ onFiles, interrupted, lastRun, records, recordsLoaded, onRestore, onSettings, onLabo, seances, models, onRetryModels, eyeProgress }: Props) {
+export function Accueil({ onFiles, interrupted, records, recordsLoaded, onRestore, onSettings, onLabo, seances, models, onRetryModels, eyeProgress }: Props) {
   const [update, setUpdate] = useState<UpdateStatus>(null);
   useEffect(() => watchUpdate(setUpdate), []);
   const installed = isInstalled();
@@ -100,20 +99,6 @@ export function Accueil({ onFiles, interrupted, lastRun, records, recordsLoaded,
       <BarreOeil progress={eyeProgress} />
 
       <section className="groupe">
-        {lastRun && !albumsEnabled() && (
-          <div className="ligne-info">
-            <span className="icone-ronde">
-              <IconChevron size={16} />
-            </span>
-            <div>
-              <strong>Pour continuer</strong>
-              <span className="note bloc">
-                Choisissez les photos prises après le {formatDate(lastRun.lastAt)} à {formatShortTime(lastRun.lastAt)} (dernière
-                séance : {lastRun.photos} photos).
-              </span>
-            </div>
-          </div>
-        )}
         <button className="ligne-info ligne-bouton" onClick={onSettings}>
           <span className={`icone-ronde${due ? ' orange' : ''}`}>
             <IconNuage size={18} />
@@ -153,7 +138,7 @@ export function Accueil({ onFiles, interrupted, lastRun, records, recordsLoaded,
         )}
       </section>
 
-      <ProchainTri records={records} />
+      <ProchainTri />
 
       <div className="accueil-bas">
         <label className="bouton principal grand">
@@ -170,12 +155,6 @@ export function Accueil({ onFiles, interrupted, lastRun, records, recordsLoaded,
             }}
           />
         </label>
-        {albumsEnabled() && (
-          <p className="note">
-            Dans l’album « {TODO_ALBUM} », sélectionnez en glissant le doigt <strong>de droite à gauche</strong>, puis vers le
-            bas : depuis iOS 26, glisser vers la droite referme l’album.
-          </p>
-        )}
         <p className="note">{APP_VERSION}</p>
       </div>
     </main>

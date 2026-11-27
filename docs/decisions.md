@@ -1250,6 +1250,26 @@ Triées, dont une « saved from… » », sur tout un lot.
 - Guide des albums : vérifier que le dernier bloc de « Photo Triage Garder » est « Créer un album photo », et
   nettoyer avec Photos › Albums › Doublons › Fusionner.
 
+### 70. Albums retirés : « Créer un album photo » copie chaque photo (27/11)
+
+Captures de l'utilisateur (27/11) : dans « Photo Triage Garder », le bloc « Créer un album photo Triées avec
+A ranger » a pour sortie « Fichier multimédia photo enregistré » : il enregistre une copie de chaque photo. Toutes les
+photos en triple vont d'IMG_0998 (21/11) à IMG_1569 (25/11), une originale et deux copies, les albums n'étant pas
+dupliqués.
+- Explication : « Préparer le tri » remplissait « À trier » avec ce même bloc (copie 1, que l'utilisateur choisissait
+  ensuite dans l'app), puis « Photo Triage Garder » rangeait dans « Triées » (copie 2). Les photos triées par les albums
+  (point 48, du 24/11) sont exactement celles-là. L'hypothèse du point 48 (« Créer un album photo » ajoute sans copier
+  si l'album existe) était fausse ; aucun bloc de Raccourcis ne range une photo existante dans un album.
+- Correctif : albums retirés (`albumsEnabled` toujours faux, plus de lancement de « Photo Triage Garder » ni de
+  « Préparer le tri »). « Prochain tri » sur l'accueil : l'app calcule les périodes que ses séances n'ont pas couvertes
+  (`uncovered`, `src/engine/coverage.ts`) et dit lesquelles choisir, la plus récente d'abord (« photos prises après le
+  … », « entre le … et le … », « avant le … »).
+- Nettoyage (Réglages, « Albums retirés ») : Photos › Albums › Doublons › Sélectionner › Tout sélectionner ›
+  Fusionner (iOS garde le meilleur exemplaire et ses albums) ; supprimer les deux raccourcis ; supprimer les albums si
+  l'on veut (aucune photo effacée).
+- Le raccourci de suppression ne change pas : il cherche par nom et heure, donc il supprime aussi les copies d'une photo
+  à supprimer.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

@@ -103,14 +103,15 @@ export function runPrepShortcut(): void {
 export const KEPT_BATCH = 300;
 
 const ALBUMS_KEY = 'photo-triage.albums';
-/** Albums « Triées » / « À trier » utilisés (par défaut) : l'accueil propose « Préparer le prochain tri ». */
+/**
+ * Albums « Triées » / « À trier » : retirés le 27/11 (point 70). Le bloc « Créer un album photo » de l'app Raccourcis
+ * enregistre une copie de chaque photo (sa sortie s'appelle « Fichier multimédia photo enregistré ») : chaque photo
+ * triée par les albums existait en 3 exemplaires. Aucun bloc de Raccourcis ne range une photo dans un album sans la
+ * copier : l'app ne s'en sert plus. Gardé pour les anciens écrans ; toujours faux.
+ */
 export function albumsEnabled(): boolean {
-  try {
-    // Activé par défaut (25/11) : seul un « non » explicite (« 0 ») le coupe.
-    return localStorage.getItem(ALBUMS_KEY) !== '0';
-  } catch {
-    return false;
-  }
+  void ALBUMS_KEY;
+  return false;
 }
 export function setAlbumsEnabled(on: boolean): void {
   try {
