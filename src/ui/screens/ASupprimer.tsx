@@ -5,9 +5,8 @@ import { finalKeep, stateLook, type Choice, type Choices } from '../choices';
 import { dayEntries } from '../entries';
 import { formatDate, formatTime, plural } from '../format';
 import { Visionneuse } from './Visionneuse';
-import { runShortcut, shortcutCount, shortcutText, SHORTCUT_BATCH, SHORTCUT_NAME } from '../../platform/shortcut';
+import { asPhoto, findable, runShortcut, shortcutCount, shortcutText, SHORTCUT_BATCH, SHORTCUT_NAME } from '../../platform/shortcut';
 import { GuideRaccourci } from '../GuideRaccourci';
-import { asPhoto, findable } from '../Rangement';
 import { IconCoche, IconCorbeille, IconCroix } from '../icons';
 import { useScrolled } from '../useScrolled';
 

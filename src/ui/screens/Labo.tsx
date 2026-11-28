@@ -8,6 +8,7 @@ import { IconFermer } from '../icons';
 import { BarreOeil } from '../BarreOeil';
 import type { EyeProgress } from '../session';
 import { useScrolled } from '../useScrolled';
+import { justesse } from '../justesse';
 
 interface Props {
   validations: PoseValidation[];
@@ -58,7 +59,7 @@ export function Labo({ validations, records, excluded, learned, seances, tasteEf
   }, [key]);
 
   const counted = useMemo(() => validations.filter((v) => !excluded.has(v.sessionId)), [validations, excluded]);
-  const app = accuracy(counted);
+  const { all: app, last } = justesse(validations, excluded);
   const firstAt = new Map(seances.map((s) => [s.sessionId, s.firstAt]));
   // Une séance est nommée par le jour où elle a été triée (son identifiant), dans l'ordre du temps ; le jour des photos
   // vient en plus (utilisateur, 27/11 : « séance 7, du 14/11 » pour une séance triée le 25/11 prêtait à confusion).
@@ -98,12 +99,12 @@ export function Labo({ validations, records, excluded, learned, seances, tasteEf
 
       <section className="groupe labo-chiffres">
         <div>
-          <strong>{pctText(app.photos.right, app.photos.total)}</strong>
-          <span>photos où l’app a vu comme vous</span>
+          <strong>{last ? pctText(last.photos.right, last.photos.total) : '—'}</strong>
+          <span>photos où l’app a vu comme vous, dernière séance</span>
         </div>
         <div>
-          <strong>{app.poses.total}</strong>
-          <span>poses validées</span>
+          <strong>{pctText(app.photos.right, app.photos.total)}</strong>
+          <span>depuis le début ({plural(app.poses.total, 'pose validée', 'poses validées')})</span>
         </div>
         <div>
           <strong>{records.length}</strong>

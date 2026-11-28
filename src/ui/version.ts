@@ -1,2 +1,2 @@
 /** Version affichée à l'utilisateur (accueil, réglages) : il la lit pour vérifier que la mise à jour est arrivée. */
-export const APP_VERSION = 'jalon 8, poses regroupées et photos seules à la fin';
+export const APP_VERSION = 'jalon 8, raisons sur la photo et onglets plus fluides';

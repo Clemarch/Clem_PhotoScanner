@@ -12,7 +12,6 @@ import type { ModelsState } from '../../platform/storage/models';
 import { EtatModeles } from '../EtatModeles';
 import { BarreOeil } from '../BarreOeil';
 import type { EyeProgress } from '../session';
-import { ProchainTri } from '../Rangement';
 
 
 interface Props {
@@ -23,7 +22,8 @@ interface Props {
   /** Les choix ont fini d'être lus sur l'iPhone (pour ne pas crier à la perte trop tôt). */
   recordsLoaded: boolean;
   onRestore: (records: ChoiceRecord[], validations?: PoseValidation[]) => Promise<{ added: number; updated: number }>;
-  onSettings: () => void;
+  /** Ouvre les Réglages, à la section des séances si demandé. */
+  onSettings: (section?: 'seances') => void;
   /** Ouvre le labo d'apprentissage (absent tant qu'aucune pose n'a été validée). */
   onLabo?: () => void;
   /** Nombre de séances gardées (à rouvrir dans Réglages). */
@@ -45,7 +45,7 @@ export function Accueil({ onFiles, interrupted, records, recordsLoaded, onRestor
   return (
     <main className="accueil">
       <header className="accueil-barre">
-        <button className="rond" onClick={onSettings} aria-label="Réglages">
+        <button className="rond" onClick={() => onSettings()} aria-label="Réglages">
           <IconReglages size={20} />
         </button>
       </header>
@@ -99,7 +99,7 @@ export function Accueil({ onFiles, interrupted, records, recordsLoaded, onRestor
       <BarreOeil progress={eyeProgress} />
 
       <section className="groupe">
-        <button className="ligne-info ligne-bouton" onClick={onSettings}>
+        <button className="ligne-info ligne-bouton" onClick={() => onSettings()}>
           <span className={`icone-ronde${due ? ' orange' : ''}`}>
             <IconNuage size={18} />
           </span>
@@ -119,13 +119,13 @@ export function Accueil({ onFiles, interrupted, records, recordsLoaded, onRestor
             </span>
             <div>
               <strong>Labo d’apprentissage</strong>
-              <span className="note bloc">Mes prédictions s’améliorent-elles ? Séance par séance</span>
+              <span className="note bloc">L’app voit-elle de plus en plus comme vous ? Séance par séance</span>
             </div>
             <IconChevron size={14} className="chevron" />
           </button>
         )}
         {seances > 0 && (
-          <button className="ligne-info ligne-bouton" onClick={onSettings}>
+          <button className="ligne-info ligne-bouton" onClick={() => onSettings('seances')}>
             <span className="icone-ronde gris">
               <IconTrier size={18} />
             </span>
@@ -137,8 +137,6 @@ export function Accueil({ onFiles, interrupted, records, recordsLoaded, onRestor
           </button>
         )}
       </section>
-
-      <ProchainTri />
 
       <div className="accueil-bas">
         <label className="bouton principal grand">

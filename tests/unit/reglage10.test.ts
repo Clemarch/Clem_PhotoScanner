@@ -80,6 +80,16 @@ describe('paquets selon ce que montrent les photos (utilisateur, 19/11)', () => 
     ];
     expect(sizes(items)).toEqual(['groupe', 'seule']);
   });
+  it('foule en rafale : le compte de personnes qui varie ne coupe pas la série (28/11, IMG_2413 à 2418)', () => {
+    const person = (x: number, score: number, size = 0.2) => ({ label: 'person', score, box: { x, y: 0.2, width: size, height: size } });
+    const crowd = (extra: number) => [person(0.1, 0.8), person(0.5, extra), person(0.8, 0.42, 0.1)];
+    const items = [
+      photo('a', 0, { embedding: plage, objects: crowd(0.79) }),
+      photo('b', 5, { embedding: [0.85, 0.53, 0], objects: crowd(0.45) }),
+      photo('c', 6, { embedding: [0.75, 0.66, 0], objects: crowd(0.72) }),
+    ];
+    expect(sizes(items)).toEqual(['abc']);
+  });
   it('jamais réunies au-delà de 3 h, même ressemblantes', () => {
     expect(sizes([photo('a', 0, { embedding: plage }), photo('b', 4 * 3600, { embedding: plage })])).toEqual(['a', 'b']);
   });

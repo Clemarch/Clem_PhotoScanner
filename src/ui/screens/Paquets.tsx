@@ -29,8 +29,8 @@ interface Props {
   /** Aller à l'onglet « Supprimer ». */
   onGoDelete: () => void;
   /** Tri éclair : poses encore à trancher, poses « sûres » non montrées, et total. */
-  eclair: { pending: number; sure: number; total: number };
-  onEclair: (which: 'suite' | 'sures' | 'tout') => void;
+  eclair: { pending: number; total: number };
+  onEclair: (which: 'suite' | 'tout') => void;
   /** Images retrouvées en re-choisissant les photos (séance reprise dont les images ne se relisent plus). */
   recovering: { done: number; total: number; found?: number } | null;
   onRecoverImages: (files: File[]) => void;
@@ -180,16 +180,11 @@ export function Paquets({ session, day, gap, onJoin, onNewDay, choices, previous
                 proposition de l’app est déjà cochée : vous touchez seulement ce qui ne va pas.
               </p>
               <button className="bouton principal grand" onClick={() => onEclair('suite')}>
-                {eclair.pending + eclair.sure < eclair.total ? 'Continuer' : 'Commencer'}
+                {eclair.pending < eclair.total ? 'Continuer' : 'Commencer'}
               </button>
             </>
           ) : (
             <p className="doux">Toutes les poses sont tranchées ✓</p>
-          )}
-          {eclair.sure > 0 && (
-            <button className="lien" onClick={() => onEclair('sures')}>
-              + {plural(eclair.sure, 'pose sûre', 'poses sûres')} non montrée{eclair.sure > 1 ? 's' : ''} (l’app y a fait ses preuves) : voir
-            </button>
           )}
           {eclair.pending === 0 && (
             <button className="lien" onClick={() => onEclair('tout')}>

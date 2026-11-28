@@ -1,17 +1,16 @@
-import { useMemo, useState } from 'react';
-import { accuracy, type ShadowComparison, FEATURE_NAMES, evaluateDay, preferencePairs, type ChoiceRecord, type PoseValidation, type DayAnalysis, type LearnedWeights } from '../../engine';
-import type { EyeProgress, Session } from '../session';
-import { BarreOeil } from '../BarreOeil';
+import { useEffect, useMemo, useState } from 'react';
+import { type ShadowComparison, FEATURE_NAMES, evaluateDay, preferencePairs, type ChoiceRecord, type PoseValidation, type DayAnalysis, type LearnedWeights } from '../../engine';
+import type { Session } from '../session';
 import { tasteLine } from '../reasons';
 import { agreementLine, buildReport, copyText, shareText, summarize } from '../report';
 import { RapportsEnregistres } from '../RapportsEnregistres';
 import { SauvegardeGouts } from '../SauvegardeGouts';
 import { GuideRaccourci } from '../GuideRaccourci';
-import { GuideAlbums } from '../GuideAlbums';
 import type { SavedReport } from '../../platform/storage/reports';
 import { formatDate, formatMs, plural } from '../format';
 import { IconChevron, IconFermer, IconLabo, IconPartager } from '../icons';
 import { useScrolled } from '../useScrolled';
+import { justesse, pct } from '../justesse';
 import { Seances } from '../Seances';
 import { EtatModeles } from '../EtatModeles';
 import type { ModelsState } from '../../platform/storage/models';
@@ -37,10 +36,6 @@ interface Props {
   /** Modèles du nouvel œil : état du téléchargement, et « Réessayer » s'il a échoué. */
   models: ModelsState | null;
   onRetryModels: () => void;
-  /** Nouvel œil en arrière-plan sur la séance en cours. */
-  eyeProgress: EyeProgress | null;
-  /** « Lancer le nouvel œil » : rend le nombre de photos lancées. */
-  onLaunchEye: () => Promise<number>;
   seances: SessionSummary[];
   currentId: string | null;
   onReopen: (sessionId: string) => void;
@@ -56,7 +51,7 @@ interface Props {
 }
 
 /** Réglages : sauvegarde des goûts, séances, raccourci, rapports, diagnostic et effacement (caché). */
-export function Reglages({ session, day, records, learned, reports, onRestore, onForget, validations, excluded, onToggleCounted, shadow, models, onRetryModels, eyeProgress, onLaunchEye, seances, currentId, onReopen, onDeleteSession, onClose, onLabo, unseen, onFindUnseen, onReviewUnseen }: Props) {
+export function Reglages({ session, day, records, learned, reports, onRestore, onForget, validations, excluded, onToggleCounted, shadow, models, onRetryModels, seances, currentId, onReopen, onDeleteSession, onClose, onLabo, unseen, onFindUnseen, onReviewUnseen }: Props) {
   const scrolled = useScrolled();
   return (
     <main className={`page${onClose ? ' par-dessus' : ''}`}>
@@ -76,36 +71,16 @@ export function Reglages({ session, day, records, learned, reports, onRestore, o
 
       <h2 className="titre-groupe">Mes goûts</h2>
       <SauvegardeGouts records={records} onRestore={onRestore} validations={validations} />
-      <Justesse validations={validations} excluded={excluded} shadow={shadow} sessionId={session?.id ?? null} />
-      {onLabo && (
-        <section className="groupe">
-          <button className="ligne-info ligne-bouton" onClick={onLabo}>
-            <span className="icone-ronde">
-              <IconLabo size={18} />
-            </span>
-            <div>
-              <strong>Labo d’apprentissage</strong>
-              <span className="note bloc">Progrès séance par séance, candidats en concurrence, vos goûts</span>
-            </div>
-            <IconChevron size={14} className="chevron" />
-          </button>
-        </section>
-      )}
+      {onLabo && <LienLabo validations={validations} excluded={excluded} onLabo={onLabo} />}
       <EtatModeles models={models} onRetry={onRetryModels} />
-      <BarreOeil progress={eyeProgress} onLaunch={onLaunchEye} />
 
-      <h2 className="titre-groupe">Séances</h2>
+      <h2 className="titre-groupe" id="reglages-seances">Séances</h2>
       <JamaisVues unseen={unseen} seances={seances} onFind={onFindUnseen} onReview={onReviewUnseen} />
       <Seances seances={seances} currentId={currentId} onReopen={onReopen} onDelete={onDeleteSession} excluded={excluded} onToggleCounted={onToggleCounted} />
 
       <h2 className="titre-groupe">Raccourci de suppression</h2>
       <section className="groupe">
         <GuideRaccourci />
-      </section>
-
-      <h2 className="titre-groupe">Albums (abandonnés)</h2>
-      <section className="groupe">
-        <GuideAlbums />
       </section>
 
       {session && day && <RapportEtDiagnostic session={session} day={day} records={records} learned={learned} validations={validations} excluded={excluded} shadow={shadow} />}
@@ -147,32 +122,28 @@ export function Reglages({ session, day, records, learned, reports, onRestore, o
   );
 }
 
-/** Justesse de l'app, mesurée honnêtement sur les poses validées dans le tri éclair (le chiffre qui doit monter). */
-function Justesse({ validations, excluded, shadow, sessionId }: { validations: PoseValidation[]; excluded: ReadonlySet<string>; shadow: ShadowComparison | null; sessionId: string | null }) {
-  // Séances hors statistiques écartées du total ; la séance ouverte reste mesurée.
-  const all = accuracy(validations.filter((v) => !excluded.has(v.sessionId)));
-  if (all.poses.total === 0) return null;
-  const here = accuracy(validations.filter((v) => v.sessionId === sessionId));
-  const pct = (a: { right: number; total: number }) => Math.round((a.right / a.total) * 100);
+/**
+ * Labo d'apprentissage, avec la justesse de l'app (poses validées dans le tri éclair) : depuis le début et sur la
+ * dernière séance triée, pour voir le progrès d'une séance à l'autre (28/11 : « l'encadré a l'air figé »).
+ */
+function LienLabo({ validations, excluded, onLabo }: { validations: PoseValidation[]; excluded: ReadonlySet<string>; onLabo: () => void }) {
+  const { all, last } = justesse(validations, excluded);
   return (
     <section className="groupe">
-      <div className="ligne-info">
-        <span className="icone-ronde vert-fond">%</span>
+      <button className="ligne-info ligne-bouton" onClick={onLabo}>
+        <span className="icone-ronde">
+          <IconLabo size={18} />
+        </span>
         <div>
-          <strong>
-            Justesse de l’app : {pct(all.photos)} % des photos, {pct(all.poses)} % des poses
-          </strong>
+          <strong>Labo d’apprentissage</strong>
           <span className="note bloc">
-            Sur {all.poses.total} poses que vous avez validées dans le tri éclair
-            {here.poses.total > 0 ? ` · cette séance : ${pct(here.photos)} % des photos${sessionId && excluded.has(sessionId) ? ' (hors statistiques)' : ''}` : ''}. Objectif : 80 %.
+            {all.photos.total > 0
+              ? `L’app a vu comme vous sur ${pct(all.photos)} % des photos${last ? ` · dernière séance : ${pct(last.photos)} %` : ''}. Objectif : 80 %.`
+              : 'Progrès séance par séance, candidats en concurrence, vos goûts'}
           </span>
         </div>
-      </div>
-      <p className="note">
-        {shadow && shadow.tested > 0
-          ? `Nouvel œil, en coulisse : il met la photo gardée devant dans ${Math.round((shadow.eye / shadow.tested) * 100)} % des cas, contre ${Math.round((shadow.formula / shadow.tested) * 100)} % pour la formule actuelle (${shadow.tested} comparaisons).`
-          : `Nouvel œil, en coulisse : il apprend de vos poses validées ; la comparaison avec la formule actuelle apparaîtra quand 2 séances auront des poses validées qu’il a regardées (aujourd’hui : ${shadow?.sessions ?? 0}).`}
-      </p>
+        <IconChevron size={14} className="chevron" />
+      </button>
     </section>
   );
 }
@@ -195,9 +166,17 @@ function RapportEtDiagnostic({
   shadow: ShadowComparison | null;
 }) {
   const summary = useMemo(() => summarize(session), [session]);
-  const report = useMemo(() => buildReport(session, day, records, learned, validations, shadow, excluded), [session, day, records, learned, validations, shadow, excluded]);
-  const pairs = useMemo(() => preferencePairs(records).length, [records]);
-  const agreement = useMemo(() => evaluateDay(day, records), [day, records]);
+  // Rapport et accord honnête : calculs de plusieurs centaines de millisecondes. Rapport fait au moment de l'envoyer,
+  // accord juste après l'affichage : Réglages s'ouvre sans attendre (28/11, « ça lag encore »).
+  const makeReport = () => buildReport(session, day, records, learned, validations, shadow, excluded);
+  const [full, setFull] = useState(false);
+  const fullReport = useMemo(() => (full ? makeReport() : ''), [full, session, day, records, learned, validations, shadow, excluded]);
+  const [stats, setStats] = useState<{ pairs: number; agreement: ReturnType<typeof evaluateDay> } | null>(null);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setStats({ pairs: preferencePairs(records).length, agreement: evaluateDay(day, records) }), 60);
+    return () => window.clearTimeout(timer);
+  }, [day, records]);
+  const pairs = stats?.pairs ?? 0;
   const learnedList = FEATURE_NAMES.filter((name) => learned[name] !== undefined).sort((a, b) => Math.abs(learned[b]!) - Math.abs(learned[a]!));
   const [copied, setCopied] = useState<'non' | 'oui' | 'echec'>('non');
   const dateOk = summary.withoutDate === 0 && summary.withDate > 0;
@@ -206,18 +185,19 @@ function RapportEtDiagnostic({
     <>
       <h2 className="titre-groupe">Envoyer à Claude</h2>
       <section className="groupe">
-        <p className="note">{agreementLine(agreement)}</p>
+        <p className="note">{stats ? agreementLine(stats.agreement) : 'Accord avec vos choix : calcul…'}</p>
         <div className="rapports-actions">
           <button
             className="bouton principal"
             onClick={async () => {
+              const report = makeReport();
               const result = await shareText(report, 'Rapport Photo Triage');
               if (result === 'impossible') setCopied((await copyText(report)) ? 'oui' : 'echec');
             }}
           >
             <IconPartager size={17} /> Partager
           </button>
-          <button className="bouton" onClick={async () => setCopied((await copyText(report)) ? 'oui' : 'echec')}>
+          <button className="bouton" onClick={async () => setCopied((await copyText(makeReport())) ? 'oui' : 'echec')}>
             {copied === 'oui' ? 'Copié ✓' : 'Copier'}
           </button>
         </div>
@@ -247,9 +227,9 @@ function RapportEtDiagnostic({
             ))}
           </ul>
         )}
-        <details className="sous-repli">
+        <details className="sous-repli" onToggle={(e) => setFull((e.currentTarget as HTMLDetailsElement).open)}>
           <summary>Rapport complet</summary>
-          <textarea className="rapport" readOnly value={report} rows={10} />
+          {full && <textarea className="rapport" readOnly value={fullReport} rows={10} />}
         </details>
       </details>
     </>

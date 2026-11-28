@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   clearProgress,
   keepScreenAwake,
@@ -120,10 +120,25 @@ const sessionMeta = (session: Session): SavedSessionMeta => ({
   retriaged: session.retriaged,
 });
 
+/**
+ * Onglet gardé en mémoire (28/11, « ça lag encore » entre les onglets) : changer d'onglet ne reconstruit plus des
+ * centaines de vignettes, il affiche ce qui est déjà prêt. Caché, il ne se recalcule pas ; il se met à jour en
+ * redevenant visible.
+ */
+const Onglet = memo(
+  function Onglet({ active, children }: { active: boolean; children: ReactNode }) {
+    return <div style={active ? undefined : { display: 'none' }}>{children}</div>;
+  },
+  (prev, next) => !prev.active && !next.active,
+);
+
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [progress, setProgress] = useState<{ done: number; total: number; name: string } | null>(null);
   const [tab, setTab] = useState<Tab>('paquets');
+  // Onglets déjà ouverts (gardés en mémoire), et où chacun avait été laissé.
+  const [visited, setVisited] = useState<Set<Tab>>(() => new Set<Tab>(['paquets']));
+  const scrollOf = useRef(new Map<string, number>());
   const [interrupted, setInterrupted] = useState<InterruptedRun | null>(null);
   const cancelRef = useRef(false);
   // Une analyse a été lancée : la séance relue au démarrage (plus lente) ne doit pas la remplacer.
@@ -133,6 +148,11 @@ export function App() {
   const [recordsLoaded, setRecordsLoaded] = useState(false);
   // Séance terminée (tout est parti à la suppression) : ses photos ne s'affichent plus, mais elle peut être rouverte.
   const [closed, setClosed] = useState(false);
+  // Onglet retrouvé là où on l'avait laissé ; une autre séance repart d'en haut, sans onglet gardé.
+  useLayoutEffect(() => {
+    window.scrollTo(0, scrollOf.current.get(`${session?.id ?? ''}|${tab}`) ?? 0);
+  }, [tab]);
+  useEffect(() => setVisited(new Set<Tab>(['paquets'])), [session?.id]);
   // Toutes les séances gardées sur l'iPhone (utilisateur, 20/11 : « possible de réouvrir la session si besoin et toutes
   // les autres antérieures »).
   const [seances, setSeances] = useState<SessionSummary[]>([]);
@@ -280,6 +300,7 @@ export function App() {
       setSession(openSaved(saved, 'rouverte'));
     }
     await setSessionClosed(sessionId, false);
+    scrollOf.current.clear();
     setSettingsOpen(false);
     setTab('paquets');
     window.scrollTo({ top: 0 });
@@ -290,6 +311,7 @@ export function App() {
   const finish = () => {
     if (!session) return;
     setClosed(true);
+    setTab((t) => (t === 'supprimer' ? 'paquets' : t));
     window.scrollTo({ top: 0 });
     void setSessionClosed(session.id, true).then(refreshSeances);
   };
@@ -366,8 +388,10 @@ export function App() {
   // rapport) attendent sa fermeture : sinon chaque pose validée bloquait l'écran 1 à 3 s (utilisateur, 25/11). Le tri
   // éclair travaille sur sa propre liste de poses, figée à l'ouverture : rien ne change pour lui.
   const eclairOpen = eclair !== null;
-  const learningRecords = useRef(records);
-  if (!eclairOpen) learningRecords.current = records;
+  // Goûts appris (et toute la séance recalculée) un temps après le toucher : la photo touchée change d'état tout de suite.
+  const deferredRecords = useDeferredValue(records);
+  const learningRecords = useRef(deferredRecords);
+  if (!eclairOpen) learningRecords.current = deferredRecords;
   const learned = useMemo(() => learnWeights(learningRecords.current), [learningRecords.current]);
   const recordsRef = useRef(records);
   recordsRef.current = records;
@@ -420,7 +444,6 @@ export function App() {
     () => singlesLast(queue.filter((t) => !validatedHere.has(t.key) && !t.items.every((it) => seenBefore.has(photoKey(it))))),
     [queue, validatedHere, seenBefore],
   );
-  const sureLeft = useMemo(() => queue.filter((t) => t.sure && !validatedHere.has(t.key)), [queue, validatedHere]);
   /**
    * Poses jamais vues dans le tri éclair, séance par séance (utilisateur, 27/11 : « beaucoup de photos que je n'ai
    * jamais vues en comparaison… je voudrais les voir de nouveau »). Une pose compte si aucune validation ne la
@@ -456,8 +479,7 @@ export function App() {
     reviewAfterOpen.current = null;
     if (pending.length > 0) setEclair(pending);
   }, [session, closed, pending]);
-  const openEclair = (which: 'suite' | 'sures' | 'tout') =>
-    setEclair(which === 'suite' ? pending : which === 'sures' ? sureLeft : queue);
+  const openEclair = (which: 'suite' | 'tout') => setEclair(which === 'suite' ? pending : singlesLast(queue));
   // Une analyse vient de se terminer : le tri éclair s'ouvre de lui-même s'il y a des poses à trancher.
   useEffect(() => {
     if (!justAnalyzed || !session) return;
@@ -1072,8 +1094,6 @@ export function App() {
       shadow={shadow}
       models={models}
       onRetryModels={retryModels}
-      eyeProgress={eyeProgress}
-      onLaunchEye={launchEye}
       seances={seances}
       currentId={closed ? null : (session?.id ?? null)}
       onReopen={(id) => void reopen(id)}
@@ -1114,7 +1134,10 @@ export function App() {
         records={records}
         recordsLoaded={recordsLoaded}
         onRestore={restore}
-        onSettings={() => setSettingsOpen(true)}
+        onSettings={(section) => {
+          setSettingsOpen(true);
+          if (section) requestAnimationFrame(() => document.getElementById('reglages-seances')?.scrollIntoView({ block: 'start' }));
+        }}
         onLabo={validations.length > 0 ? () => setLaboOpen(true) : undefined}
         seances={seances.length}
         models={models}
@@ -1124,9 +1147,15 @@ export function App() {
     );
   }
 
+  // Toucher l'onglet affiché remonte en haut ; un autre onglet revient là où on l'avait laissé.
   const goTab = (next: Tab) => {
+    if (next === tab) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    scrollOf.current.set(`${session.id}|${tab}`, window.scrollY);
+    setVisited((set) => (set.has(next) ? set : new Set(set).add(next)));
     setTab(next);
-    window.scrollTo({ top: 0 });
   };
 
   const ended = (
@@ -1144,48 +1173,58 @@ export function App() {
       <BandeauMiseAJour />
       {closed && tab !== 'reglages' ? (
         ended
-      ) : tab === 'paquets' ? (
-        <Paquets
-          session={session}
-          day={day}
-          gap={gap}
-          onJoin={(key, join) =>
-            setJoined((set) => {
-              const next = new Set(set);
-              if (join) next.add(key);
-              else next.delete(key);
-              return next;
-            })
-          }
-          choices={pageChoices}
-          previousRun={runs.previous}
-          onNewDay={(files) => void start(files)}
-          onChoose={choose}
-          onComment={comment}
-          onGoDelete={() => goTab('supprimer')}
-          eclair={{ pending: pending.length, sure: 0, total: queue.length }}
-          onEclair={openEclair}
-          recovering={recovering}
-          onRecoverImages={(files) => void recoverImages(files)}
-          eyeProgress={eyeProgress}
-        />
-      ) : tab === 'supprimer' ? (
-        <ASupprimer session={session} day={day} choices={choices} onChoose={choose} onComment={comment} onConfirm={confirmPacks} onUnconfirm={unconfirmPacks} onFinished={finish} unverified={pending.length} onVerify={() => openEclair('suite')} />
       ) : (
-        settings()
+        <>
+          <Onglet active={tab === 'paquets'}>
+            <Paquets
+              key={session.id}
+              session={session}
+              day={day}
+              gap={gap}
+              onJoin={(key, join) =>
+                setJoined((set) => {
+                  const next = new Set(set);
+                  if (join) next.add(key);
+                  else next.delete(key);
+                  return next;
+                })
+              }
+              choices={pageChoices}
+              previousRun={runs.previous}
+              onNewDay={(files) => void start(files)}
+              onChoose={choose}
+              onComment={comment}
+              onGoDelete={() => goTab('supprimer')}
+              eclair={{ pending: pending.length, total: queue.length }}
+              onEclair={openEclair}
+              recovering={recovering}
+              onRecoverImages={(files) => void recoverImages(files)}
+              eyeProgress={eyeProgress}
+            />
+          </Onglet>
+          {(visited.has('supprimer') || tab === 'supprimer') && (
+            <Onglet active={tab === 'supprimer'}>
+              <ASupprimer key={session.id} session={session} day={day} choices={choices} onChoose={choose} onComment={comment} onConfirm={confirmPacks} onUnconfirm={unconfirmPacks} onFinished={finish} unverified={pending.length} onVerify={() => openEclair('suite')} />
+            </Onglet>
+          )}
+        </>
       )}
+      {tab === 'reglages' && settings()}
       <nav className="onglets">
         <button className={tab === 'paquets' ? 'actif' : ''} onClick={() => goTab('paquets')}>
           <IconTrier />
           <span>Trier</span>
         </button>
-        <button className={tab === 'supprimer' ? 'actif' : ''} onClick={() => goTab('supprimer')}>
-          <span className="onglet-icone">
-            <IconCorbeille />
-            {toRemove > 0 && !closed && <span className="pastille">{toRemove}</span>}
-          </span>
-          <span>Supprimer</span>
-        </button>
+        {/* Séance terminée : « Trier » et « Supprimer » montraient le même écran (28/11) ; l'onglet Supprimer disparaît. */}
+        {!closed && (
+          <button className={tab === 'supprimer' ? 'actif' : ''} onClick={() => goTab('supprimer')}>
+            <span className="onglet-icone">
+              <IconCorbeille />
+              {toRemove > 0 && <span className="pastille">{toRemove}</span>}
+            </span>
+            <span>Supprimer</span>
+          </button>
+        )}
         <button className={tab === 'reglages' ? 'actif' : ''} onClick={() => goTab('reglages')}>
           <IconReglages />
           <span>Réglages</span>

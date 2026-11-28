@@ -15,8 +15,8 @@ Décisions prises et écarts : `docs/decisions.md` — à mettre à jour à chaq
 - Aucune suppression automatique. L'écran final rend la suppression la plus simple possible : bouton qui passe la
   liste au raccourci « Photo Triage » (app Raccourcis), une recherche par photo (nom + fenêtre de ±2 s), aperçu puis confirmation d'iOS
   (`docs/decisions.md`, points 31 et 33). « Créer un album photo » (Raccourcis) enregistre toujours une copie
-  (point 70) : plus d'album « Triées » ni de « Photo Triage Garder ». Albums abandonnés (points 71 à 73) : l'accueil
-  indique les périodes non triées à choisir (`src/engine/coverage.ts`).
+  (point 70) : plus d'album « Triées » ni de « Photo Triage Garder ». Albums abandonnés (points 71 à 73), « Prochain tri »
+  retiré (point 75) : l'utilisateur choisit lui-même ses photos.
 - Jamais de photos dans le dépôt (`tests/fixtures/` est ignoré par git).
 - Interface en français, fluide, soignée, utilisable d'une main.
 - RAW repérés et mis de côté. Vidéos plus tard (`MediaItem.kind`). Live Photos non ciblées.
@@ -125,4 +125,5 @@ Toutes les poses dans le tri éclair (photos seules et « sûres » comprises), 
 Rangement dans « Triées » suivi photo par photo (point 69), puis albums retirés : ils copiaient chaque photo (point 70).
 Album « À trier » refait (point 71) puis abandonné ; analyse qui reprend après un verrouillage d'écran (point 73).
 Photos seules rattachées à la pose qui leur ressemble ; écran « Photos seules » à la fin du tri éclair (point 74).
+Foule en rafale non coupée, raisons sur la photo en grand, « Prochain tri » retiré, onglets gardés en mémoire (point 75).
 Modèle restant proposé : objets plus fins.

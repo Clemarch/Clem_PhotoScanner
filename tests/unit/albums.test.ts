@@ -1,34 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import { KEEP_SHORTCUT_NAME, PREP_LIMIT, prepShortcutUrl, prepText, shortcutText, shortcutUrl } from '../../src/platform/shortcut';
+import { asPhoto, findable, shortcutText, shortcutUrl } from '../../src/platform/shortcut';
 
-// Albums « Triées » et « À trier » (24/11, point 48).
-describe('albums', () => {
+// Raccourci de suppression : une ligne par photo, nom et fenêtre de ±2 s (points 31, 33).
+describe('raccourci de suppression', () => {
   const at = new Date(2026, 10, 24, 10, 0, 0).getTime();
   const photos = [
     { fileName: 'IMG_0002.HEIC', at },
     { fileName: 'IMG_0003.HEIC', at: null },
   ];
 
-  it('les photos gardées partent vers la copie du raccourci, au même format', () => {
-    const url = shortcutUrl(photos, KEEP_SHORTCUT_NAME);
-    expect(url.startsWith('shortcuts://run-shortcut?name=Photo%20Triage%20Garder&input=text&text=')).toBe(true);
-    expect(decodeURIComponent(url.split('&text=')[1]!)).toBe(shortcutText(photos));
+  it('une ligne par photo datée ; une photo sans heure n’est pas envoyée', () => {
     expect(shortcutText(photos)).toBe('IMG_0002|2026-11-24 09:59:58|2026-11-24 10:00:02');
+    const url = shortcutUrl(photos);
+    expect(url.startsWith('shortcuts://run-shortcut?name=Photo%20Triage&input=text&text=')).toBe(true);
+    expect(decodeURIComponent(url.split('&text=')[1]!)).toBe(shortcutText(photos));
   });
 
-  it('le raccourci de suppression ne change pas', () => {
-    expect(shortcutUrl(photos)).toBe(shortcutUrl(photos, 'Photo Triage'));
-  });
-
-  it('« Préparer le tri » reçoit la période à trier (point 71), lots de moins de 50 photos', () => {
-    const span = { start: new Date(2026, 10, 26, 18, 30, 0).getTime(), end: new Date(2026, 10, 27, 22, 10, 5).getTime() };
-    expect(prepText(span)).toBe('2026-11-26 18:30:00|2026-11-27 22:10:05');
-    // Avant la première séance : période sans début, envoyée depuis l'an 2000.
-    expect(prepText({ start: -Infinity, end: span.end })).toBe('2000-01-01 00:00:00|2026-11-27 22:10:05');
-    const url = new URL(prepShortcutUrl(span).replace('shortcuts://', 'https://x/'));
-    expect(url.searchParams.get('name')).toBe('Préparer le tri');
-    expect(url.searchParams.get('text')).toBe(prepText(span));
-    expect(PREP_LIMIT).toBeLessThan(50);
+  it('l’instant exact de la photo prime sur la seconde de prise de vue', () => {
+    const item = { fileName: 'IMG_0004.jpeg', capturedAt: at, instant: at + 500 } as never;
+    expect(asPhoto(item)).toEqual({ fileName: 'IMG_0004.jpeg', at: at + 500 });
+    expect(findable(item)).toBe(true);
+    expect(findable({ fileName: 'x.jpeg', capturedAt: null } as never)).toBe(false);
   });
 });
 
