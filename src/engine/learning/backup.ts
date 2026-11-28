@@ -8,6 +8,20 @@ import type { PoseValidation } from '../triage/calibration';
 export const BACKUP_FORMAT = 'photo-triage-gouts';
 export const BACKUP_VERSION = 1;
 
+/**
+ * Photo reliée à la main à une pose (28/11) : la photo `from` va avec la photo `to`. Gardé avec la ressemblance et
+ * l'écart de temps mesurés alors : ces liens servent à régler le découpage en poses sur vos propres exemples.
+ */
+export interface PoseLink {
+  from: string;
+  to: string;
+  at: number;
+  /** Ressemblance des empreintes fines (null : inconnue). */
+  sim: number | null;
+  /** Écart de temps, en secondes. */
+  seconds: number | null;
+}
+
 /** Une ligne : [clé, paquet, 1 garder / 0 supprimer, date ms, note de base ×1000, mesures ×1000, commentaire, version des critères,
  *  empreinte, 1 si accord silencieux]. La dernière colonne, ajoutée le 19/11, manque dans les anciennes sauvegardes. */
 type Row = [
@@ -42,11 +56,18 @@ export interface BackupFile {
   choices: Row[];
   /** Journal du tri éclair (ajouté le 21/11, absent des anciennes sauvegardes). */
   validations?: PoseValidation[];
+  /** Photos reliées à la main à une pose (ajouté le 28/11). */
+  links?: PoseLink[];
 }
 
 const milli = (v: number | undefined): number | null => (v === undefined || !Number.isFinite(v) ? null : Math.round(v * 1000));
 
-export function encodeBackup(records: readonly ChoiceRecord[], now: number, validations: readonly PoseValidation[] = []): BackupFile {
+export function encodeBackup(
+  records: readonly ChoiceRecord[],
+  now: number,
+  validations: readonly PoseValidation[] = [],
+  links: readonly PoseLink[] = [],
+): BackupFile {
   return {
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
@@ -70,6 +91,7 @@ export function encodeBackup(records: readonly ChoiceRecord[], now: number, vali
       r.fclip?.length ? r.fclip : null,
     ]),
     ...(validations.length ? { validations: validations.map((v) => ({ ...v, margin: Number.isFinite(v.margin) ? v.margin : -1 })) } : {}),
+    ...(links.length ? { links: [...links] } : {}),
   };
 }
 
@@ -80,6 +102,8 @@ export interface DecodedBackup {
   savedAt: number | null;
   /** Journal du tri éclair (vide pour les sauvegardes d'avant le 21/11). */
   validations: PoseValidation[];
+  /** Photos reliées à la main à une pose (vide avant le 28/11). */
+  links: PoseLink[];
 }
 
 /** Lit une sauvegarde ; lève une erreur lisible si ce n'est pas un fichier de l'app. */
@@ -143,7 +167,13 @@ export function decodeBackup(data: unknown): DecodedBackup {
       ...(v.weak === true ? { weak: true } : {}),
     });
   }
-  return { records, skipped, savedAt: typeof file.savedAt === 'number' ? file.savedAt : null, validations };
+  const links: PoseLink[] = [];
+  for (const raw of Array.isArray(file.links) ? file.links : []) {
+    const l = raw as Partial<PoseLink>;
+    if (typeof l.from !== 'string' || typeof l.to !== 'string' || typeof l.at !== 'number') continue;
+    links.push({ from: l.from, to: l.to, at: l.at, sim: typeof l.sim === 'number' ? l.sim : null, seconds: typeof l.seconds === 'number' ? l.seconds : null });
+  }
+  return { records, skipped, savedAt: typeof file.savedAt === 'number' ? file.savedAt : null, validations, links };
 }
 
 /** Fusion : rien n'est supprimé ; pour une même photo, le choix le plus récent l'emporte. */

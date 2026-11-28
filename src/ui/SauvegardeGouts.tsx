@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ChoiceRecord, PoseValidation } from '../engine';
 import { exportBackup, loadLastBackup, makeBackupFile, readBackupFile, saveLastBackup, type LastBackup } from '../platform/storage/backupFile';
+import { mergeLinks } from '../platform/storage/links';
 import { formatShortTime, plural } from './format';
 import { IconNuage } from './icons';
 
@@ -37,6 +38,7 @@ async function restoreFrom(file: File, onRestore: Restore): Promise<string> {
   try {
     const decoded = await readBackupFile(file);
     const { added, updated } = await onRestore(decoded.records, decoded.validations);
+    mergeLinks(decoded.links);
     return (
       `Restauré : ${plural(added, 'choix ajouté', 'choix ajoutés')}, ${plural(updated, 'mis à jour', 'mis à jour')}` +
       (decoded.skipped ? `, ${decoded.skipped} ligne(s) illisible(s) ignorée(s)` : '') +

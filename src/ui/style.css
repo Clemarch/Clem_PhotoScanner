@@ -39,6 +39,7 @@ summary { cursor: pointer; }
 .tronque { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .vert { color: var(--ok); }
 .rouge { color: var(--alerte); }
+.attention { color: var(--orange); }
 .bleu { color: var(--verifier); font-weight: 600; }
 .majuscule { display: inline-block; }
 .majuscule::first-letter { text-transform: uppercase; }
@@ -221,7 +222,7 @@ summary { cursor: pointer; }
 .repli > summary > span:first-child { flex: 1; }
 .repli > summary::after { content: ''; width: 8px; height: 8px; border-right: 2px solid var(--doux-2); border-bottom: 2px solid var(--doux-2); transform: rotate(-45deg); transition: transform 0.2s ease; margin-right: 4px; }
 .repli[open] > summary::after { transform: rotate(45deg); }
-.repli > summary .doux, .repli > summary .vert, .repli > summary .rouge { font-size: 15px; }
+.repli > summary .doux, .repli > summary .vert, .repli > summary .rouge, .repli > summary .attention { font-size: 15px; }
 .sous-repli > summary { color: var(--accent); font-size: 15px; list-style: none; }
 .sous-repli > summary::-webkit-details-marker { display: none; }
 .sous-repli[open] > summary { margin-bottom: 8px; }
@@ -459,6 +460,18 @@ dd { margin: 0; text-align: right; overflow-wrap: anywhere; font-variant-numeric
 .loupe-image.grande img { max-width: none; max-height: none; width: 250%; }
 .loupe-actions { padding: 0 12px; }
 .loupe .eclair-avis { padding: 0 16px; }
+.loupe-relier { align-self: center; width: calc(100% - 32px); min-height: 40px; padding: 0 18px; border-radius: 20px; font-size: 16px; font-weight: 600; }
+
+/* « Relier à une pose » (point 76) : une photo par pose, les plus proches dans le temps d'abord */
+.choix-pose { position: fixed; inset: 0; z-index: 38; background: var(--fond); display: flex; flex-direction: column; gap: 8px; padding-bottom: calc(env(safe-area-inset-bottom) + 12px); overflow-y: auto; }
+.choix-pose .vis-haut { grid-template-columns: 100px 1fr 100px; }
+.choix-pose-photo { display: flex; justify-content: center; padding: 0 16px; }
+.choix-pose-photo img { max-height: 22vh; max-width: 100%; border-radius: 12px; object-fit: contain; }
+.choix-pose-liste { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0 16px; }
+.choix-pose-carte { display: flex; flex-direction: column; gap: 6px; padding: 0; border: 0; background: var(--carte); border-radius: 14px; overflow: hidden; color: var(--texte); text-align: left; font-size: 15px; }
+.choix-pose-carte img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+.choix-pose-carte span { padding: 0 10px 10px; display: flex; flex-direction: column; gap: 2px; }
+.choix-pose-carte small { color: var(--doux, #8e8e93); font-size: 13px; }
 .loupe .eclair-liens .lien { font-size: 15px; }
 
 /* Carte d'entrée du tri éclair */

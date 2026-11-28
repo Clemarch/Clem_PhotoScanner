@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode, type TouchEvent } from 'react';
-import { config, type PoseTask, WHY_LABELS, WHY_REASONS } from '../../engine';
+import { config, type MediaItem, type PoseTask, WHY_LABELS, WHY_REASONS } from '../../engine';
 import { isLandscape, plural } from '../format';
 import { IconCoche, IconCroix, IconEtoile, IconFermer, IconFleche } from '../icons';
 
@@ -24,6 +24,10 @@ interface Props {
   thumbnails: Map<string, string>;
   numberOf: (id: string) => number | null;
   onValidate: (result: EclairResult) => void;
+  /** Poses où relier une photo seule, les plus proches dans le temps d'abord (point 76). */
+  linkTargets: (id: string) => LinkTarget[];
+  /** « Relier à une pose » : la photo va avec la pose de `target`. */
+  onLink: (item: MediaItem, target: MediaItem) => void;
   onClose: () => void;
   /** Aller à l'onglet Supprimer. */
   onFinish: () => void;
@@ -33,7 +37,16 @@ interface Props {
  * Tri éclair (jalon 6) : une pose par écran, photos en grand, la proposition de l'app déjà cochée. Un toucher bascule
  * garder ↔ supprimer, « Valider » passe à la suivante. Chaque pose validée apprend à l'app vos vrais choix.
  */
-export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, onClose, onFinish }: Props) {
+export interface LinkTarget {
+  key: string;
+  items: MediaItem[];
+  /** Photo montrée pour la pose (la meilleure). */
+  best: MediaItem;
+  /** Écart de temps avec la photo à relier, en secondes (négatif : pose prise avant). */
+  seconds: number | null;
+}
+
+export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, linkTargets, onLink, onClose, onFinish }: Props) {
   const [index, setIndex] = useState(0);
   const [kept, setKept] = useState<Set<string>>(() => new Set(tasks[0]?.proposed ?? []));
   const [zoom, setZoom] = useState<string | null>(null);
@@ -43,6 +56,8 @@ export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, o
   const [writing, setWriting] = useState(false);
   const [weak, setWeak] = useState(false);
   const [results, setResults] = useState<Map<string, EclairResult>>(new Map());
+  // Photo seule à relier à une pose : choix de la pose ouvert.
+  const [linking, setLinking] = useState<MediaItem | null>(null);
   const shownAt = useRef(Date.now());
   const startedAt = useRef(Date.now());
   const task = tasks[index];
@@ -50,16 +65,20 @@ export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, o
   // Nouvelle pose : sélection reprise (si déjà validée) ou proposition de l'app.
   useEffect(() => {
     if (!task) return;
+    // Pose complétée depuis sa validation (photo reliée) : on repart de la proposition.
     const done = results.get(task.key);
-    setKept(new Set(done?.kept ?? task.proposed));
-    setTie(done?.tie ?? false);
-    setWhy(done?.why ?? []);
-    setNote(done?.note ?? '');
-    setWriting(Boolean(done?.note));
-    setWeak(done?.weak ?? false);
+    const same = done && done.task.items.length === task.items.length ? done : undefined;
+    setKept(new Set(same?.kept ?? task.proposed));
+    setTie(same?.tie ?? false);
+    setWhy(same?.why ?? []);
+    setNote(same?.note ?? '');
+    setWriting(Boolean(same?.note));
+    setWeak(same?.weak ?? false);
     setZoom(null);
+    setLinking(null);
     shownAt.current = Date.now();
-  }, [index]);
+    // La pose affichée peut changer sans changer de place (photo reliée : la pose complétée prend sa place).
+  }, [index, task?.key, task?.items.length]);
 
   const url = (id: string) => previews.get(id) ?? thumbnails.get(id);
   const toggle = (id: string) =>
@@ -224,7 +243,10 @@ export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, o
         {avis}
         {/* Rangée « Pourquoi ? » affichée : l'aide est masquée, pour laisser la place aux photos. */}
         {singles ? (
-          <p className="note centre">Photos restées seules, sans autre photo à comparer : touchez celles à supprimer, puis Valider.</p>
+          <p className="note centre">
+            Photos restées seules : touchez celles à supprimer, puis Valider. Une photo va avec une pose ? ⤢, puis « Relier à une
+            pose ».
+          </p>
         ) : (
           !(several && corrected && !tie) && <p className="note centre">Touchez une photo pour la garder ou la supprimer · ⤢ pour la voir en grand</p>
         )}
@@ -258,6 +280,23 @@ export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, o
           keepCount={keepCount}
           removeCount={removeCount}
           avis={avis}
+          onLinkRequest={singles ? (item) => setLinking(item) : undefined}
+        />
+      )}
+
+      {linking && (
+        <ChoixPose
+          item={linking}
+          number={numberOf(linking.id)}
+          targets={linkTargets(linking.id)}
+          url={url}
+          numberOf={numberOf}
+          onPick={(target) => {
+            onLink(linking, target);
+            setLinking(null);
+            setZoom(null);
+          }}
+          onClose={() => setLinking(null)}
         />
       )}
     </div>
@@ -277,6 +316,7 @@ function Loupe({
   keepCount,
   removeCount,
   avis,
+  onLinkRequest,
 }: {
   items: PoseTask['items'];
   start: string;
@@ -291,6 +331,8 @@ function Loupe({
   removeCount: number;
   /** Raisons et « se valent », comme sous la pose. */
   avis: ReactNode;
+  /** Écran « Photos seules » : relier la photo affichée à une pose. */
+  onLinkRequest?: (item: MediaItem) => void;
 }) {
   const [at, setAt] = useState(() => Math.max(0, items.findIndex((it) => it.id === start)));
   const [big, setBig] = useState(false);
@@ -377,6 +419,11 @@ function Loupe({
             <span key={it.id} className={`${i === at ? 'actif ' : ''}${kept.has(it.id) ? 'garde' : 'jete'}`} />
           ))}
         </div>
+      )}
+      {onLinkRequest && (
+        <button className="bouton loupe-relier" onClick={() => onLinkRequest(item)}>
+          🔗 Relier à une pose
+        </button>
       )}
       {avis ?? <p className="note centre">Glissez pour changer de photo · deux touchers pour zoomer · vers le bas pour revenir</p>}
       <div className="eclair-actions loupe-actions">
@@ -482,6 +529,68 @@ function Avis({
           Aucune n’est vraiment bonne
         </button>
       </div>
+    </div>
+  );
+}
+
+/** Temps entre la photo et la pose, dit simplement. */
+function ecart(seconds: number | null): string {
+  if (seconds === null) return '';
+  const abs = Math.abs(seconds);
+  const text = abs < 60 ? `${Math.round(abs)} s` : abs < 3600 ? `${Math.round(abs / 60)} min` : `${Math.round(abs / 3600)} h`;
+  return abs < 1 ? 'même instant' : `${text} ${seconds < 0 ? 'avant' : 'après'}`;
+}
+
+/**
+ * « Relier à une pose » (point 76) : toutes les poses de la séance, les plus proches dans le temps d'abord, une photo
+ * par pose. Toucher une pose y met la photo ; l'app garde l'exemple pour mieux découper les poses.
+ */
+function ChoixPose({
+  item,
+  number,
+  targets,
+  url,
+  numberOf,
+  onPick,
+  onClose,
+}: {
+  item: MediaItem;
+  number: number | null;
+  targets: LinkTarget[];
+  url: (id: string) => string | undefined;
+  numberOf: (id: string) => number | null;
+  onPick: (target: MediaItem) => void;
+  onClose: () => void;
+}) {
+  const [all, setAll] = useState(false);
+  const shown = all ? targets : targets.slice(0, 8);
+  return (
+    <div className="choix-pose" role="dialog" aria-label="Relier à une pose">
+      <header className="vis-haut">
+        <button className="bouton loupe-retour" onClick={onClose} aria-label="Annuler">
+          ‹ Retour
+        </button>
+        <span>Relier la photo n° {number}</span>
+        <span />
+      </header>
+      <div className="choix-pose-photo">{url(item.id) && <img src={url(item.id)} alt="" />}</div>
+      <p className="note centre">Avec quelle pose va-t-elle ? Les plus proches dans le temps d’abord.</p>
+      <div className="choix-pose-liste">
+        {shown.map((t) => (
+          <button key={t.key} className="choix-pose-carte" onClick={() => onPick(t.best)}>
+            {url(t.best.id) && <img src={url(t.best.id)} alt="" />}
+            <span>
+              n° {numberOf(t.best.id)} · {t.items.length} photo{t.items.length > 1 ? 's' : ''}
+              <small>{ecart(t.seconds)}</small>
+            </span>
+          </button>
+        ))}
+      </div>
+      {!all && targets.length > shown.length && (
+        <button className="lien centre-bloc" onClick={() => setAll(true)}>
+          Voir les {targets.length} poses
+        </button>
+      )}
     </div>
   );
 }

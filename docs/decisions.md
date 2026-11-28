@@ -1370,6 +1370,37 @@ Retours de l'utilisateur sur la séance du 26-27/11 (sauvegarde de 1020 choix, r
   aussi par l'écran « Photos seules » ; « Nouvel œil » lancé depuis le Labo seulement (plus en double dans Réglages) ;
   « Séances précédentes » (accueil) ouvre Réglages à la section Séances ; « Revenir au tri » au lieu de « aux paquets ».
 
+### 76. Personnes de premier plan, rafales plus souples, « Relier à une pose », « Arrière-plan » (28/11)
+
+Retours de l'utilisateur (séance des 13-14/11, sauvegarde de 1188 choix) : « le problème réside dans les personnes de
+1er plan… il a considéré des personnes de l'arrière-plan comme personne principale. Sois légèrement plus souple sur
+les poses comprenant des photos très proches en temps. Encore trop de photos seules qui appartiennent à des poses. »
+Rejoué sur les empreintes de la sauvegarde :
+- IMG_0079 → 0080 (2 s, ressemblance 0,79) puis 0081 (3 s, 0,64) : trois paquets, trois photos seules ; 0023 → 0024
+  (3 s, 0,74), 0039 → 0041 (35 s, 0,64), 0091 → 0092 (7 s, 0,60) : coupés. Cause : « seule » ou « groupe » compté
+  avec le détecteur de personnes, qui voit aussi les passants derrière.
+- IMG_0140 → 0141 (2 s, 0,37) : passage de l'objectif 1x au grand-angle 0,5x (focale 24 → 14) : la même scène
+  ressemble beaucoup moins.
+
+Décisions :
+- **Premier plan = visages principaux** (`mainFaces`) : une personne seule ou un groupe se compte par ses visages
+  principaux, plus par le détecteur d'objets (seulement si les visages n'ont pas été cherchés). Remplace le compte
+  « faible » du point 75.
+- **Rafales plus souples** (`config.grouping.byContent`) : sous 3 s, même paquet dès 0,3 de ressemblance
+  (`closeSeconds`, `closeMinSimilar`) ; changement d'objectif (focale × 1,3 au moins) en rafale : dès 0,25
+  (`zoomRatio`, `zoomMinSimilar`). Poses : rafale jusqu'à 10 s (au lieu de 6), même pose dès 0,35 si l'objectif a changé
+  (`config.poses.zoomMinSimilar`), visages qui bougent ignorés dans ce cas. Photo seule rattachée à une pose dès 0,45
+  de ressemblance à moins de 10 s, 0,55 à moins d'une minute, 0,65 jusqu'à 5 min (`config.poses.singleSteps`).
+- **« Relier à une pose »** (proposition de l'utilisateur) : écran « Photos seules », ⤢ puis « Relier à une pose » :
+  toutes les poses de la séance, une photo chacune, les plus proches dans le temps d'abord. La photo rejoint la pose
+  choisie (même dans un autre paquet), la pose complétée s'affiche aussitôt à valider. Le lien est gardé sur l'iPhone
+  (`src/platform/storage/links.ts`, toutes séances) et dans la sauvegarde (`links`, avec ressemblance et écart de
+  temps) : exemples réels pour régler les seuils. Labo : « Poses reliées à la main » (ressemblance et écart médians).
+- **« Arrière-plan »** ajouté aux raisons de « Pourquoi ? » (« des choses en arrière-plan rendent la photo plus ou
+  moins bien, pas toujours des personnes »).
+- **« Dates manquantes »** (Réglages › Diagnostic) : remplacé par « N photo(s) sans date », en orange, avec une phrase :
+  une photo sans date de prise de vue (reçue, enregistrée, retouchée) est mise de côté, jamais supprimée.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

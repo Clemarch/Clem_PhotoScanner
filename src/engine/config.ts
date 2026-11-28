@@ -23,13 +23,17 @@ export const config = {
       /** Personne seule ↔ groupe : même paquet seulement si la scène est presque identique. */
       sameScene: 0.8,
       /**
-       * « Seule » sûre : une seule personne, même en comptant les détections faibles ou petites (au moins `looseScore`,
-       * `looseArea` de l'image). Dans une foule, le nombre de personnes repérées au premier plan varie d'une photo à
-       * l'autre (28/11 : IMG_2413 à 2418, six photos en 10 s, ressemblance 0,66 à 0,84, coupées en cinq paquets) : une
-       * photo n'est « seule » que si personne d'autre n'y est repéré.
+       * Photos prises à quelques secondes (28/11, « plus souple sur les photos très proches en temps ») : ensemble dès
+       * cette ressemblance, sous `closeSeconds` d'écart.
        */
-      looseScore: 0.35,
-      looseArea: 0.0075,
+      closeSeconds: 3,
+      closeMinSimilar: 0.3,
+      /**
+       * Changement d'objectif en rafale (grand-angle 0,5x → 1x → zoom : focale équivalente multipliée par au moins
+       * `zoomRatio`) : la même scène vue autrement ressemble moins (28/11, IMG_0140 → 0141 : 0,37 en 2 s).
+       */
+      zoomRatio: 1.3,
+      zoomMinSimilar: 0.25,
       /** Taille minimale (part de l'image) d'une personne comptée pour « seule » ou « groupe » : pas les passants. */
       personMinArea: 0.03,
       /** Au-delà, deux photos ne sont jamais réunies, même ressemblantes (même paysage revu 1 h plus tard : réunis). */
@@ -291,8 +295,10 @@ export const config = {
     /** Prises en rafale (moins de `burstSeconds` d'écart) : même pose, sauf si la ressemblance tombe sous
      *  `burstMinSimilar` (scène vraiment différente). Le nombre de visages trouvés ne compte plus : de loin ou dans
      *  l'eau, un visage est souvent manqué (paquet de la baignade du 18/11 : 4 poses pour 5 photos en 5 s). */
-    burstSeconds: 6,
+    burstSeconds: 10,
     burstMinSimilar: 0.6,
+    /** Rafale avec changement d'objectif (`grouping.byContent.zoomRatio`) : même pose dès cette ressemblance. */
+    zoomMinSimilar: 0.35,
     /** Sans empreinte fine : empreinte de 8 x 8 pixels (0 = identiques, 1 = opposées). */
     fromPrevious: 0.1,
     fromFirst: 0.14,
@@ -314,6 +320,14 @@ export const config = {
      */
     singleSimilar: 0.65,
     singleSeconds: 300,
+    /**
+     * Plus souple quand la photo seule a été prise juste avant ou après (28/11) : ressemblance demandée selon l'écart
+     * de temps avec la photo de la pose, du plus court au plus long (`singleSimilar` au-delà).
+     */
+    singleSteps: [
+      { seconds: 10, similar: 0.45 },
+      { seconds: 60, similar: 0.55 },
+    ],
   },
   selection: {
     /** Dans une pose, la meilleure photo est gardée. Une autre l'est aussi si elle est bonne (à moins de `keepMargin`

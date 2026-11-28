@@ -89,6 +89,37 @@ describe('groupes de pose', () => {
     expect(groupPoses(later).map((g) => g.items.map((i) => i.id))).toEqual([['b', 'c'], ['d']]);
   });
 
+  it('photo seule : plus souple juste avant ou après la pose (28/11)', () => {
+    const pose = [item('a', 0, { embedding: [1, 0, 0] }), item('b', 1, { embedding: [0.99, 0.1, 0] })];
+    const close = item('c', 8, { embedding: [0.5, 0, 0.87] });
+    expect(groupPoses([...pose, close]).map((g) => g.items.map((i) => i.id))).toEqual([['a', 'b', 'c']]);
+    const far = item('c', 120, { embedding: [0.5, 0, 0.87] });
+    expect(groupPoses([...pose, far]).map((g) => g.items.map((i) => i.id))).toEqual([['a', 'b'], ['c']]);
+  });
+
+  it('autre objectif en rafale (0,5x → 1x) : même pose (28/11)', () => {
+    const items = [item('a', 0, { embedding: [1, 0, 0], focal35: 24 }), item('b', 2, { embedding: [0.4, 0.92, 0], focal35: 13 })];
+    expect(groupPoses(items)).toHaveLength(1);
+    expect(groupPoses([items[0]!, { ...items[1]!, focal35: 24 }])).toHaveLength(2);
+  });
+
+  it('photo reliée à la main (point 76) : rejoint la pose choisie, même dans un autre paquet', async () => {
+    const { photoKey, encodeBackup, decodeBackup } = await import('../../src/engine');
+    const items = [
+      item('a', 0, { embedding: [1, 0, 0] }),
+      item('b', 1, { embedding: [0.99, 0.1, 0] }),
+      item('c', 40, { embedding: [0, 1, 0] }),
+    ];
+    const plain = analyzeDay(items, 60, {}, new Set(), true);
+    expect(plain.packs.map((p) => p.pack.items.map((i) => i.id))).toEqual([['a', 'b'], ['c']]);
+    const linked = analyzeDay(items, 60, {}, new Set(), true, new Map([[photoKey(items[2]!), photoKey(items[0]!)]]));
+    expect(linked.packs.map((p) => p.poses.map((g) => g.items.map((i) => i.id)))).toEqual([[['a', 'b', 'c']]]);
+    // Le lien voyage dans la sauvegarde, avec ses mesures.
+    const link = { from: 'c|1', to: 'a|1', at: 5, sim: 0.31, seconds: 40 };
+    expect(decodeBackup(JSON.parse(JSON.stringify(encodeBackup([], 1, [], [link])))).links).toEqual([link]);
+    expect(decodeBackup(JSON.parse(JSON.stringify(encodeBackup([], 1)))).links).toEqual([]);
+  });
+
   it('garde ensemble des photos semblables prises à la suite', () => {
     const groups = groupPoses([item('a', 0), item('b', 2, { signature: sig(124, 120, 118) }), item('c', 4)]);
     expect(groups.map((g) => g.items.map((i) => i.id))).toEqual([['a', 'b', 'c']]);

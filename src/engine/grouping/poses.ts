@@ -4,6 +4,7 @@ import { config } from '../config';
 import { signatureDistance } from '../analysis/color';
 import { embeddingSimilarity } from '../analysis/embedding';
 import { mainFaces } from '../analysis/faces';
+import { zoomChanged } from './packs';
 import type { MediaItem, PoseGroup } from '../types';
 
 const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -29,8 +30,11 @@ function layoutChanged(a: MediaItem, b: MediaItem): boolean {
 const scenery = (item: MediaItem): boolean =>
   mainFaces(item.faces).length === 0 && !(item.objects ?? []).some((o) => o.label === 'person' && o.score >= config.poses.personMinScore);
 
-/** Les photos doivent être dans l'ordre chronologique (celui d'un paquet). */
-export function groupPoses(items: readonly MediaItem[]): PoseGroup[] {
+/**
+ * Les photos doivent être dans l'ordre chronologique (celui d'un paquet). `forced` : photos reliées à la main à une
+ * autre (identifiant → identifiant), mises dans sa pose quoi qu'en disent les mesures.
+ */
+export function groupPoses(items: readonly MediaItem[], forced: ReadonlyMap<string, string> = new Map()): PoseGroup[] {
   const cfg = config.poses;
   const groups: MediaItem[][] = [];
   for (const item of items) {
@@ -45,7 +49,11 @@ export function groupPoses(items: readonly MediaItem[]): PoseGroup[] {
     if (simPrevious !== null && simFirst !== null) {
       // Rafale : même pose malgré un zoom, un léger recadrage ou un visage manqué, sauf scène vraiment différente.
       const burst = gapMs <= cfg.burstSeconds * 1000;
-      similar = burst ? simPrevious >= cfg.burstMinSimilar : simPrevious >= cfg.similarPrevious && simFirst >= cfg.similarFirst;
+      // Autre objectif en rafale (0,5x, 1x, zoom) : même pose, cadrée autrement (28/11).
+      const zoom = burst && previous !== undefined && zoomChanged(previous, item);
+      similar = burst
+        ? simPrevious >= (zoom ? cfg.zoomMinSimilar : cfg.burstMinSimilar)
+        : simPrevious >= cfg.similarPrevious && simFirst >= cfg.similarFirst;
     } else {
       const fromPrevious = signatureDistance(previous?.signature ?? null, item.signature);
       const fromFirst = signatureDistance(first?.signature ?? null, item.signature);
@@ -59,10 +67,22 @@ export function groupPoses(items: readonly MediaItem[]): PoseGroup[] {
     // Rafale très ressemblante : même pose, même si le cadrage bouge et déplace les visages dans l'image.
     const dated = previous?.capturedAt != null && item.capturedAt !== null;
     const steadyBurst = dated && gapMs <= cfg.burstSeconds * 1000 && simPrevious !== null && simPrevious >= cfg.similarPrevious;
-    if (current && previous && ((sameTime && similar) || sameView) && (steadyBurst || !layoutChanged(previous, item))) current.push(item);
+    // Changement d'objectif : les visages bougent dans l'image sans que la pose change.
+    const reframed = previous !== undefined && zoomChanged(previous, item);
+    if (current && previous && ((sameTime && similar) || sameView) && (steadyBurst || reframed || !layoutChanged(previous, item))) current.push(item);
     else groups.push([item]);
   }
   attachSingles(groups);
+  for (const [from, to] of forced) {
+    const a = groups.findIndex((g) => g.some((it) => it.id === from));
+    const b = groups.findIndex((g) => g.some((it) => it.id === to));
+    if (a < 0 || b < 0 || a === b) continue;
+    const moved = groups[a]!.splice(groups[a]!.findIndex((it) => it.id === from), 1)[0]!;
+    groups[b]!.push(moved);
+    groups[b]!.sort((x, y) => (x.capturedAt ?? 0) - (y.capturedAt ?? 0));
+    if (groups[a]!.length === 0) groups.splice(a, 1);
+  }
+  groups.sort((x, y) => (x[0]!.capturedAt ?? 0) - (y[0]!.capturedAt ?? 0));
   return groups.map((list, i) => ({ id: `pose-${i + 1}`, label: label(i), items: list }));
 }
 
@@ -74,8 +94,13 @@ export function groupPoses(items: readonly MediaItem[]): PoseGroup[] {
  */
 function attachSingles(groups: MediaItem[][]): void {
   const cfg = config.poses;
-  const near = (a: MediaItem, b: MediaItem) =>
-    a.capturedAt === null || b.capturedAt === null || Math.abs(a.capturedAt - b.capturedAt) <= cfg.singleSeconds * 1000;
+  // Ressemblance demandée selon l'écart de temps : plus souple pour une photo prise juste avant ou après (28/11).
+  const needed = (a: MediaItem, b: MediaItem): number | null => {
+    if (a.capturedAt === null || b.capturedAt === null) return cfg.singleSimilar;
+    const seconds = Math.abs(a.capturedAt - b.capturedAt) / 1000;
+    if (seconds > cfg.singleSeconds) return null;
+    return cfg.singleSteps.find((step) => seconds <= step.seconds)?.similar ?? cfg.singleSimilar;
+  };
   let changed = true;
   while (changed) {
     changed = false;
@@ -87,8 +112,10 @@ function attachSingles(groups: MediaItem[][]): void {
         if (j === i) continue;
         for (const other of groups[j]!) {
           const sim = embeddingSimilarity(single.embedding, other.embedding);
-          if (sim === null || sim < cfg.singleSimilar || !near(single, other)) continue;
-          if (!best || sim > best.sim) best = { j, sim };
+          const bar = needed(single, other);
+          if (sim === null || bar === null || sim < bar) continue;
+          // La plus convaincante : la ressemblance au-dessus de ce qui était demandé.
+          if (!best || sim - bar > best.sim) best = { j, sim: sim - bar };
         }
       }
       if (!best) continue;
