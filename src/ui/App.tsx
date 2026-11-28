@@ -404,7 +404,20 @@ export function App() {
     return new Set(validations.filter((v) => v.id.startsWith(prefix)).map((v) => v.id.slice(prefix.length)));
   }, [validations, session]);
   // Toutes les poses pas encore validées, « sûres » comprises (utilisateur, 27/11 : « je souhaite toutes les voir »).
-  const pending = useMemo(() => queue.filter((t) => !validatedHere.has(t.key)), [queue, validatedHere]);
+  // Photos déjà vues lors d'une séance précédente (28/11, « si je sélectionne des photos déjà traitées, elles ne seront
+  // pas retraitées ? ») : validées dans un tri éclair, ou choisies à la main. Une pose dont toutes les photos ont déjà
+  // été vues n'est pas reproposée ; leurs choix d'alors s'appliquent (garder, ou partir à la suppression). Les accords
+  // silencieux (photos jamais regardées) ne comptent pas comme vus.
+  const seenBefore = useMemo(() => {
+    const keys = new Set<string>();
+    for (const v of validations) if (!v.id.startsWith(`${session?.id ?? ''}|`)) for (const k of v.keys) keys.add(k);
+    for (const r of records) if (!r.implicit && !r.via) keys.add(r.key);
+    return keys;
+  }, [validations, records, session]);
+  const pending = useMemo(
+    () => queue.filter((t) => !validatedHere.has(t.key) && !t.items.every((it) => seenBefore.has(photoKey(it)))),
+    [queue, validatedHere, seenBefore],
+  );
   const sureLeft = useMemo(() => queue.filter((t) => t.sure && !validatedHere.has(t.key)), [queue, validatedHere]);
   /**
    * Poses jamais vues dans le tri éclair, séance par séance (utilisateur, 27/11 : « beaucoup de photos que je n'ai
