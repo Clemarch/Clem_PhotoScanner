@@ -1308,6 +1308,24 @@ qu'il y en avait à trier.
   éclair d'une autre séance, ou choisies à la main) n'entre plus dans le tri éclair ; les choix d'alors s'appliquent.
   Les accords silencieux ne comptent pas comme vus.
 
+### 73. Écran verrouillé pendant l'analyse ; albums abandonnés (28/11)
+
+L'utilisateur (28/11) : « le chargement des photos pour la session bloque, car l'écran se verrouille tout seul à cause
+de l'économie d'énergie… il ne reprend pas quand l'écran est déverrouillé ». Et : « toujours rien qui marche dans ton
+automatisation pour ajouter les photos à À trier. Tant pis, passons là-dessus. »
+- Cause du verrouillage : en mode économie d'énergie, iOS verrouille l'écran au bout de 30 s, refuse le verrou d'écran
+  et la lecture automatique de vidéo (nos deux moyens de garder l'écran allumé, point 30).
+- Cause du blocage : la page et son fil d'analyse sont endormis ; la réponse attendue pour la photo en cours n'arrive
+  jamais. Désormais (`src/platform/worker/analyzer.ts`) : une photo en cours quand la page revient au premier plan, ou
+  sans réponse après 45 s, est relancée dans un fil neuf (puis dans la page en dernier recours). Test :
+  `tests/unit/analyzer.test.ts`.
+- Écran d'analyse : conseil de couper le mode économie d'énergie le temps de l'analyse (Centre de contrôle), et de
+  déverrouiller si l'écran se verrouille quand même. Pas de raccourci pour couper/remettre ce mode : une app web ne
+  peut pas le déclencher sans sortir vers l'app Raccourcis, et une automatisation à l'ouverture d'une app ne voit pas
+  les apps web.
+- Albums abandonnés : « Prochain tri » n'affiche plus que les périodes à choisir (plus de bouton vers « Préparer le
+  tri ») ; Réglages dit quels raccourcis et albums supprimer.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

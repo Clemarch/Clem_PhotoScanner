@@ -103,7 +103,7 @@ export function Reglages({ session, day, records, learned, reports, onRestore, o
         <GuideRaccourci />
       </section>
 
-      <h2 className="titre-groupe">Album « À trier »</h2>
+      <h2 className="titre-groupe">Albums (abandonnés)</h2>
       <section className="groupe">
         <GuideAlbums />
       </section>

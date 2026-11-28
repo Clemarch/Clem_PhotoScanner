@@ -15,9 +15,8 @@ Décisions prises et écarts : `docs/decisions.md` — à mettre à jour à chaq
 - Aucune suppression automatique. L'écran final rend la suppression la plus simple possible : bouton qui passe la
   liste au raccourci « Photo Triage » (app Raccourcis), une recherche par photo (nom + fenêtre de ±2 s), aperçu puis confirmation d'iOS
   (`docs/decisions.md`, points 31 et 33). « Créer un album photo » (Raccourcis) enregistre toujours une copie
-  (point 70) : plus d'album « Triées » ni de « Photo Triage Garder ». Album « À trier » (point 71, accord de
-  l'utilisateur, 27/11) : l'app envoie la période non triée la plus récente (`src/engine/coverage.ts`) ; « Préparer le
-  tri » copie 40 photos de cette période dans « À trier » puis supprime les originales (confirmation d'iOS).
+  (point 70) : plus d'album « Triées » ni de « Photo Triage Garder ». Albums abandonnés (points 71 à 73) : l'accueil
+  indique les périodes non triées à choisir (`src/engine/coverage.ts`).
 - Jamais de photos dans le dépôt (`tests/fixtures/` est ignoré par git).
 - Interface en français, fluide, soignée, utilisable d'une main.
 - RAW repérés et mis de côté. Vidéos plus tard (`MediaItem.kind`). Live Photos non ciblées.
@@ -124,5 +123,5 @@ Réseau de neurones dans le Labo, rattrapage du nouvel œil enchaîné (point 64
 vraiment bonne » (point 66). Flou de bougé repéré : photo ratée, montrée dans le tri éclair (point 67).
 Toutes les poses dans le tri éclair (photos seules et « sûres » comprises), Réglages › « Poses jamais vues » (point 68).
 Rangement dans « Triées » suivi photo par photo (point 69), puis albums retirés : ils copiaient chaque photo (point 70).
-Album « À trier » refait : copie de la période à trier puis suppression des originales, un seul exemplaire (point 71).
+Album « À trier » refait (point 71) puis abandonné ; analyse qui reprend après un verrouillage d'écran (point 73).
 Modèle restant proposé : objets plus fins.
