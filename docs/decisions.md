@@ -1288,6 +1288,9 @@ Live Photo ».
 - Guide pas à pas dans Réglages, avec un premier essai à 3 photos (vérifier un seul exemplaire et la date de prise de
   vue de la copie : si iOS donnait à la copie la date du jour, la période suivante la reprendrait).
 - Le raccourci de suppression ne change pas (nom et heure : la copie garde son nom et sa date).
+- 28/11 : premier lancement par l'utilisateur, « À trier » vidé mais rien ajouté : la période la plus récente (après
+  la dernière séance) n'avait pas de photo. L'accueil propose désormais toutes les périodes non triées (4 au plus),
+  chacune avec son bouton ; si l'album reste vide, on prend la suivante. Raccourci vérifié sur captures : correct.
 
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
