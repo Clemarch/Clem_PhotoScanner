@@ -208,3 +208,17 @@ describe('disposition selon le format des photos (24/11)', () => {
     expect(isLandscape({ width: null, height: null, orientation: null })).toBe(false);
   });
 });
+
+describe('tri éclair : photos seules à la fin, réunies (28/11, point 74)', () => {
+  it('poses de plusieurs photos d’abord, puis un seul écran pour les photos seules', async () => {
+    const { singlesLast } = await import('../../src/engine');
+    const task = (key: string, ids: string[]) =>
+      ({ key, items: ids.map((id) => ({ id })), proposed: new Set(ids.slice(0, 1)), appProposed: new Set(ids.slice(0, 1)), review: new Set<string>(), margin: 0.1, sure: false }) as never;
+    const out = singlesLast([task('s1', ['a']), task('p1', ['b', 'c']), task('s2', ['d']), task('p2', ['e', 'f'])]) as { key: string; items: { id: string }[]; parts?: unknown[] }[];
+    expect(out.map((t) => t.key)).toEqual(['p1', 'p2', 'seules|s1']);
+    expect(out[2]!.items.map((i) => i.id)).toEqual(['a', 'd']);
+    expect(out[2]!.parts).toHaveLength(2);
+    // Une seule photo seule : pas d'écran à part.
+    expect((singlesLast([task('s1', ['a']), task('p1', ['b', 'c'])]) as { key: string }[]).map((t) => t.key)).toEqual(['p1', 's1']);
+  });
+});

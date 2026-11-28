@@ -21,6 +21,34 @@ export interface PoseTask {
   margin: number;
   /** L'app a fait ses preuves à cet écart : pose montrée seulement à la demande. */
   sure: boolean;
+  /** Écran « Photos seules » (point 74) : les poses d'une seule photo, réunies ; chacune est validée à part. */
+  parts?: PoseTask[];
+}
+
+/**
+ * Ordre du tri éclair (utilisateur, 28/11, point 74) : d'abord les poses de plusieurs photos, à comparer ; puis un seul
+ * écran avec toutes les photos restées seules, à valider d'un coup.
+ */
+export function singlesLast(tasks: readonly PoseTask[]): PoseTask[] {
+  const poses = tasks.filter((t) => t.items.length > 1 || t.parts);
+  const singles = tasks.filter((t) => t.items.length === 1 && !t.parts);
+  if (singles.length <= 1) return [...poses, ...singles];
+  const first = singles[0]!;
+  const union = (pick: (t: PoseTask) => Set<string>) => new Set(singles.flatMap((t) => [...pick(t)]));
+  return [
+    ...poses,
+    {
+      ...first,
+      key: `seules|${first.key}`,
+      items: singles.flatMap((t) => t.items),
+      proposed: union((t) => t.proposed),
+      appProposed: union((t) => t.appProposed),
+      review: union((t) => t.review),
+      margin: Infinity,
+      sure: false,
+      parts: singles,
+    },
+  ];
 }
 
 export const poseKey = (pack: PackAnalysis, pose: PoseGroup): string => `${pack.key}|${photoKey(pose.items[0]!)}`;

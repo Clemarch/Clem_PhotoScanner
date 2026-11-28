@@ -62,5 +62,43 @@ export function groupPoses(items: readonly MediaItem[]): PoseGroup[] {
     if (current && previous && ((sameTime && similar) || sameView) && (steadyBurst || !layoutChanged(previous, item))) current.push(item);
     else groups.push([item]);
   }
+  attachSingles(groups);
   return groups.map((list, i) => ({ id: `pose-${i + 1}`, label: label(i), items: list }));
+}
+
+/**
+ * Seconde passe (point 74) : la première ne compare une photo qu'à la précédente et à la première du groupe ; une
+ * photo plus large ou plus serrée (avec des passants, par exemple) restait seule, et l'utilisateur la validait sans
+ * pouvoir la comparer. Chaque photo seule rejoint la pose qui lui ressemble le plus, si elle est assez proche dans
+ * le temps. Les groupes restent dans l'ordre de leur première photo, et leurs photos dans l'ordre chronologique.
+ */
+function attachSingles(groups: MediaItem[][]): void {
+  const cfg = config.poses;
+  const near = (a: MediaItem, b: MediaItem) =>
+    a.capturedAt === null || b.capturedAt === null || Math.abs(a.capturedAt - b.capturedAt) <= cfg.singleSeconds * 1000;
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let i = 0; i < groups.length; i++) {
+      if (groups[i]!.length !== 1) continue;
+      const single = groups[i]![0]!;
+      let best: { j: number; sim: number } | null = null;
+      for (let j = 0; j < groups.length; j++) {
+        if (j === i) continue;
+        for (const other of groups[j]!) {
+          const sim = embeddingSimilarity(single.embedding, other.embedding);
+          if (sim === null || sim < cfg.singleSimilar || !near(single, other)) continue;
+          if (!best || sim > best.sim) best = { j, sim };
+        }
+      }
+      if (!best) continue;
+      const target = groups[best.j]!;
+      target.push(single);
+      target.sort((a, b) => (a.capturedAt ?? 0) - (b.capturedAt ?? 0));
+      groups.splice(i, 1);
+      groups.sort((a, b) => (a[0]!.capturedAt ?? 0) - (b[0]!.capturedAt ?? 0));
+      changed = true;
+      break;
+    }
+  }
 }

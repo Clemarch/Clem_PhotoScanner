@@ -71,8 +71,22 @@ describe('groupes de pose', () => {
   });
 
   it('hors rafale, l’empreinte fine décide', () => {
-    const items = [item('a', 0, { embedding: [1, 0, 0] }), item('b', 10, { embedding: [0.95, 0.31, 0] }), item('c', 20, { embedding: [0.5, 0.86, 0] })];
+    const items = [item('a', 0, { embedding: [1, 0, 0] }), item('b', 10, { embedding: [0.95, 0.31, 0] }), item('c', 20, { embedding: [0.2, 0.3, 0.93] })];
     expect(groupPoses(items).map((g) => g.items.map((i) => i.id))).toEqual([['a', 'b'], ['c']]);
+  });
+
+  it('une photo restée seule rejoint la pose qui lui ressemble (28/11 : vue large, puis deux plus serrées)', () => {
+    // a : vue large avec des passants ; b et c : même scène, plus serrée, quelques secondes plus tard.
+    const people = { objects: [{ label: 'person', score: 0.9 }] } as Partial<MediaItem>;
+    const items = [
+      item('a', 0, { ...people, embedding: [0.7, 0.71, 0] }),
+      item('b', 15, { ...people, embedding: [1, 0, 0] }),
+      item('c', 16, { ...people, embedding: [0.99, 0.1, 0] }),
+    ];
+    expect(groupPoses(items).map((g) => g.items.map((i) => i.id))).toEqual([['a', 'b', 'c']]);
+    // Même ressemblance, mais 10 minutes plus tard : autre moment, reste seule.
+    const later = [items[1]!, items[2]!, item('d', 600, { ...people, embedding: [0.7, 0.71, 0] })];
+    expect(groupPoses(later).map((g) => g.items.map((i) => i.id))).toEqual([['b', 'c'], ['d']]);
   });
 
   it('garde ensemble des photos semblables prises à la suite', () => {

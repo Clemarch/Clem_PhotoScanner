@@ -12,6 +12,7 @@ import {
 import {
   analyzeDay,
   buildQueue,
+  singlesLast,
   calibrate,
   config,
   learnWeights,
@@ -414,8 +415,9 @@ export function App() {
     for (const r of records) if (!r.implicit && !r.via) keys.add(r.key);
     return keys;
   }, [validations, records, session]);
+  // Poses de plusieurs photos d'abord, puis un seul écran pour toutes les photos seules (point 74).
   const pending = useMemo(
-    () => queue.filter((t) => !validatedHere.has(t.key) && !t.items.every((it) => seenBefore.has(photoKey(it)))),
+    () => singlesLast(queue.filter((t) => !validatedHere.has(t.key) && !t.items.every((it) => seenBefore.has(photoKey(it))))),
     [queue, validatedHere, seenBefore],
   );
   const sureLeft = useMemo(() => queue.filter((t) => t.sure && !validatedHere.has(t.key)), [queue, validatedHere]);
@@ -949,6 +951,12 @@ export function App() {
    */
   const validatePose = ({ task, kept, ms, tie, why, note, weak }: EclairResult) => {
     if (!session) return;
+    // Écran « Photos seules » (point 74) : chaque photo est validée comme sa propre pose.
+    if (task.parts) {
+      for (const part of task.parts)
+        validatePose({ task: part, kept: new Set(part.items.filter((it) => kept.has(it.id)).map((it) => it.id)), ms: ms / task.parts.length, tie: false, why: [], note: '', weak: false });
+      return;
+    }
     const id = `${session.id}|${task.key}`;
     // Pose déjà validée (« Tout revoir », retour en arrière) : la proposition d'origine est gardée. Celle d'aujourd'hui a
     // appris de votre première validation de ces mêmes photos, elle gonflerait la justesse.

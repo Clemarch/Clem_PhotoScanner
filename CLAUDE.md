@@ -124,4 +124,5 @@ vraiment bonne » (point 66). Flou de bougé repéré : photo ratée, montrée d
 Toutes les poses dans le tri éclair (photos seules et « sûres » comprises), Réglages › « Poses jamais vues » (point 68).
 Rangement dans « Triées » suivi photo par photo (point 69), puis albums retirés : ils copiaient chaque photo (point 70).
 Album « À trier » refait (point 71) puis abandonné ; analyse qui reprend après un verrouillage d'écran (point 73).
+Photos seules rattachées à la pose qui leur ressemble ; écran « Photos seules » à la fin du tri éclair (point 74).
 Modèle restant proposé : objets plus fins.

@@ -1326,6 +1326,21 @@ automatisation pour ajouter les photos à À trier. Tant pis, passons là-dessus
 - Albums abandonnés : « Prochain tri » n'affiche plus que les périodes à choisir (plus de bouton vers « Préparer le
   tri ») ; Réglages dit quels raccourcis et albums supprimer.
 
+### 74. Photos seules rattachées à leur pose ; écran « Photos seules » à la fin du tri éclair (28/11)
+
+Captures de l'utilisateur (28/11, Batu Caves) : une vue large avec des passants (24) dans une pose à part, puis deux
+vues plus serrées (25, 26) dans une autre, « alors que c'est clairement les mêmes photos… une photo seule pousse à la
+valider alors qu'en comparaison je ne la prendrais pas. Et c'est apparu plein de fois. » Proposition de
+l'utilisateur : « les poses d'abord, et à la fin 1 pose avec toutes les photos uniques ».
+- Cause : le découpage en poses ne compare une photo qu'à la précédente et à la première du groupe (ressemblance
+  ≥ 0,8 hors rafale) ; un changement de cadrage ou des passants suffisaient à la laisser seule.
+- Seconde passe (`attachSingles`, `src/engine/grouping/poses.ts`) : chaque photo restée seule rejoint la pose du
+  paquet qui lui ressemble le plus (n'importe laquelle), si la ressemblance avec une de ses photos atteint 0,65
+  (`config.poses.singleSimilar`) et qu'elles ont été prises à moins de 5 minutes d'écart (`singleSeconds`).
+- Tri éclair (`singlesLast`, `src/engine/triage/queue.ts`) : d'abord les poses de plusieurs photos, puis un seul écran
+  « Photos seules » (vignettes, 3 par ligne, proposition de l'app cochée) ; chaque photo y est validée comme sa propre
+  pose (journal, choix), sans compter dans la justesse.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

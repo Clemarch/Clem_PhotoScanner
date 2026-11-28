@@ -550,3 +550,9 @@ table.progres tr.hors td { color: var(--doux-2); }
 /* Périodes à trier : libellés longs sur deux lignes au besoin (28/11). */
 .prochain-tri .bouton { text-align: center; padding: 10px 16px; font-size: 15px; line-height: 1.3; }
 .prochain-tri .bouton.grand { font-size: 16px; }
+/* Écran « Photos seules » (point 74) : trois vignettes carrées par ligne, toutes visibles d'un coup d'œil. */
+.eclair-grille.seules { grid-template-columns: repeat(3, 1fr); }
+.eclair-photo.vignette-seule { aspect-ratio: 1; border-radius: 10px; }
+.eclair-photo.vignette-seule .eclair-etat { width: 24px; height: 24px; right: 6px; bottom: 6px; }
+.eclair-photo.vignette-seule .eclair-loupe { transform: scale(0.75); transform-origin: left bottom; }
+.eclair-photo.vignette-seule .eclair-presque { font-size: 10px; }

@@ -298,6 +298,14 @@ export const config = {
     sceneSimilar: 0.7,
     /** Personne repérée (détecteur d'objets) à partir de ce score : la photo n'est plus un paysage. */
     personMinScore: 0.5,
+    /**
+     * Photo restée seule (28/11, point 74 : « ces 3 photos sont mises dans 2 poses alors que ce sont clairement les
+     * mêmes, le cadrage et le moment diffèrent ») : rattachée à la pose du paquet qui lui ressemble le plus (n'importe
+     * laquelle, pas seulement la voisine), si la ressemblance avec une de ses photos atteint `singleSimilar` et que les
+     * deux ont été prises à moins de `singleSeconds` d'écart.
+     */
+    singleSimilar: 0.65,
+    singleSeconds: 300,
   },
   selection: {
     /** Dans une pose, la meilleure photo est gardée. Une autre l'est aussi si elle est bonne (à moins de `keepMargin`

@@ -86,7 +86,7 @@ export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, o
     // Mêmes règles que la justesse des Réglages : photos seules et poses validées trop vite écartées.
     const same = (r: EclairResult) => r.kept.size === r.task.appProposed.size && [...r.kept].every((id) => r.task.appProposed.has(id));
     // Acceptée trop vite sans rien changer : écartée ; une correction, même rapide, compte.
-    const counted = list.filter((r) => r.task.items.length > 1 && !r.tie && (r.ms >= config.triage.minValidMs || !same(r)));
+    const counted = list.filter((r) => r.task.items.length > 1 && !r.task.parts && !r.tie && (r.ms >= config.triage.minValidMs || !same(r)));
     const right = counted.filter(same).length;
     const removed = list.reduce((n, r) => n + r.task.items.filter((it) => !r.kept.has(it.id)).length, 0);
     return { poses: list.length, counted: counted.length, right, removed };
@@ -130,10 +130,13 @@ export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, o
 
   const removeCount = task.items.length - task.items.filter((it) => kept.has(it.id)).length;
   const keepCount = task.items.length - removeCount;
+  // Écran « Photos seules » (point 74) : chaque photo vient de sa propre pose, et souvent d'un autre paquet.
+  const singles = Boolean(task.parts);
+  const packOf = (id: string) => task.parts?.find((p) => p.items.some((it) => it.id === id))?.pack ?? task.pack;
   const best = [...task.items].sort((a, b) => (task.pack.scores.get(b.id)?.score ?? 0) - (task.pack.scores.get(a.id)?.score ?? 0))[0]!;
   const zoomItem = zoom ? task.items.find((it) => it.id === zoom) ?? null : null;
   const corrected = task.items.some((it) => kept.has(it.id) !== task.proposed.has(it.id));
-  const several = task.items.length > 1;
+  const several = task.items.length > 1 && !singles;
 
   return (
     <div className="eclair" role="dialog" aria-label="Tri éclair">
@@ -146,7 +149,7 @@ export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, o
             Pose {index + 1} sur {tasks.length}
           </strong>
           <span>
-            Paquet {task.packNumber} · {plural(task.items.length, 'photo')}
+            {singles ? `Photos seules · ${plural(task.items.length, 'photo')}` : `Paquet ${task.packNumber} · ${plural(task.items.length, 'photo')}`}
           </span>
         </span>
         <button className="lien" onClick={() => setIndex((i) => i + 1)}>
@@ -157,7 +160,7 @@ export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, o
         <div style={{ width: `${(index / tasks.length) * 100}%` }} />
       </div>
 
-      <div className={`eclair-grille n${Math.min(task.items.length, 5)}`}>
+      <div className={singles ? 'eclair-grille seules' : `eclair-grille n${Math.min(task.items.length, 5)}`}>
         {/* Paysage : toute la largeur (les photos s'empilent) ; portrait : deux par ligne (24/11). */}
         {task.items.map((it) => {
           const keep = kept.has(it.id);
@@ -165,20 +168,20 @@ export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, o
           return (
             <button
               key={it.id}
-              className={`eclair-photo ${keep ? 'garde' : 'jete'} ${isLandscape(it) || task.items.length === 1 ? 'paysage' : 'portrait'}`}
+              className={`eclair-photo ${keep ? 'garde' : 'jete'} ${singles ? 'vignette-seule' : isLandscape(it) || task.items.length === 1 ? 'paysage' : 'portrait'}`}
               onClick={() => toggle(it.id)}
               aria-label={`Photo n° ${numberOf(it.id) ?? ''} : ${keep ? 'gardée' : 'supprimée'}. Toucher pour changer.`}
             >
               {src && <img src={src} alt="" decoding="async" draggable={false} />}
               <span className="numero">{numberOf(it.id)}</span>
-              {it.id === best.id && task.items.length > 1 && (
+              {it.id === best.id && task.items.length > 1 && !singles && (
                 <span className="etoile">
                   <IconEtoile size={11} />
                 </span>
               )}
               {task.review.has(it.id) && (
                 <span className="eclair-presque">
-                  {task.pack.decisions.get(it.id)?.code === 'presque' ? 'presque aussi bonne' : 'prise par erreur ?'}
+                  {packOf(it.id).decisions.get(it.id)?.code === 'presque' ? 'presque aussi bonne' : 'prise par erreur ?'}
                 </span>
               )}
               <span className={`eclair-etat ${keep ? 'garde' : 'jete'}`}>{keep ? <IconCoche size={15} /> : <IconCroix size={13} />}</span>
@@ -247,7 +250,11 @@ export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, o
           </div>
         )}
         {/* Rangée « Pourquoi ? » affichée : l'aide est masquée, pour laisser la place aux photos. */}
-        {!(several && corrected && !tie) && <p className="note centre">Touchez une photo pour la garder ou la supprimer · ⤢ pour la voir en grand</p>}
+        {singles ? (
+          <p className="note centre">Photos restées seules, sans autre photo à comparer : touchez celles à supprimer, puis Valider.</p>
+        ) : (
+          !(several && corrected && !tie) && <p className="note centre">Touchez une photo pour la garder ou la supprimer · ⤢ pour la voir en grand</p>
+        )}
         <div className="eclair-actions">
           <button className="bouton eclair-retour" disabled={index === 0} onClick={() => setIndex((i) => Math.max(0, i - 1))} aria-label="Pose précédente">
             ‹
