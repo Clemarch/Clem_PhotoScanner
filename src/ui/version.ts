@@ -1,2 +1,2 @@
 /** Version affichée à l'utilisateur (accueil, réglages) : il la lit pour vérifier que la mise à jour est arrivée. */
-export const APP_VERSION = 'jalon 8, toutes les périodes à trier';
+export const APP_VERSION = 'jalon 8, période la plus ancienne et photos déjà vues';

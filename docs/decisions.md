@@ -1292,6 +1292,22 @@ Live Photo ».
   la dernière séance) n'avait pas de photo. L'accueil propose désormais toutes les périodes non triées (4 au plus),
   chacune avec son bouton ; si l'album reste vide, on prend la suivante. Raccourci vérifié sur captures : correct.
 
+### 72. Prochain tri : la plus ancienne période toujours proposée ; photos déjà vues non reproposées (28/11)
+
+Constat de l'utilisateur (28/11) : « Remplir « À trier » » lancé sur les 4 périodes proposées, aucune photo, alors
+qu'il y en avait à trier.
+- Côté app : les 4 périodes affichées étaient la plus récente (après le 27/11 à 00:26) et trois trous de quelques
+  minutes à quelques heures entre des séances d'une même journée, vides. La période d'avant la première séance (là où
+  restent presque toutes les photos à trier) n'était jamais proposée. Désormais : trous de moins de 3 h ignorés, et les
+  3 périodes les plus récentes plus, toujours, la plus ancienne. Après un toucher, le texte exact envoyé au raccourci
+  est affiché (« Envoyé au raccourci : début|fin »), pour vérifier.
+- Côté raccourci : la période d'après le 27/11 aurait dû contenir les photos prises depuis. Hypothèse principale : le
+  bloc « Recevoir » (« depuis Nulle part », « S'il n'y a aucune entrée : Continuer ») ; à vérifier sur l'iPhone avec
+  un bloc « Afficher le résultat » temporaire (texte reçu, Début, Fin, nombre de photos trouvées).
+- Photos déjà triées choisies à nouveau : une pose dont toutes les photos ont déjà été vues (validées dans un tri
+  éclair d'une autre séance, ou choisies à la main) n'entre plus dans le tri éclair ; les choix d'alors s'appliquent.
+  Les accords silencieux ne comptent pas comme vus.
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.
