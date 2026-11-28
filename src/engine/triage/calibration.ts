@@ -34,7 +34,7 @@ export interface PoseValidation {
 
 /** Raisons proposées par « Pourquoi ? » dans le tri éclair (points 65, 66 : plus précises, à la demande de
  *  l'utilisateur, 27/11 : « un geste non désiré, des gens non désirés »). */
-export const WHY_REASONS = ['expression', 'regard', 'yeux', 'geste', 'gens', 'flou', 'cadrage', 'lumiere', 'naturel'] as const;
+export const WHY_REASONS = ['expression', 'regard', 'yeux', 'geste', 'gens', 'fond', 'flou', 'cadrage', 'lumiere', 'naturel'] as const;
 
 /** Noms affichés des raisons (tri éclair, Labo). */
 export const WHY_LABELS: Record<string, string> = {
@@ -43,6 +43,9 @@ export const WHY_LABELS: Record<string, string> = {
   yeux: 'Yeux',
   geste: 'Geste en trop',
   gens: 'Gens en trop',
+  // Ce qui se voit derrière, pas seulement des personnes (28/11 : « des choses en arrière-plan rendent la photo plus ou
+  // moins bien »).
+  fond: 'Arrière-plan',
   flou: 'Flou',
   cadrage: 'Cadrage',
   lumiere: 'Lumière',

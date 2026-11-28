@@ -15,6 +15,7 @@ import {
   singlesLast,
   calibrate,
   config,
+  embeddingSimilarity,
   learnWeights,
   mainFaces,
   mergeChoices,
@@ -27,6 +28,7 @@ import {
   type ChoiceRecord,
   type MediaItem,
   type PackAnalysis,
+  type PoseLink,
   type PoseTask,
   type PoseValidation,
   type ShadowComparison,
@@ -34,6 +36,7 @@ import {
 } from '../engine';
 import { clearValidations, loadValidations, saveValidation } from '../platform/storage/validations';
 import { loadExcludedSessions, saveExcludedSessions } from '../platform/storage/excludedSessions';
+import { LINKS_EVENT, loadLinks, saveLinks } from '../platform/storage/links';
 import { TriEclair, type EclairResult } from './screens/TriEclair';
 import { reopenDonePacks } from './screens/ASupprimer';
 import { clearChoices, loadChoices, removeChoice, saveChoice, saveChoices } from '../platform/storage/choices';
@@ -170,6 +173,14 @@ export function App() {
       return next;
     });
   const [eclair, setEclair] = useState<PoseTask[] | null>(null);
+  // Photos reliées à la main à une pose (point 76), valables pour toutes les séances.
+  const [links, setLinks] = useState<PoseLink[]>(loadLinks);
+  const linkMap = useMemo(() => new Map(links.map((l) => [l.from, l.to])), [links]);
+  useEffect(() => {
+    const reload = () => setLinks(loadLinks());
+    window.addEventListener(LINKS_EVENT, reload);
+    return () => window.removeEventListener(LINKS_EVENT, reload);
+  }, []);
   // Comparaison du nouvel œil : calcul un peu long, fait au calme (quelques secondes après la dernière validation).
   const [shadow, setShadow] = useState<ShadowComparison | null>(null);
   // Nouvel œil en arrière-plan : progression (affichée dans Réglages) et tâche en cours.
@@ -402,12 +413,12 @@ export function App() {
   }, [counted, eclairOpen]);
   const items = useMemo(() => session?.results.map((r) => r.item) ?? [], [session]);
   // Paquets toujours découpés selon ce que montrent les photos (utilisateur, 20/11 : l'interrupteur n'avait pas de sens).
-  const day = useMemo(() => analyzeDay(items, gap, learned, joined, true), [items, gap, learned, joined]);
+  const day = useMemo(() => analyzeDay(items, gap, learned, joined, true, linkMap), [items, gap, learned, joined, linkMap]);
   // Ce que vos goûts appris changent dans cette séance (utilisateur, 26/11 : « je ne vois rien de mes goûts ») :
   // décisions comparées à celles de la formule seule. Calculé seulement quand le labo est ouvert.
   const tasteEffect = useMemo(() => {
     if (!laboOpen || !session || Object.keys(learned).length === 0) return null;
-    const base = analyzeDay(items, gap, {}, joined, true);
+    const base = analyzeDay(items, gap, {}, joined, true, linkMap);
     const baseKeep = new Map<string, boolean>();
     for (const p of base.packs) for (const [id, d] of p.decisions) baseKeep.set(id, d.keep);
     let changed = 0;
@@ -418,7 +429,7 @@ export function App() {
         if (baseKeep.has(id) && baseKeep.get(id) !== d.keep) changed++;
       }
     return { changed, total };
-  }, [laboOpen, session, items, gap, joined, learned, day]);
+  }, [laboOpen, session, items, gap, joined, learned, day, linkMap]);
 
   // File du tri éclair : poses à trancher, sans celles déjà validées dans cette séance, ni les « sûres » (l'app y a fait
   // ses preuves sur vos validations passées).
@@ -456,7 +467,7 @@ export function App() {
     for (const s of await listSessions()) {
       const plan = await loadSessionPlan(s.sessionId);
       if (plan.items.length === 0) continue;
-      const d = analyzeDay(plan.items, plan.settings?.gap ?? config.grouping.packGapSeconds, learned, new Set(plan.settings?.joined ?? []), true);
+      const d = analyzeDay(plan.items, plan.settings?.gap ?? config.grouping.packGapSeconds, learned, new Set(plan.settings?.joined ?? []), true, linkMap);
       const tasks = buildQueue(d, (it, p) => finalKeep(it, p, choices), calibration);
       const count = tasks.filter((t) => !validated.has(`${s.sessionId}|${t.key}`) && t.items.some((it) => finalKeep(it, t.pack, choices).keep)).length;
       if (count > 0) out.set(s.sessionId, count);
@@ -480,6 +491,60 @@ export function App() {
     if (pending.length > 0) setEclair(pending);
   }, [session, closed, pending]);
   const openEclair = (which: 'suite' | 'tout') => setEclair(which === 'suite' ? pending : singlesLast(queue));
+
+  /**
+   * « Relier à une pose » (point 76, utilisateur, 28/11) : une photo restée seule va avec la pose choisie. Le lien est
+   * gardé (avec la ressemblance et l'écart de temps, pour régler le découpage) ; le tri éclair montre aussitôt la pose
+   * complétée, à valider à la place de la photo seule.
+   */
+  const relinked = useRef<string | null>(null);
+  const linkPhoto = (item: MediaItem, target: MediaItem) => {
+    const link: PoseLink = {
+      from: photoKey(item),
+      to: photoKey(target),
+      at: Date.now(),
+      sim: embeddingSimilarity(item.embedding, target.embedding),
+      seconds: item.capturedAt !== null && target.capturedAt !== null ? Math.round(Math.abs(item.capturedAt - target.capturedAt) / 1000) : null,
+    };
+    relinked.current = item.id;
+    setLinks((list) => {
+      const next = [...list.filter((l) => l.from !== link.from), link];
+      saveLinks(next);
+      return next;
+    });
+  };
+  // Nouvelle file calculée avec le lien : la pose complétée prend la place de la photo seule dans le tri éclair.
+  useEffect(() => {
+    const id = relinked.current;
+    if (!id) return;
+    const task = queue.find((t) => t.items.some((it) => it.id === id));
+    if (!task || task.items.length < 2) return;
+    relinked.current = null;
+    setEclair((list) => {
+      if (!list) return list;
+      const at = list.findIndex((t) => t.items.some((it) => it.id === id));
+      if (at < 0) return list;
+      const old = list[at]!;
+      const rest = old.parts ? singlesLast(old.parts.filter((p) => !p.items.some((it) => it.id === id))) : [];
+      return [...list.slice(0, at), task, ...rest, ...list.slice(at + 1)];
+    });
+  }, [queue]);
+  /** Poses où relier une photo : toutes celles de la séance, les plus proches dans le temps d'abord. */
+  const linkTargets = (id: string): { key: string; items: MediaItem[]; best: MediaItem; seconds: number | null }[] => {
+    const at = items.find((it) => it.id === id)?.capturedAt ?? null;
+    return day.packs
+      .flatMap((pack) =>
+        pack.poses
+          .filter((pose) => !pose.items.some((it) => it.id === id))
+          .map((pose) => {
+            const best = pose.items.find((it) => pack.decisions.get(it.id)?.code === 'meilleure') ?? pose.items[0]!;
+            const gaps = pose.items.flatMap((it) => (at !== null && it.capturedAt !== null ? [it.capturedAt - at] : []));
+            const nearest = gaps.length ? gaps.reduce((a, b) => (Math.abs(b) < Math.abs(a) ? b : a)) / 1000 : null;
+            return { key: `${pack.key}|${pose.id}`, items: pose.items, best, seconds: nearest };
+          }),
+      )
+      .sort((a, b) => Math.abs(a.seconds ?? Infinity) - Math.abs(b.seconds ?? Infinity));
+  };
   // Une analyse vient de se terminer : le tri éclair s'ouvre de lui-même s'il y a des poses à trancher.
   useEffect(() => {
     if (!justAnalyzed || !session) return;
@@ -982,7 +1047,9 @@ export function App() {
     const id = `${session.id}|${task.key}`;
     // Pose déjà validée (« Tout revoir », retour en arrière) : la proposition d'origine est gardée. Celle d'aujourd'hui a
     // appris de votre première validation de ces mêmes photos, elle gonflerait la justesse.
-    const previous = validations.find((v) => v.id === id);
+    const found = validations.find((v) => v.id === id);
+    // Pose complétée depuis (photo reliée à la main) : l'ancienne validation ne parle plus des mêmes photos.
+    const previous = found && found.keys.length === task.items.length ? found : undefined;
     const validation: PoseValidation = {
       id,
       at: Date.now(),
@@ -1115,6 +1182,7 @@ export function App() {
         learned={learned}
         seances={seances}
         tasteEffect={tasteEffect}
+        links={links}
         eyeProgress={eyeProgress}
         onLaunchEye={launchEye}
         onClose={() => {
@@ -1237,6 +1305,8 @@ export function App() {
           thumbnails={session.thumbnails}
           numberOf={(id) => day.dayIndex.get(id) ?? null}
           onValidate={validatePose}
+          linkTargets={linkTargets}
+          onLink={linkPhoto}
           onClose={() => setEclair(null)}
           onFinish={() => {
             setEclair(null);

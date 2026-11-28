@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { accuracy, FEATURE_NAMES, WHY_LABELS, type ChoiceRecord, type LabResult, type LearnedWeights, type PoseValidation } from '../../engine';
+import { accuracy, FEATURE_NAMES, WHY_LABELS, WHY_REASONS, type ChoiceRecord, type LabResult, type LearnedWeights, type PoseLink, type PoseValidation } from '../../engine';
 import type { SessionSummary } from '../../platform/storage/sessionStore';
 import { runLabInBackground } from '../../platform/worker/lab';
 import { tasteLine } from '../reasons';
@@ -18,6 +18,8 @@ interface Props {
   seances: SessionSummary[];
   /** Décisions de la séance ouverte que vos goûts appris changent (null : pas de séance ouverte). */
   tasteEffect: { changed: number; total: number } | null;
+  /** Photos reliées à la main à une pose (point 76). */
+  links: PoseLink[];
   eyeProgress: EyeProgress | null;
   onLaunchEye: () => Promise<number>;
   onClose: () => void;
@@ -34,7 +36,7 @@ const pctText = (right: number, total: number): string => (total ? `${pct(right,
  * tes prédictions et tes sélections sont de plus en plus performantes »). Tout est mesuré honnêtement : une séance n'est
  * jamais jugée par ce qui a été appris sur elle.
  */
-export function Labo({ validations, records, excluded, learned, seances, tasteEffect, eyeProgress, onLaunchEye, onClose }: Props) {
+export function Labo({ validations, records, excluded, learned, seances, tasteEffect, links, eyeProgress, onLaunchEye, onClose }: Props) {
   const scrolled = useScrolled();
   const key = `${validations.length}|${validations.filter((v) => v.tie).length}|${records.length}|${records.filter((r) => r.clip).length}|${records.filter((r) => r.fclip?.length).length}|${[...excluded].sort().join(',')}`;
   const [result, setResult] = useState<LabResult | null>(cache?.key === key ? cache.result : null);
@@ -268,7 +270,7 @@ export function Labo({ validations, records, excluded, learned, seances, tasteEf
                 <p className="note">Pas encore de raison donnée.</p>
               )}
               <p className="note">
-                Quand vous corrigez l’app dans le tri éclair, « Pourquoi ? » vous propose 9 raisons et « Autre… » (facultatif, un toucher) :
+                Quand vous corrigez l’app dans le tri éclair, « Pourquoi ? » vous propose {WHY_REASONS.length} raisons et « Autre… » (facultatif, un toucher) :
                 elles disent à l’app quel critère regarder. « Les deux se valent » retire une pose des mesures (ni juste, ni
                 faux){ties ? ` : ${plural(ties, 'pose')} jusqu’ici` : ''}. « Aucune n’est vraiment bonne » : la pose est
                 ratée mais vous en gardez quand même{weak ? ` (${plural(weak, 'pose')} jusqu’ici)` : ''}.
@@ -283,6 +285,29 @@ export function Labo({ validations, records, excluded, learned, seances, tasteEf
             </>
           );
         })()}
+      </section>
+
+      <h2 className="titre-groupe">Poses reliées à la main</h2>
+      <section className="groupe">
+        {links.length === 0 ? (
+          <p className="note">
+            Aucune pour l’instant. À la fin du tri éclair, écran « Photos seules » : ⤢ sur une photo, puis « Relier à une
+            pose », si elle va avec une autre.
+          </p>
+        ) : (
+          (() => {
+            const sims = links.flatMap((l) => (l.sim === null ? [] : [l.sim]));
+            const secs = links.flatMap((l) => (l.seconds === null ? [] : [l.seconds]));
+            const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)] ?? 0;
+            return (
+              <p className="note">
+                {plural(links.length, 'photo reliée', 'photos reliées')} : l’app les avait laissées seules. Ressemblance
+                médiane avec la pose : {median(sims).toFixed(2).replace('.', ',')} (au-dessus de 0,65, l’app les aurait
+                réunies) ; écart médian : {Math.round(median(secs))} s. Ces exemples servent à régler le découpage en poses.
+              </p>
+            );
+          })()
+        )}
       </section>
 
       <h2 className="titre-groupe">Ce que vos choix disent</h2>

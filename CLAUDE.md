@@ -53,7 +53,9 @@ propre à ce test.
 - Notation : le contenu (expression, masquage, arrière-plan, objets, cadrage, couleurs selon le type de photo) classe ;
   la technique (netteté, yeux) ne sert qu'à repérer des défauts. Voir `docs/decisions.md`, points 14 à 17.
 - Enchaînement d'une journée : `src/engine/pipeline.ts` (paquets → notes → poses → sélection). Paquets toujours
-  selon le contenu (`config.grouping.byContent`) ; le temps seulement sans empreinte. Personne seule ≠ groupe.
+  selon le contenu (`config.grouping.byContent`) ; le temps seulement sans empreinte. Personne seule ≠ groupe, comptées
+  par visages principaux (premier plan, point 76). Photos reliées à la main à une pose : `src/platform/storage/links.ts`,
+  `analyzeDay(…, links)`, dans la sauvegarde (point 76).
 - Séances : toutes gardées sur l'iPhone (`src/platform/storage/sessionStore.ts`), terminées une fois tout envoyé à la
   suppression, rouvrables depuis Réglages › Séances (point 40), à sortir des statistiques si déjà triées avant
   (`src/platform/storage/excludedSessions.ts`, point 59). Images gardées en octets, jamais en Blob (iOS ne
@@ -126,4 +128,5 @@ Rangement dans « Triées » suivi photo par photo (point 69), puis albums retir
 Album « À trier » refait (point 71) puis abandonné ; analyse qui reprend après un verrouillage d'écran (point 73).
 Photos seules rattachées à la pose qui leur ressemble ; écran « Photos seules » à la fin du tri éclair (point 74).
 Foule en rafale non coupée, raisons sur la photo en grand, « Prochain tri » retiré, onglets gardés en mémoire (point 75).
+Personnes de premier plan, rafales et changement d'objectif plus souples, « Relier à une pose », « Arrière-plan » (point 76).
 Modèle restant proposé : objets plus fins.

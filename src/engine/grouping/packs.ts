@@ -2,6 +2,24 @@ import type { DayGrouping, MediaItem, Pack } from '../types';
 import { asideKind } from './aside';
 import { config } from '../config';
 import { embeddingSimilarity } from '../analysis/embedding';
+import { mainFaces } from '../analysis/faces';
+
+/**
+ * Personnes au premier plan : visages principaux (assez grands à côté du plus grand). Visages non cherchés : personnes
+ * repérées par le détecteur d'objets, assez grandes ; null si rien n'est connu.
+ */
+function foreground(item: MediaItem): number | null {
+  if (item.faces !== null) return mainFaces(item.faces).length;
+  if (!item.objects) return null;
+  const c = config.grouping.byContent;
+  return item.objects.filter((o) => o.label === 'person' && o.score >= config.poses.personMinScore && o.box.width * o.box.height >= c.personMinArea).length;
+}
+
+/** Changement d'objectif (grand-angle, 1x, zoom) entre deux photos : focales équivalentes trop différentes. */
+export function zoomChanged(a: MediaItem, b: MediaItem): boolean {
+  if (!a.focal35 || !b.focal35) return false;
+  return Math.max(a.focal35, b.focal35) / Math.min(a.focal35, b.focal35) >= config.grouping.byContent.zoomRatio;
+}
 
 const collator = new Intl.Collator('fr', { numeric: true, sensitivity: 'base' });
 
@@ -47,12 +65,6 @@ export function groupIntoPacks(items: readonly MediaItem[], packGapSeconds: numb
   };
 
   const c = config.grouping.byContent;
-  // Personnes au premier plan seulement : un passant au loin ne fait pas d'un portrait une photo de groupe.
-  const count = (it: MediaItem, score: number, area: number) =>
-    (it.objects ?? []).filter((o) => o.label === 'person' && o.score >= score && o.box.width * o.box.height >= area).length;
-  const people = (it: MediaItem) => count(it, config.poses.personMinScore, c.personMinArea);
-  // Seule pour de bon : personne d'autre, même repéré faiblement (foule : le compte au premier plan varie).
-  const alone = (it: MediaItem) => count(it, c.looseScore, c.looseArea) === 1;
   const together = (item: MediaItem, previous: MediaItem): boolean => {
     const gap = item.capturedAt! - previous.capturedAt!;
     if (!byContent) return gap <= gapMs;
@@ -62,13 +74,19 @@ export function groupIntoPacks(items: readonly MediaItem[], packGapSeconds: numb
       .filter((s): s is number => s !== null);
     const best = sims.length ? Math.max(...sims) : null;
     // Une personne seule après une photo de groupe (ou l'inverse) : autre photo, autre paquet (utilisateur, 20/11),
-    // sauf si la scène est presque identique (une personne simplement non détectée).
-    const solo = (it: MediaItem) => people(it) === 1 && alone(it);
-    const group = (it: MediaItem) => people(it) >= 2;
-    const burst = gap <= c.burstSeconds * 1000;
+    // sauf si la scène est presque identique. Seules comptent les personnes au premier plan (28/11 : « le problème
+    // réside dans les personnes de 1er plan »), c'est-à-dire les visages principaux, pas les passants derrière.
+    const solo = (it: MediaItem) => foreground(it) === 1;
+    const group = (it: MediaItem) => (foreground(it) ?? 0) >= 2;
     if (((solo(item) && group(previous)) || (group(item) && solo(previous))) && (best === null || best < c.sameScene)) return false;
-    // Rafale : ensemble même si le cadrage change beaucoup, sauf scène sans rapport (selfie puis portrait, 20/11 : 0,21).
-    if (burst) return best === null || best >= c.burstMinSimilar;
+    if (gap <= c.burstSeconds * 1000) {
+      if (best === null) return true;
+      // Quelques secondes d'écart, ou un autre objectif : la même scène peut beaucoup changer d'aspect (28/11).
+      if (gap <= c.closeSeconds * 1000 && best >= c.closeMinSimilar) return true;
+      if (zoomChanged(item, previous) && best >= c.zoomMinSimilar) return true;
+      // Rafale : ensemble même si le cadrage change beaucoup, sauf scène sans rapport (selfie puis portrait, 20/11 : 0,21).
+      return best >= c.burstMinSimilar;
+    }
     if (best === null) return gap <= gapMs;
     return gap <= c.maxGapSeconds * 1000 && best >= c.similar;
   };

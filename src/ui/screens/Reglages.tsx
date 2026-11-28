@@ -208,8 +208,15 @@ function RapportEtDiagnostic({
       <details className="groupe repli">
         <summary>
           <span>Diagnostic</span>
-          <span className={dateOk ? 'vert' : 'rouge'}>{dateOk ? 'tout va bien' : 'dates manquantes'}</span>
+          <span className={dateOk ? 'vert' : 'attention'}>{dateOk ? 'tout va bien' : summary.withDate === 0 ? 'aucune date' : `${plural(summary.withoutDate, 'photo')} sans date`}</span>
         </summary>
+        {!dateOk && (
+          <p className="note">
+            Une photo sans date de prise de vue (image reçue, enregistrée ou retouchée par une autre app) ne peut pas être
+            rangée dans un paquet ni retrouvée par le raccourci : l’app la met de côté et ne la supprime jamais. Rien à
+            faire de votre côté.
+          </p>
+        )}
         <p>
           {summary.withDate} avec date · {summary.withoutDate} sans date · {summary.errors} erreur{summary.errors > 1 ? 's' : ''} de
           décodage · {formatMs(session.totalMs)} au total · décodage moyen {formatMs(summary.avgDecodeMs)}

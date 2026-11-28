@@ -73,12 +73,24 @@ describe('paquets selon ce que montrent les photos (utilisateur, 19/11)', () => 
     expect(sizes(items)).toEqual(['abc']);
   });
   it('une personne seule après une photo de groupe : nouveau paquet, même en rafale', () => {
-    const person = (x: number) => ({ label: 'person', score: 0.9, box: { x, y: 0.2, width: 0.2, height: 0.7 } });
     const items = [
-      photo('groupe', 0, { embedding: plage, objects: [person(0.1), person(0.4), person(0.7)] }),
-      photo('seule', 9, { embedding: [0.7, 0.71, 0], objects: [person(0.4)] }),
+      photo('groupe', 0, { embedding: plage, faces: [face(0.2), face(0.5), face(0.8)] }),
+      photo('seule', 9, { embedding: [0.7, 0.71, 0], faces: [face(0.5)] }),
     ];
     expect(sizes(items)).toEqual(['groupe', 'seule']);
+  });
+  it('un passant derrière ne fait pas d’une personne seule un groupe (28/11 : personnes de premier plan)', () => {
+    const items = [
+      photo('a', 0, { embedding: plage, faces: [face(0.5)] }),
+      photo('b', 2, { embedding: [0.7, 0.71, 0], faces: [face(0.5), face(0.9, { areaRatio: 0.004 })] }),
+    ];
+    expect(sizes(items)).toEqual(['ab']);
+  });
+  it('quelques secondes d’écart ou un autre objectif : ensemble même si l’image change beaucoup (28/11)', () => {
+    const tilted = [0.35, 0.94, 0];
+    expect(sizes([photo('a', 0, { embedding: plage }), photo('b', 2, { embedding: tilted })])).toEqual(['ab']);
+    expect(sizes([photo('a', 0, { embedding: plage }), photo('b', 8, { embedding: tilted })])).toEqual(['a', 'b']);
+    expect(sizes([photo('a', 0, { embedding: plage }), photo('b', 8, { embedding: tilted, focal35: 13 })])).toEqual(['ab']);
   });
   it('foule en rafale : le compte de personnes qui varie ne coupe pas la série (28/11, IMG_2413 à 2418)', () => {
     const person = (x: number, score: number, size = 0.2) => ({ label: 'person', score, box: { x, y: 0.2, width: size, height: size } });
