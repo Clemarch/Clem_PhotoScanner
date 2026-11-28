@@ -1,6 +1,5 @@
 import type { Session } from '../session';
 import type { ChoiceRecord } from '../../engine';
-import { ProchainTri } from '../Rangement';
 import { formatDate, plural } from '../format';
 import { IconCoche, IconPlus } from '../icons';
 
@@ -25,7 +24,6 @@ export function SeanceTerminee({ session, onReopen, onNewDay, onSeances }: Props
       <header className="grand-titre">
         <h1>Terminé</h1>
       </header>
-      <ProchainTri />
       <section className="carte heros">
         <span className="heros-icone vert">
           <IconCoche size={30} />

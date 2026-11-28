@@ -22,6 +22,14 @@ export const config = {
       burstMinSimilar: 0.4,
       /** Personne seule ↔ groupe : même paquet seulement si la scène est presque identique. */
       sameScene: 0.8,
+      /**
+       * « Seule » sûre : une seule personne, même en comptant les détections faibles ou petites (au moins `looseScore`,
+       * `looseArea` de l'image). Dans une foule, le nombre de personnes repérées au premier plan varie d'une photo à
+       * l'autre (28/11 : IMG_2413 à 2418, six photos en 10 s, ressemblance 0,66 à 0,84, coupées en cinq paquets) : une
+       * photo n'est « seule » que si personne d'autre n'y est repéré.
+       */
+      looseScore: 0.35,
+      looseArea: 0.0075,
       /** Taille minimale (part de l'image) d'une personne comptée pour « seule » ou « groupe » : pas les passants. */
       personMinArea: 0.03,
       /** Au-delà, deux photos ne sont jamais réunies, même ressemblantes (même paysage revu 1 h plus tard : réunis). */

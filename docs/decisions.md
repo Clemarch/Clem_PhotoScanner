@@ -1341,6 +1341,35 @@ l'utilisateur : « les poses d'abord, et à la fin 1 pose avec toutes les photos
   « Photos seules » (vignettes, 3 par ligne, proposition de l'app cochée) ; chaque photo y est validée comme sa propre
   pose (journal, choix), sans compter dans la justesse.
 
+### 75. Rafales de foule, raisons sur la photo en grand, « Prochain tri » retiré, onglets fluides (28/11)
+
+Retours de l'utilisateur sur la séance du 26-27/11 (sauvegarde de 1020 choix, rapport) :
+- **« Une pose entière de 4/5 photos dans les photos seules, et 1 photo qui aurait dû être dans une pose. Normalement
+  c'est facile, les photos se suivent. »** Rejoué sur les empreintes de la sauvegarde : IMG_2413 à 2418, six photos
+  en 10 s qui se ressemblent (0,66 à 0,84), coupées en cinq paquets ; IMG_2367/2368 (1 s, 0,67) et IMG_2437/2438
+  (1 s) aussi. Cause : la règle « personne seule ≠ groupe » (point 40). Dans une foule ou à table, le nombre de
+  personnes repérées au premier plan varie d'une photo à l'autre (passant vu ou non, score 0,45 puis 0,52). Une
+  photo n'est plus « seule » que si personne d'autre n'y est repéré, même faiblement (score ≥ 0,35, 0,75 % de
+  l'image : `config.grouping.byContent.looseScore`, `looseArea`). La règle reste pour une vraie personne seule après
+  un groupe.
+- **Raisons sur la photo en grand** (« je ne retourne jamais à la vue de la pose globale ») : « Pourquoi ? »,
+  « Autre… », « Les deux se valent » et « Aucune n'est vraiment bonne » sont aussi sous la photo en grand du tri éclair
+  (même état que sous la pose).
+- **« Prochain tri » retiré** avec tout ce qui restait des albums : `coverage.ts`, `Rangement.tsx`, `GuideAlbums.tsx`,
+  noms et liens des raccourcis « Préparer le tri » et « Photo Triage Garder ». `asPhoto`/`findable` vont dans
+  `src/platform/shortcut.ts`.
+- **Justesse « figée »** : le total (63 % sur 744 photos) bouge à peine d'une séance à l'autre. Réglages : l'encadré
+  Justesse et la phrase sur le nouvel œil (redite du Labo) sont fondus dans la ligne « Labo d'apprentissage », qui
+  donne le total et la dernière séance triée (`src/ui/justesse.ts`). Labo : premier chiffre = dernière séance.
+- **Onglets** : séance terminée, « Trier » et « Supprimer » montraient le même écran : l'onglet Supprimer disparaît.
+  Trier et Supprimer restent en mémoire une fois ouverts (`Onglet` dans `App.tsx` : caché, il ne se recalcule pas),
+  chaque onglet revient là où on l'avait laissé, toucher l'onglet affiché remonte en haut. Réglages ne calcule plus
+  le rapport complet à l'ouverture (seulement pour Partager, Copier ou « Rapport complet ») ; l'accord honnête vient
+  juste après l'affichage. Goûts appris recalculés un temps après chaque toucher (`useDeferredValue`).
+- Audit : lien « poses sûres » mort retiré (toutes les poses sont montrées depuis le point 68) ; « Tout revoir » finit
+  aussi par l'écran « Photos seules » ; « Nouvel œil » lancé depuis le Labo seulement (plus en double dans Réglages) ;
+  « Séances précédentes » (accueil) ouvre Réglages à la section Séances ; « Revenir au tri » au lieu de « aux paquets ».
+
 ## Points ouverts pour les jalons suivants (rien n'est codé)
 
 Ces remarques sur le plan seront tranchées avec l'utilisateur le moment venu.

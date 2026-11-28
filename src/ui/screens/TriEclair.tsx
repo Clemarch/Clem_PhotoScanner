@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent, type TouchEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode, type TouchEvent } from 'react';
 import { config, type PoseTask, WHY_LABELS, WHY_REASONS } from '../../engine';
 import { isLandscape, plural } from '../format';
 import { IconCoche, IconCroix, IconEtoile, IconFermer, IconFleche } from '../icons';
@@ -121,7 +121,7 @@ export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, o
             Supprimer dans Photos <IconFleche size={18} />
           </button>
           <button className="lien" onClick={onClose}>
-            Revenir aux paquets
+            Revenir au tri
           </button>
         </section>
       </div>
@@ -137,6 +137,25 @@ export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, o
   const zoomItem = zoom ? task.items.find((it) => it.id === zoom) ?? null : null;
   const corrected = task.items.some((it) => kept.has(it.id) !== task.proposed.has(it.id));
   const several = task.items.length > 1 && !singles;
+
+  // « Pourquoi ? », « se valent », « aucune n'est vraiment bonne » : sous la pose et sur la photo en grand (utilisateur,
+  // 28/11 : « je ne retourne jamais à la vue de la pose globale, je ne peux pas commenter »).
+  const avis = several ? (
+    <Avis
+      count={task.items.length}
+      corrected={corrected}
+      tie={tie}
+      onTie={() => setTie((t) => !t)}
+      weak={weak}
+      onWeak={() => setWeak((w) => !w)}
+      why={why}
+      onWhy={(r) => setWhy((list) => (list.includes(r) ? list.filter((x) => x !== r) : [...list, r]))}
+      writing={writing}
+      onWriting={() => setWriting((w) => !w)}
+      note={note}
+      onNote={setNote}
+    />
+  ) : null;
 
   return (
     <div className="eclair" role="dialog" aria-label="Tri éclair">
@@ -202,53 +221,7 @@ export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, o
       </div>
 
       <footer className="eclair-bas">
-        {/* Point 65 : deux gestes facultatifs qui apprennent le plus à l'app. « Pourquoi ? » n'apparaît que si vous avez
-            corrigé sa proposition ; « se valent » retire la pose des mesures (ni juste, ni faux). */}
-        {several && corrected && !tie && (
-          <>
-            {/* Une seule ligne qui défile de côté : les photos gardent leur place (point 66). */}
-            <div className="eclair-pourquoi" role="group" aria-label="Pourquoi ce choix ? (facultatif)">
-              <span className="doux">Pourquoi ?</span>
-              {WHY_REASONS.map((r) => (
-                <button
-                  key={r}
-                  className={`puce${why.includes(r) ? ' active' : ''}`}
-                  aria-pressed={why.includes(r)}
-                  onClick={() => setWhy((list) => (list.includes(r) ? list.filter((x) => x !== r) : [...list, r]))}
-                >
-                  {WHY_LABELS[r]}
-                </button>
-              ))}
-              <button className={`puce${writing ? ' active' : ''}`} aria-pressed={writing} onClick={() => setWriting((w) => !w)}>
-                Autre…
-              </button>
-            </div>
-            {writing && (
-              <input
-                className="eclair-note"
-                type="text"
-                maxLength={200}
-                placeholder="En quelques mots (facultatif)"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                enterKeyHint="done"
-                onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-              />
-            )}
-          </>
-        )}
-        {several && (
-          <div className="eclair-liens">
-            <button className={`lien eclair-valent${tie ? ' actif' : ''}`} aria-pressed={tie} onClick={() => setTie((t) => !t)}>
-              {tie ? '✓ ' : ''}
-              {task.items.length > 2 ? 'Elles se valent' : 'Les deux se valent'}
-            </button>
-            <button className={`lien eclair-valent${weak ? ' actif' : ''}`} aria-pressed={weak} onClick={() => setWeak((w) => !w)}>
-              {weak ? '✓ ' : ''}
-              Aucune n’est vraiment bonne
-            </button>
-          </div>
-        )}
+        {avis}
         {/* Rangée « Pourquoi ? » affichée : l'aide est masquée, pour laisser la place aux photos. */}
         {singles ? (
           <p className="note centre">Photos restées seules, sans autre photo à comparer : touchez celles à supprimer, puis Valider.</p>
@@ -284,6 +257,7 @@ export function TriEclair({ tasks, previews, thumbnails, numberOf, onValidate, o
           }}
           keepCount={keepCount}
           removeCount={removeCount}
+          avis={avis}
         />
       )}
     </div>
@@ -302,6 +276,7 @@ function Loupe({
   onValidate,
   keepCount,
   removeCount,
+  avis,
 }: {
   items: PoseTask['items'];
   start: string;
@@ -314,6 +289,8 @@ function Loupe({
   onValidate: () => void;
   keepCount: number;
   removeCount: number;
+  /** Raisons et « se valent », comme sous la pose. */
+  avis: ReactNode;
 }) {
   const [at, setAt] = useState(() => Math.max(0, items.findIndex((it) => it.id === start)));
   const [big, setBig] = useState(false);
@@ -401,7 +378,7 @@ function Loupe({
           ))}
         </div>
       )}
-      <p className="note centre">Glissez pour changer de photo · deux touchers pour zoomer · vers le bas pour revenir</p>
+      {avis ?? <p className="note centre">Glissez pour changer de photo · deux touchers pour zoomer · vers le bas pour revenir</p>}
       <div className="eclair-actions loupe-actions">
         <button className="bouton eclair-retour" disabled={at === 0} onClick={() => setAt((i) => i - 1)} aria-label="Photo précédente">
           ‹
@@ -428,6 +405,81 @@ function Loupe({
             {keepCount} gardée{keepCount > 1 ? 's' : ''}
             {removeCount > 0 ? ` · ${removeCount} à supprimer` : ''}
           </small>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Gestes facultatifs qui apprennent le plus à l'app (points 65, 66). « Pourquoi ? » n'apparaît que si la proposition
+ * a été corrigée ; « se valent » retire la pose des mesures (ni juste, ni faux).
+ */
+function Avis({
+  count,
+  corrected,
+  tie,
+  onTie,
+  weak,
+  onWeak,
+  why,
+  onWhy,
+  writing,
+  onWriting,
+  note,
+  onNote,
+}: {
+  count: number;
+  corrected: boolean;
+  tie: boolean;
+  onTie: () => void;
+  weak: boolean;
+  onWeak: () => void;
+  why: string[];
+  onWhy: (reason: string) => void;
+  writing: boolean;
+  onWriting: () => void;
+  note: string;
+  onNote: (text: string) => void;
+}) {
+  return (
+    <div className="eclair-avis">
+      {corrected && !tie && (
+        <>
+          {/* Une seule ligne qui défile de côté : les photos gardent leur place (point 66). */}
+          <div className="eclair-pourquoi" role="group" aria-label="Pourquoi ce choix ? (facultatif)">
+            <span className="doux">Pourquoi ?</span>
+            {WHY_REASONS.map((r) => (
+              <button key={r} className={`puce${why.includes(r) ? ' active' : ''}`} aria-pressed={why.includes(r)} onClick={() => onWhy(r)}>
+                {WHY_LABELS[r]}
+              </button>
+            ))}
+            <button className={`puce${writing ? ' active' : ''}`} aria-pressed={writing} onClick={onWriting}>
+              Autre…
+            </button>
+          </div>
+          {writing && (
+            <input
+              className="eclair-note"
+              type="text"
+              maxLength={200}
+              placeholder="En quelques mots (facultatif)"
+              value={note}
+              onChange={(e) => onNote(e.target.value)}
+              enterKeyHint="done"
+              onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+            />
+          )}
+        </>
+      )}
+      <div className="eclair-liens">
+        <button className={`lien eclair-valent${tie ? ' actif' : ''}`} aria-pressed={tie} onClick={onTie}>
+          {tie ? '✓ ' : ''}
+          {count > 2 ? 'Elles se valent' : 'Les deux se valent'}
+        </button>
+        <button className={`lien eclair-valent${weak ? ' actif' : ''}`} aria-pressed={weak} onClick={onWeak}>
+          {weak ? '✓ ' : ''}
+          Aucune n’est vraiment bonne
         </button>
       </div>
     </div>
